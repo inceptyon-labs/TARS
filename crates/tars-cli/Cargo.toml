@@ -1,0 +1,22 @@
+[package]
+name = "tars-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "TARS command-line interface"
+
+[[bin]]
+name = "tars"
+path = "src/main.rs"
+
+[dependencies]
+tars-core = { workspace = true }
+tars-scanner = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+[lints]
+workspace = true

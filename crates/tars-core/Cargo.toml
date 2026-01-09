@@ -1,0 +1,27 @@
+[package]
+name = "tars-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "TARS core profile engine and storage"
+
+[dependencies]
+tars-scanner = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+similar = { workspace = true }
+zip = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+walkdir = { workspace = true }
+dirs = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[lints]
+workspace = true

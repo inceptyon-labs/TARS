@@ -1,0 +1,25 @@
+[package]
+name = "tars-scanner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Claude Code configuration discovery scanner"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+gray_matter = { workspace = true }
+serde_yml = { workspace = true }
+walkdir = { workspace = true }
+rayon = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+dirs = "5.0"
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[lints]
+workspace = true

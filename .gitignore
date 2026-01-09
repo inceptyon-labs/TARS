@@ -1,0 +1,64 @@
+# Rust
+target/
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*
+Cargo.lock
+
+# Tauri
+apps/tars-desktop/src-tauri/target/
+
+# Node.js / Bun
+node_modules/
+dist/
+build/
+*.log
+.env*
+.env.local
+.env.*.local
+
+# Bun
+bun.lockb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+
+# Test artifacts
+coverage/
+*.lcov
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Generated files
+tars-inventory.json
+tars-inventory.md
+tars-inventory.csv
+inventory.json
+inventory.md
+inventory_new.json
