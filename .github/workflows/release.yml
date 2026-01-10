@@ -116,8 +116,14 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
             librsvg2-dev \
+            libglib2.0-dev \
             pkg-config
-          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+      - name: Verify pkg-config (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          pkg-config --cflags gobject-2.0 || echo "FAILED: gobject-2.0 not found"
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/gobject-2.0.pc || echo "File doesn't exist"
 
       - name: Install frontend dependencies
         working-directory: apps/tars-desktop
