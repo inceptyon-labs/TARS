@@ -125,9 +125,25 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
 
+      - name: Debug pkg-config (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          echo "Looking for glib-2.0.pc..."
+          find /usr -name "glib-2.0.pc" 2>/dev/null || echo "Not found in /usr"
+          echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+
       - name: Set PKG_CONFIG_PATH (Linux)
         if: matrix.platform == 'ubuntu-22.04'
-        run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+        run: |
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+          echo "Set PKG_CONFIG_PATH to: $PKG_CONFIG_PATH"
+
+      - name: Verify PKG_CONFIG_PATH (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          echo "PKG_CONFIG_PATH is now: $PKG_CONFIG_PATH"
+          pkg-config --list-all | grep glib || echo "glib not found"
 
       - name: Install frontend dependencies
         working-directory: apps/tars-desktop
