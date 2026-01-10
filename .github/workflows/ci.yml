@@ -64,7 +64,8 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
-            libgtk-3-dev
+            libgtk-3-dev \
+            libglib2.0-dev
 
       - name: Install frontend dependencies
         working-directory: apps/tars-desktop
