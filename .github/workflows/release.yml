@@ -114,6 +114,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
+          echo "Installing dependencies..."
           sudo apt-get install -y \
             build-essential \
             pkg-config \
@@ -126,20 +127,26 @@ jobs:
             libglib2.0-dev \
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
+          echo "Checking if libglib2.0-dev was installed:"
+          dpkg -l | grep libglib2.0-dev || echo "NOT INSTALLED!"
+          echo "Checking for glib2.0 related packages:"
+          apt-cache search glib2.0 | grep -E "^lib.*-dev" | head -10
 
       - name: Debug pkg-config (Linux)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
+          set +e  # Don't exit on error
           echo "Looking for glib-2.0.pc..."
-          find /usr -name "glib*.pc" 2>/dev/null | head -20
+          find /usr -name "glib*.pc" 2>/dev/null | head -20 || echo "No glib*.pc files found"
           echo "---"
           echo "Checking libglib2.0-dev installation:"
-          dpkg -L libglib2.0-dev | grep -E "\.pc$" || echo "No .pc files found"
+          dpkg -L libglib2.0-dev 2>&1 | head -20 || echo "Package not installed or error"
           echo "---"
-          echo "All .pc files in standard locations:"
-          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/ | grep glib || echo "No glib in x86_64-linux-gnu"
-          ls -la /usr/lib/pkgconfig/ 2>/dev/null | grep glib || echo "No glib in /usr/lib/pkgconfig"
-          ls -la /usr/share/pkgconfig/ 2>/dev/null | grep glib || echo "No glib in /usr/share/pkgconfig"
+          echo "Looking for .pc files in libglib2.0-dev:"
+          dpkg -L libglib2.0-dev 2>&1 | grep -E "\.pc$" || echo "No .pc files found"
+          echo "---"
+          echo "Directory: /usr/lib/x86_64-linux-gnu/pkgconfig/"
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/ 2>&1 | grep glib || echo "No glib files"
           echo "---"
           echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
 
