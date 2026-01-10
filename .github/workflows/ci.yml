@@ -128,6 +128,7 @@ jobs:
 
   # Build check for Linux
   build-linux:
+    needs: [test-rust, test-frontend]
     runs-on: ubuntu-24.04
 
     steps:
@@ -170,6 +171,7 @@ jobs:
 
   # Build check for macOS (primary target)
   build-macos:
+    needs: [test-rust, test-frontend]
     runs-on: macos-latest
 
     steps:

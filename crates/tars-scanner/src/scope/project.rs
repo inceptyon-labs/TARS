@@ -165,7 +165,7 @@ fn secure_git_command() -> Command {
 }
 
 /// Get branch name and dirty status in a single git call
-/// Returns (branch_name, is_dirty)
+/// Returns (`branch_name`, `is_dirty`)
 fn get_git_status(project_path: &Path) -> (String, bool) {
     let output = secure_git_command()
         .args(["status", "-sb"])
