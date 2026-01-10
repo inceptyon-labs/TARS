@@ -70,33 +70,55 @@ function getScopeLabel(scope?: string): string {
   }
 }
 
-/** Parse frontmatter from markdown content */
-function parseFrontmatter(content: string): { frontmatter: string | null; body: string } {
+/** Parse frontmatter from markdown content, preserving whitespace for roundtrip */
+function parseFrontmatter(content: string): {
+  frontmatter: string | null;
+  body: string;
+  leadingWhitespace: string;
+  separator: string;
+} {
+  // Capture leading whitespace
+  const leadingMatch = content.match(/^(\s*)/);
+  const leadingWhitespace = leadingMatch ? leadingMatch[1] : '';
   const trimmed = content.trimStart();
+
   if (!trimmed.startsWith('---')) {
-    return { frontmatter: null, body: content };
+    return { frontmatter: null, body: content, leadingWhitespace: '', separator: '' };
   }
 
   // Find the closing ---
   const endIndex = trimmed.indexOf('---', 3);
   if (endIndex === -1) {
-    return { frontmatter: null, body: content };
+    return { frontmatter: null, body: content, leadingWhitespace: '', separator: '' };
   }
 
-  // Extract frontmatter (without the --- delimiters)
-  const frontmatter = trimmed.slice(3, endIndex).trim();
-  // Extract body (after the closing ---)
-  const body = trimmed.slice(endIndex + 3).trimStart();
+  // Extract frontmatter (without the --- delimiters, but preserve internal whitespace)
+  const frontmatterRaw = trimmed.slice(3, endIndex);
+  // Trim only leading newline, preserve trailing newline for proper reconstruction
+  const frontmatter = frontmatterRaw.replace(/^\n/, '').replace(/\n$/, '');
 
-  return { frontmatter, body };
+  // Extract the separator between closing --- and body (preserve exact whitespace)
+  const afterClosing = trimmed.slice(endIndex + 3);
+  const separatorMatch = afterClosing.match(/^(\s*)/);
+  const separator = separatorMatch ? separatorMatch[1] : '';
+
+  // Extract body (after the separator)
+  const body = afterClosing.slice(separator.length);
+
+  return { frontmatter, body, leadingWhitespace, separator };
 }
 
-/** Combine frontmatter and body back into markdown */
-function combineFrontmatter(frontmatter: string | null, body: string): string {
+/** Combine frontmatter and body back into markdown, preserving original whitespace */
+function combineFrontmatter(
+  frontmatter: string | null,
+  body: string,
+  leadingWhitespace = '',
+  separator = '\n\n'
+): string {
   if (!frontmatter) {
     return body;
   }
-  return `---\n${frontmatter}\n---\n\n${body}`;
+  return `${leadingWhitespace}---\n${frontmatter}\n---${separator}${body}`;
 }
 
 /** Validate YAML frontmatter and return error message if invalid */
@@ -210,15 +232,22 @@ export function MarkdownEditor({
   const [isViewMode, setIsViewMode] = useState(defaultViewMode);
   const [frontmatterExpanded, setFrontmatterExpanded] = useState(true);
 
-  // Parse frontmatter from the original content
-  const { frontmatter: originalFrontmatter, body: originalBody } = useMemo(
-    () => parseFrontmatter(item.content),
-    [item.content]
-  );
+  // Parse frontmatter from the original content, preserving whitespace
+  const {
+    frontmatter: originalFrontmatter,
+    body: originalBody,
+    leadingWhitespace: originalLeadingWhitespace,
+    separator: originalSeparator,
+  } = useMemo(() => parseFrontmatter(item.content), [item.content]);
 
   // State for editable frontmatter and body
   const [frontmatter, setFrontmatter] = useState(originalFrontmatter);
   const [body, setBody] = useState(originalBody);
+  // Store original whitespace for accurate roundtrip
+  const [leadingWhitespace, setLeadingWhitespace] = useState(originalLeadingWhitespace);
+  const [separator, setSeparator] = useState(originalSeparator);
+  // Track if the editor is initializing to ignore MDXEditor's normalization onChange
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Validate YAML frontmatter in real-time
   const yamlError = useMemo(() => (frontmatter ? validateYaml(frontmatter) : null), [frontmatter]);
@@ -228,7 +257,10 @@ export function MarkdownEditor({
     const parsed = parseFrontmatter(item.content);
     setFrontmatter(parsed.frontmatter);
     setBody(parsed.body);
+    setLeadingWhitespace(parsed.leadingWhitespace);
+    setSeparator(parsed.separator);
     setError(null);
+    setIsInitializing(true); // Mark as initializing to ignore MDXEditor's first onChange
     setEditorKey((k) => k + 1); // Force editor remount
     // Reset to view mode when item changes (if defaultViewMode is enabled)
     if (defaultViewMode) {
@@ -236,8 +268,16 @@ export function MarkdownEditor({
     }
   }, [item.path, item.content, defaultViewMode]);
 
-  // Check if content has changed
-  const currentContent = combineFrontmatter(frontmatter, body);
+  // Clear initializing flag after editor has mounted and fired its initial onChange
+  useEffect(() => {
+    if (isInitializing) {
+      const timer = setTimeout(() => setIsInitializing(false), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isInitializing, editorKey]);
+
+  // Check if content has changed (using preserved whitespace for accurate comparison)
+  const currentContent = combineFrontmatter(frontmatter, body, leadingWhitespace, separator);
   const hasChanges = currentContent !== item.content && !readOnly && !isViewMode;
 
   // Determine if we're in an editable state (not read-only and not in view mode)
@@ -256,19 +296,21 @@ export function MarkdownEditor({
     try {
       // Get the latest body from the editor
       const editorBody = editorRef.current?.getMarkdown() || body;
-      const fullContent = combineFrontmatter(frontmatter, editorBody);
+      const fullContent = combineFrontmatter(frontmatter, editorBody, leadingWhitespace, separator);
       await onSave(item.path, fullContent);
     } catch (err) {
       setError(String(err));
     } finally {
       setSaving(false);
     }
-  }, [body, frontmatter, hasChanges, onSave, item.path, yamlError]);
+  }, [body, frontmatter, leadingWhitespace, separator, hasChanges, onSave, item.path, yamlError]);
 
   const handleReset = useCallback(() => {
     const parsed = parseFrontmatter(item.content);
     setFrontmatter(parsed.frontmatter);
     setBody(parsed.body);
+    setLeadingWhitespace(parsed.leadingWhitespace);
+    setSeparator(parsed.separator);
     setError(null);
     setEditorKey((k) => k + 1); // Force editor remount
     // Return to view mode if defaultViewMode is enabled
@@ -411,7 +453,16 @@ export function MarkdownEditor({
           key={`editor-${editorKey}`}
           ref={isEditing ? editorRef : undefined}
           markdown={body}
-          onChange={isEditing ? (markdown) => setBody(markdown) : undefined}
+          onChange={
+            isEditing
+              ? (markdown) => {
+                  // Ignore MDXEditor's initial onChange during mount/normalization
+                  if (!isInitializing) {
+                    setBody(markdown);
+                  }
+                }
+              : undefined
+          }
           readOnly={readOnly || isViewMode}
           plugins={isEditing ? editorPlugins : readOnlyPlugins}
           className={

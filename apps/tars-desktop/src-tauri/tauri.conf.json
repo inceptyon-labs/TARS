@@ -8,7 +8,7 @@
       "endpoints": [
         "https://github.com/inceptyon-labs/TARS/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGRDdGRDUwMTkxOERDOTQKUldTVTNCZ1pVUDNYSHhuSjNJOWlDWGwzQ0YxZURsMzRadm9vY1lRUVl3UzVMMmtTNlRyRmpIbm8K"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgzNDRBRDA3MzNCOURGRDAKUldUUTM3a3pCNjFFZzRmeFR5VGdCOWdRb0lKVWUzK0hIMVIwY2hUM1FLdGZyS1V3akQzK0c4TGkK"
     }
   },
   "build": {

@@ -10,7 +10,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  # Rust backend tests
+  test-rust:
     runs-on: ubuntu-24.04
 
     steps:
@@ -54,6 +55,78 @@ jobs:
       - name: Run tests
         run: cargo test --all
 
+  # Frontend unit tests
+  test-frontend:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: apps/tars-desktop
+        run: bun install
+
+      - name: Type check
+        working-directory: apps/tars-desktop
+        run: bun run typecheck
+
+      - name: Run unit tests
+        working-directory: apps/tars-desktop
+        run: bun run test:run
+
+      - name: Run tests with coverage
+        working-directory: apps/tars-desktop
+        run: bun run test:coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          directory: apps/tars-desktop/coverage
+          flags: frontend
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  # E2E tests (optional, runs on PRs)
+  test-e2e:
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: apps/tars-desktop
+        run: bun install
+
+      - name: Install Playwright browsers
+        working-directory: apps/tars-desktop
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: apps/tars-desktop
+        run: bun run test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/tars-desktop/playwright-report/
+          retention-days: 7
+
+  # Build check for Linux
   build-linux:
     runs-on: ubuntu-24.04
 
@@ -93,4 +166,29 @@ jobs:
           pkg-config --modversion gio-2.0
 
       - name: Build (Linux check)
+        run: cargo build --release
+
+  # Build check for macOS (primary target)
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-macos-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build (macOS check)
         run: cargo build --release
