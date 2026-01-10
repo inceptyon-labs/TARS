@@ -18,8 +18,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Config file path
+# Config file paths
 TAURI_CONF="apps/tars-desktop/src-tauri/tauri.conf.json"
+CARGO_TOML="Cargo.toml"
+PACKAGE_JSON="apps/tars-desktop/package.json"
 
 # Get script directory and change to repo root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -130,28 +132,48 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
-echo -e "${BLUE}Updating version in $TAURI_CONF...${NC}"
+echo -e "${BLUE}Updating version in all config files...${NC}"
 
 # Update version in tauri.conf.json using sed (macOS compatible)
+echo -e "  Updating $TAURI_CONF..."
 if [[ "$(uname)" == "Darwin" ]]; then
     sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$TAURI_CONF"
 else
     sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$TAURI_CONF"
 fi
 
-# Verify the change
+# Verify tauri.conf.json update
 UPDATED_VERSION=$(grep '"version"' "$TAURI_CONF" | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
 if [[ "$UPDATED_VERSION" != "$NEW_VERSION" ]]; then
-    echo -e "${RED}Error: Version update failed${NC}"
+    echo -e "${RED}Error: tauri.conf.json version update failed${NC}"
     git checkout "$TAURI_CONF"
     exit 1
 fi
+echo -e "${GREEN}  ✓ tauri.conf.json${NC}"
 
-echo -e "${GREEN}✓ Version updated to $NEW_VERSION${NC}"
+# Update version in root Cargo.toml (workspace.package section)
+echo -e "  Updating $CARGO_TOML..."
+if [[ "$(uname)" == "Darwin" ]]; then
+    sed -i '' "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+else
+    sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+fi
+echo -e "${GREEN}  ✓ Cargo.toml${NC}"
+
+# Update version in package.json
+echo -e "  Updating $PACKAGE_JSON..."
+if [[ "$(uname)" == "Darwin" ]]; then
+    sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$PACKAGE_JSON"
+else
+    sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$PACKAGE_JSON"
+fi
+echo -e "${GREEN}  ✓ package.json${NC}"
+
+echo -e "${GREEN}✓ All versions updated to $NEW_VERSION${NC}"
 
 # Commit
 echo -e "${BLUE}Creating commit...${NC}"
-git add "$TAURI_CONF"
+git add "$TAURI_CONF" "$CARGO_TOML" "$PACKAGE_JSON"
 git commit -m "chore: bump version to $NEW_VERSION"
 echo -e "${GREEN}✓ Commit created${NC}"
 

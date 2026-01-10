@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
-import { getClaudeVersionInfo, checkPluginUpdates } from '../lib/ipc';
+import { getClaudeVersionInfo, checkPluginUpdates, getTarsVersion } from '../lib/ipc';
 
 // Poll interval for update checks: 10 minutes
 const UPDATE_POLL_INTERVAL = 10 * 60 * 1000;
@@ -127,6 +127,12 @@ export function MainLayout() {
     queryFn: checkPluginUpdates,
     refetchInterval: UPDATE_POLL_INTERVAL,
     staleTime: UPDATE_POLL_INTERVAL - 60000,
+  });
+
+  const { data: appVersion } = useQuery({
+    queryKey: ['tars-version'],
+    queryFn: getTarsVersion,
+    staleTime: Infinity, // Version doesn't change during runtime
   });
 
   const claudeUpdateAvailable = versionInfo?.update_available ?? false;
@@ -395,7 +401,9 @@ export function MainLayout() {
 
         {/* Version */}
         <div className="p-4 flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground/50 font-mono">v0.1.0</span>
+          <span className="text-[10px] text-muted-foreground/50 font-mono">
+            v{appVersion ?? '...'}
+          </span>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500/80" />
             <span className="text-[10px] text-muted-foreground/50">Ready</span>
