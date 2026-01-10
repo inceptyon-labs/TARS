@@ -349,7 +349,7 @@ pub async fn install_tars_update(app: AppHandle) -> Result<(), String> {
 
     // Download and install the update
     let mut downloaded = 0;
-    let _ = update
+    update
         .download_and_install(
             |chunk_length, content_length| {
                 downloaded += chunk_length;
@@ -369,6 +369,7 @@ pub async fn install_tars_update(app: AppHandle) -> Result<(), String> {
 
 /// Get the current TARS app version
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)] // Tauri commands require owned AppHandle
 pub fn get_tars_version(app: AppHandle) -> String {
     app.package_info().version.to_string()
 }
