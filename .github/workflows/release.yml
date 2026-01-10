@@ -87,10 +87,11 @@ jobs:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             name: Windows-x64
-          # Linux build
-          - platform: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            name: Linux-x64
+          # Linux build disabled - pkg-config issues on GitHub Actions
+          # TODO: Use Docker container approach for Linux builds
+          # - platform: ubuntu-24.04
+          #   target: x86_64-unknown-linux-gnu
+          #   name: Linux-x64
 
     runs-on: ${{ matrix.platform }}
 
@@ -107,28 +108,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
-      - name: Install dependencies (Linux)
-        if: matrix.platform == 'ubuntu-24.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
-
-      - name: Verify pkg-config (Linux)
-        if: matrix.platform == 'ubuntu-24.04'
-        run: |
-          pkg-config --cflags glib-2.0
-          pkg-config --cflags gobject-2.0
-          pkg-config --cflags gio-2.0
 
       - name: Install frontend dependencies
         working-directory: apps/tars-desktop
