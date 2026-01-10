@@ -6,39 +6,93 @@ use serde::Serialize;
 use std::process::Command;
 use tars_scanner::CacheCleanupReport;
 
+/// Validate a plugin source string (marketplace URL or plugin@marketplace format)
+/// Prevents command injection by restricting to safe characters
+fn validate_plugin_source(source: &str) -> Result<(), String> {
+    if source.is_empty() {
+        return Err("Source cannot be empty".to_string());
+    }
+    if source.len() > 500 {
+        return Err("Source string too long".to_string());
+    }
+    // Allow alphanumeric, hyphens, underscores, dots, @, /, :, and common URL chars
+    // Reject shell metacharacters and control characters
+    let forbidden_chars = ['`', '$', '(', ')', '{', '}', '[', ']', '|', ';', '&', '<', '>', '\\', '\n', '\r', '\0', '\'', '"', '!', '*', '?'];
+    for ch in forbidden_chars {
+        if source.contains(ch) {
+            return Err(format!("Source contains forbidden character: {}", ch));
+        }
+    }
+    Ok(())
+}
+
+/// Validate a plugin name (alphanumeric, hyphens, underscores, dots)
+fn validate_plugin_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("Plugin name cannot be empty".to_string());
+    }
+    if name.len() > 200 {
+        return Err("Plugin name too long".to_string());
+    }
+    // Plugin names should be simple identifiers
+    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.') {
+        return Err("Plugin name contains invalid characters".to_string());
+    }
+    if name.starts_with('.') || name.starts_with('-') {
+        return Err("Plugin name cannot start with dot or hyphen".to_string());
+    }
+    Ok(())
+}
+
+/// Validate a scope string
+fn validate_scope(scope: &str) -> Result<(), String> {
+    match scope {
+        "user" | "project" | "local" => Ok(()),
+        _ => Err(format!("Invalid scope: {}. Must be user, project, or local", scope)),
+    }
+}
+
 /// Add a plugin marketplace
 #[tauri::command]
 pub async fn plugin_marketplace_add(source: String) -> Result<String, String> {
+    validate_plugin_source(&source)?;
+
     let output = Command::new("claude")
         .args(["plugin", "marketplace", "add", &source])
         .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+        .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        Err("Failed to add marketplace".to_string())
     }
 }
 
 /// Remove a plugin marketplace
 #[tauri::command]
 pub async fn plugin_marketplace_remove(name: String) -> Result<String, String> {
+    validate_plugin_name(&name)?;
+
     let output = Command::new("claude")
         .args(["plugin", "marketplace", "remove", &name])
         .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+        .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        Err("Failed to remove marketplace".to_string())
     }
 }
 
 /// Update plugin marketplaces
 #[tauri::command]
 pub async fn plugin_marketplace_update(name: Option<String>) -> Result<String, String> {
+    if let Some(ref n) = name {
+        validate_plugin_name(n)?;
+    }
+
     let mut args = vec!["plugin", "marketplace", "update"];
     if let Some(ref n) = name {
         args.push(n);
@@ -47,12 +101,12 @@ pub async fn plugin_marketplace_update(name: Option<String>) -> Result<String, S
     let output = Command::new("claude")
         .args(&args)
         .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+        .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        Err("Failed to update marketplace".to_string())
     }
 }
 
@@ -64,6 +118,14 @@ pub async fn plugin_install(
     scope: Option<String>,
     project_path: Option<String>,
 ) -> Result<String, String> {
+    // Validate plugin source (can be name@marketplace format)
+    validate_plugin_source(&plugin)?;
+
+    // Validate scope if provided
+    if let Some(ref s) = scope {
+        validate_scope(s)?;
+    }
+
     let mut args = vec!["plugin", "install"];
 
     // Add scope if specified (user, project, or local)
@@ -85,12 +147,12 @@ pub async fn plugin_install(
 
     let output = cmd
         .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+        .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        Err("Failed to install plugin".to_string())
     }
 }
 
@@ -98,6 +160,14 @@ pub async fn plugin_install(
 /// Note: CLI only accepts plugin name without marketplace
 #[tauri::command]
 pub async fn plugin_uninstall(plugin: String, scope: Option<String>) -> Result<String, String> {
+    // Validate plugin source first
+    validate_plugin_source(&plugin)?;
+
+    // Validate scope if provided
+    if let Some(ref s) = scope {
+        validate_scope(s)?;
+    }
+
     // Extract plugin name (without marketplace) for uninstall
     // Format may be "pluginName@marketplace" - uninstall only wants pluginName
     let plugin_name = plugin.split('@').next().unwrap_or(&plugin);
@@ -116,12 +186,12 @@ pub async fn plugin_uninstall(plugin: String, scope: Option<String>) -> Result<S
     let output = Command::new("claude")
         .args(&args)
         .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+        .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        Err("Failed to uninstall plugin".to_string())
     }
 }
 
@@ -133,6 +203,11 @@ pub async fn plugin_move_scope(
     from_scope: String,
     to_scope: String,
 ) -> Result<String, String> {
+    // Validate all inputs
+    validate_plugin_source(&plugin)?;
+    validate_scope(&from_scope)?;
+    validate_scope(&to_scope)?;
+
     // Extract plugin name (without marketplace) for uninstall
     // Format is "pluginName@marketplace" - uninstall only wants pluginName
     let plugin_name = plugin.split('@').next().unwrap_or(&plugin);
@@ -141,21 +216,17 @@ pub async fn plugin_move_scope(
     let uninstall_output = Command::new("claude")
         .args(["plugin", "uninstall", &format!("--scope={}", from_scope), plugin_name])
         .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+        .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if !uninstall_output.status.success() {
-        return Err(format!(
-            "Failed to uninstall from {} scope: {}",
-            from_scope,
-            String::from_utf8_lossy(&uninstall_output.stderr)
-        ));
+        return Err(format!("Failed to uninstall from {} scope", from_scope));
     }
 
     // Then reinstall at new scope (uses full plugin@marketplace)
     let install_output = Command::new("claude")
         .args(["plugin", "install", &format!("--scope={}", to_scope), &plugin])
         .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+        .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if install_output.status.success() {
         Ok(format!("Moved {} from {} to {} scope", plugin_name, from_scope, to_scope))
@@ -165,23 +236,21 @@ pub async fn plugin_move_scope(
             .args(["plugin", "install", &format!("--scope={}", from_scope), &plugin])
             .output();
 
-        Err(format!(
-            "Failed to install at {} scope: {}",
-            to_scope,
-            String::from_utf8_lossy(&install_output.stderr)
-        ))
+        Err(format!("Failed to install at {} scope", to_scope))
     }
 }
 
 /// Enable a plugin by setting it to true in enabledPlugins
 #[tauri::command]
 pub async fn plugin_enable(plugin: String) -> Result<String, String> {
+    validate_plugin_source(&plugin)?;
     set_plugin_enabled(&plugin, true)
 }
 
 /// Disable a plugin by setting it to false in enabledPlugins
 #[tauri::command]
 pub async fn plugin_disable(plugin: String) -> Result<String, String> {
+    validate_plugin_source(&plugin)?;
     set_plugin_enabled(&plugin, false)
 }
 
@@ -196,9 +265,9 @@ fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
     // Read existing settings or create empty object
     let mut settings: serde_json::Value = if settings_file.exists() {
         let content = std::fs::read_to_string(&settings_file)
-            .map_err(|e| format!("Failed to read settings file: {}", e))?;
+            .map_err(|_| "Failed to read settings file".to_string())?;
         serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse settings JSON: {}", e))?
+            .map_err(|_| "Failed to parse settings file".to_string())?
     } else {
         serde_json::json!({})
     };
@@ -215,9 +284,9 @@ fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
 
     // Write back to file
     let content = serde_json::to_string_pretty(&settings)
-        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+        .map_err(|_| "Failed to serialize settings".to_string())?;
     std::fs::write(&settings_file, content)
-        .map_err(|e| format!("Failed to write settings file: {}", e))?;
+        .map_err(|_| "Failed to write settings file".to_string())?;
 
     Ok(format!("Plugin {} {}", plugin, if enabled { "enabled" } else { "disabled" }))
 }
@@ -228,6 +297,8 @@ pub async fn plugin_marketplace_set_auto_update(
     name: String,
     auto_update: bool,
 ) -> Result<String, String> {
+    validate_plugin_name(&name)?;
+
     let home = std::env::var("HOME")
         .map_err(|_| "Could not find HOME environment variable")?;
     let marketplaces_file = std::path::PathBuf::from(home)
@@ -241,29 +312,29 @@ pub async fn plugin_marketplace_set_auto_update(
 
     // Read the file
     let content = std::fs::read_to_string(&marketplaces_file)
-        .map_err(|e| format!("Failed to read marketplaces file: {}", e))?;
+        .map_err(|_| "Failed to read marketplaces file".to_string())?;
 
     // Parse as JSON
     let mut json: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| format!("Failed to parse JSON: {}", e))?;
+        serde_json::from_str(&content).map_err(|_| "Failed to parse marketplaces file".to_string())?;
 
     // Update the autoUpdate field for the marketplace
     if let Some(marketplace) = json.get_mut(&name) {
         if let Some(obj) = marketplace.as_object_mut() {
             obj.insert("autoUpdate".to_string(), serde_json::Value::Bool(auto_update));
         } else {
-            return Err(format!("Marketplace '{}' is not an object", name));
+            return Err("Invalid marketplace configuration".to_string());
         }
     } else {
-        return Err(format!("Marketplace '{}' not found", name));
+        return Err("Marketplace not found".to_string());
     }
 
     // Write back
     let updated = serde_json::to_string_pretty(&json)
-        .map_err(|e| format!("Failed to serialize JSON: {}", e))?;
+        .map_err(|_| "Failed to serialize marketplaces".to_string())?;
 
     std::fs::write(&marketplaces_file, updated)
-        .map_err(|e| format!("Failed to write marketplaces file: {}", e))?;
+        .map_err(|_| "Failed to write marketplaces file".to_string())?;
 
     Ok(format!(
         "Auto-update {} for {}",

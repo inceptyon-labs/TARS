@@ -148,8 +148,21 @@ fn scan_git_info(project_path: &Path) -> Option<GitInfo> {
     })
 }
 
+/// Create a git command with security hardening to prevent malicious hooks/config
+fn secure_git_command() -> Command {
+    let mut cmd = Command::new("git");
+    // Prevent loading of system and global git config to avoid malicious overrides
+    cmd.env("GIT_CONFIG_NOSYSTEM", "1");
+    // Use /dev/null for global config to prevent loading user's global config
+    // which could be manipulated if the user cloned a malicious repo
+    cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
+    // Disable advice messages that could leak info
+    cmd.env("GIT_ADVICE", "0");
+    cmd
+}
+
 fn get_git_branch(project_path: &Path) -> Option<String> {
-    let output = Command::new("git")
+    let output = secure_git_command()
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .current_dir(project_path)
         .output()
@@ -163,7 +176,7 @@ fn get_git_branch(project_path: &Path) -> Option<String> {
 }
 
 fn get_git_remote(project_path: &Path) -> Option<String> {
-    let output = Command::new("git")
+    let output = secure_git_command()
         .args(["remote", "get-url", "origin"])
         .current_dir(project_path)
         .output()
@@ -177,7 +190,7 @@ fn get_git_remote(project_path: &Path) -> Option<String> {
 }
 
 fn check_git_dirty(project_path: &Path) -> bool {
-    let output = Command::new("git")
+    let output = secure_git_command()
         .args(["status", "--porcelain"])
         .current_dir(project_path)
         .output();

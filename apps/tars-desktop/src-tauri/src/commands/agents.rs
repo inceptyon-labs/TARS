@@ -29,7 +29,7 @@ pub async fn read_agent(path: String) -> Result<AgentDetails, String> {
     }
 
     let content = std::fs::read_to_string(&validated_path)
-        .map_err(|e| format!("Failed to read agent: {e}"))?;
+        .map_err(|_| "Failed to read agent".to_string())?;
 
     // Extract name from filename (without .md extension)
     let name = agent_path
@@ -64,10 +64,10 @@ pub async fn save_agent(path: String, content: String) -> Result<(), String> {
     // Ensure parent directory exists
     if let Some(parent) = validated_path.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {e}"))?;
+            .map_err(|_| "Failed to create directory".to_string())?;
     }
 
-    std::fs::write(&validated_path, content).map_err(|e| format!("Failed to save agent: {e}"))?;
+    std::fs::write(&validated_path, content).map_err(|_| "Failed to save agent".to_string())?;
 
     Ok(())
 }
@@ -80,7 +80,7 @@ pub async fn create_agent(
     project_path: Option<String>,
 ) -> Result<AgentDetails, String> {
     // Validate the agent name to prevent path traversal
-    validate_name(&name).map_err(|e| format!("Invalid agent name: {e}"))?;
+    validate_name(&name).map_err(|_| "Invalid agent name".to_string())?;
 
     let base_path = if scope == "user" {
         let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
@@ -118,8 +118,8 @@ This agent has access to file reading tools by default.
 "#,
     );
 
-    std::fs::create_dir_all(&base_path).map_err(|e| format!("Failed to create agents dir: {e}"))?;
-    std::fs::write(&agent_file, &content).map_err(|e| format!("Failed to create agent: {e}"))?;
+    std::fs::create_dir_all(&base_path).map_err(|_| "Failed to create agents directory".to_string())?;
+    std::fs::write(&agent_file, &content).map_err(|_| "Failed to create agent".to_string())?;
 
     Ok(AgentDetails {
         name,
@@ -156,7 +156,7 @@ pub async fn move_agent(
 
     // Read the content first
     let content = std::fs::read_to_string(&validated_source)
-        .map_err(|e| format!("Failed to read agent: {e}"))?;
+        .map_err(|_| "Failed to read agent".to_string())?;
 
     let description = extract_description(&content);
 
@@ -176,10 +176,10 @@ pub async fn move_agent(
         }
 
         std::fs::create_dir_all(&target_base)
-            .map_err(|e| format!("Failed to create target directory: {e}"))?;
+            .map_err(|_| "Failed to create target directory".to_string())?;
 
         std::fs::write(&target_file, &content)
-            .map_err(|e| format!("Failed to write agent to new location: {e}"))?;
+            .map_err(|_| "Failed to write agent".to_string())?;
 
         final_path = target_file;
         final_scope = "user".to_string();
@@ -212,10 +212,10 @@ pub async fn move_agent(
         // Now copy to all destinations
         for (target_base, target_file) in &targets {
             std::fs::create_dir_all(target_base)
-                .map_err(|e| format!("Failed to create target directory: {e}"))?;
+                .map_err(|_| "Failed to create target directory".to_string())?;
 
             std::fs::write(target_file, &content)
-                .map_err(|e| format!("Failed to write agent to new location: {e}"))?;
+                .map_err(|_| "Failed to write agent".to_string())?;
         }
 
         // Return the first destination as the "primary" result
@@ -225,7 +225,7 @@ pub async fn move_agent(
 
     // Delete from old location
     std::fs::remove_file(&validated_source)
-        .map_err(|e| format!("Failed to remove agent from old location: {e}"))?;
+        .map_err(|_| "Failed to remove agent".to_string())?;
 
     Ok(AgentDetails {
         name,
@@ -275,14 +275,61 @@ pub async fn disable_agent(path: String) -> Result<String, String> {
     // Create .disabled subdirectory
     let disabled_dir = parent.join(".disabled");
     std::fs::create_dir_all(&disabled_dir)
-        .map_err(|e| format!("Failed to create .disabled directory: {e}"))?;
+        .map_err(|_| "Failed to create disabled directory".to_string())?;
 
     // Move the file
     let disabled_path = disabled_dir.join(filename);
     std::fs::rename(&validated_path, &disabled_path)
-        .map_err(|e| format!("Failed to disable agent: {e}"))?;
+        .map_err(|_| "Failed to disable agent".to_string())?;
 
     Ok(disabled_path.display().to_string())
+}
+
+/// Validate a disabled agent path (special case for .disabled directories)
+fn validate_disabled_agent_path(path: &Path) -> Result<PathBuf, String> {
+    let path_str = path.display().to_string();
+
+    // Security: Reject any paths with parent directory references
+    if path_str.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+
+    // Security: Reject null bytes
+    if path_str.contains('\0') {
+        return Err("Invalid path".to_string());
+    }
+
+    // Must be a .md file
+    if path.extension().and_then(|e| e.to_str()) != Some("md") {
+        return Err("Can only enable agent files (.md)".to_string());
+    }
+
+    // Must be in a .disabled directory
+    let parent = path.parent().ok_or("Invalid agent path")?;
+    if parent.file_name().and_then(|n| n.to_str()) != Some(".disabled") {
+        return Err("Agent is not disabled (not in .disabled directory)".to_string());
+    }
+
+    // Grandparent must be agents/
+    let grandparent = parent.parent().ok_or("Invalid path structure")?;
+    if grandparent.file_name().and_then(|n| n.to_str()) != Some("agents") {
+        return Err("Invalid agent path structure".to_string());
+    }
+
+    // Verify path is within .claude directory structure
+    if !path_str.contains("/.claude/agents/.disabled/") && !path_str.contains("\\.claude\\agents\\.disabled\\") {
+        return Err("Path is not within an allowed agents directory".to_string());
+    }
+
+    if path.exists() {
+        // Security: Reject symlinks
+        if path.is_symlink() {
+            return Err("Symlinks not allowed".to_string());
+        }
+        path.canonicalize().map_err(|_| "Invalid path".to_string())
+    } else {
+        Ok(path.to_path_buf())
+    }
 }
 
 /// Enable a disabled agent by moving it back from .disabled subdirectory
@@ -290,34 +337,21 @@ pub async fn disable_agent(path: String) -> Result<String, String> {
 pub async fn enable_agent(path: String) -> Result<String, String> {
     let agent_path = PathBuf::from(&path);
 
-    // For disabled agents, we need to allow .disabled paths
-    if !agent_path.exists() {
+    // Validate the disabled agent path (security fix)
+    let validated_path = validate_disabled_agent_path(&agent_path)?;
+
+    if !validated_path.exists() {
         return Err("Agent not found".to_string());
     }
 
-    // Verify this is actually a .md file
-    let extension = agent_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
-
-    if extension != "md" {
-        return Err("Can only enable agent files (.md)".to_string());
-    }
-
     // Get the parent directory (.disabled/) and grandparent (agents/)
-    let disabled_dir = agent_path
+    let disabled_dir = validated_path
         .parent()
         .ok_or("Invalid agent path")?;
 
-    let filename = agent_path
+    let filename = validated_path
         .file_name()
         .ok_or("Invalid agent filename")?;
-
-    // Verify we're in a .disabled directory
-    if disabled_dir.file_name().and_then(|n| n.to_str()) != Some(".disabled") {
-        return Err("Agent is not disabled (not in .disabled directory)".to_string());
-    }
 
     // Get the agents/ parent directory
     let agents_dir = disabled_dir
@@ -331,8 +365,8 @@ pub async fn enable_agent(path: String) -> Result<String, String> {
         return Err("An agent with this name already exists in the active directory".to_string());
     }
 
-    std::fs::rename(&agent_path, &enabled_path)
-        .map_err(|e| format!("Failed to enable agent: {e}"))?;
+    std::fs::rename(&validated_path, &enabled_path)
+        .map_err(|_| "Failed to enable agent".to_string())?;
 
     // Clean up .disabled directory if empty
     if let Ok(entries) = std::fs::read_dir(disabled_dir) {
@@ -378,7 +412,7 @@ pub async fn delete_agent(path: String) -> Result<(), String> {
     }
 
     // Now safe to remove the agent file
-    std::fs::remove_file(&validated_path).map_err(|e| format!("Failed to delete agent: {e}"))?;
+    std::fs::remove_file(&validated_path).map_err(|_| "Failed to delete agent".to_string())?;
 
     Ok(())
 }
@@ -497,11 +531,27 @@ fn get_agent_roots() -> Vec<PathBuf> {
 /// Validate that a path is within an allowed agent directory
 fn validate_agent_path(path: &Path) -> Result<PathBuf, String> {
     let roots = get_agent_roots();
+    let path_str = path.display().to_string();
+
+    // Security: Reject any paths with parent directory references
+    if path_str.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+
+    // Security: Reject null bytes
+    if path_str.contains('\0') {
+        return Err("Invalid path".to_string());
+    }
 
     if path.exists() {
+        // Security: Reject symlinks to prevent TOCTOU attacks
+        if path.is_symlink() {
+            return Err("Symlinks not allowed".to_string());
+        }
+
         let canonical = path
             .canonicalize()
-            .map_err(|e| format!("Invalid path: {e}"))?;
+            .map_err(|_| "Invalid path".to_string())?;
 
         for root in &roots {
             if root.exists() {
@@ -513,20 +563,19 @@ fn validate_agent_path(path: &Path) -> Result<PathBuf, String> {
             }
         }
 
-        let path_str = canonical.display().to_string();
-        if path_str.contains("/.claude/agents/") || path_str.contains("\\.claude\\agents\\") {
+        let canonical_str = canonical.display().to_string();
+        if canonical_str.contains("/.claude/agents/") || canonical_str.contains("\\.claude\\agents\\") {
             return Ok(canonical);
         }
 
-        if path_str.contains("/.claude/plugins/") || path_str.contains("\\.claude\\plugins\\") {
+        if canonical_str.contains("/.claude/plugins/") || canonical_str.contains("\\.claude\\plugins\\") {
             return Ok(canonical);
         }
 
         return Err("Path is not within an allowed agents directory".to_string());
     }
 
-    let path_str = path.display().to_string();
-
+    // For non-existent paths, do a logical check
     for root in &roots {
         if path.starts_with(root) {
             return Ok(path.to_path_buf());

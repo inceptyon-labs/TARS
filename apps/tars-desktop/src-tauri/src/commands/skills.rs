@@ -29,7 +29,7 @@ pub async fn read_skill(path: String) -> Result<SkillInfo, String> {
     }
 
     let content = std::fs::read_to_string(&validated_path)
-        .map_err(|e| format!("Failed to read skill: {e}"))?;
+        .map_err(|_| "Failed to read skill".to_string())?;
 
     // Extract name from path
     let name = skill_path
@@ -65,10 +65,10 @@ pub async fn save_skill(path: String, content: String) -> Result<(), String> {
     // Ensure parent directory exists
     if let Some(parent) = validated_path.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {e}"))?;
+            .map_err(|_| "Failed to create directory".to_string())?;
     }
 
-    std::fs::write(&validated_path, content).map_err(|e| format!("Failed to save skill: {e}"))?;
+    std::fs::write(&validated_path, content).map_err(|_| "Failed to save skill".to_string())?;
 
     Ok(())
 }
@@ -81,7 +81,7 @@ pub async fn create_skill(
     project_path: Option<String>,
 ) -> Result<SkillInfo, String> {
     // Validate the skill name to prevent path traversal
-    validate_name(&name).map_err(|e| format!("Invalid skill name: {e}"))?;
+    validate_name(&name).map_err(|_| "Invalid skill name".to_string())?;
 
     let base_path = if scope == "user" {
         let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
@@ -114,8 +114,8 @@ Add your skill instructions here.
 "#,
     );
 
-    std::fs::create_dir_all(&skill_dir).map_err(|e| format!("Failed to create skill dir: {e}"))?;
-    std::fs::write(&skill_file, &content).map_err(|e| format!("Failed to create skill: {e}"))?;
+    std::fs::create_dir_all(&skill_dir).map_err(|_| "Failed to create skill directory".to_string())?;
+    std::fs::write(&skill_file, &content).map_err(|_| "Failed to create skill".to_string())?;
 
     Ok(SkillInfo {
         name,
@@ -159,7 +159,7 @@ pub async fn delete_skill(path: String) -> Result<(), String> {
         .and_then(|n| n.to_str())
         .ok_or("Invalid skill directory")?;
 
-    validate_name(dir_name).map_err(|e| format!("Invalid skill directory name: {e}"))?;
+    validate_name(dir_name).map_err(|_| "Invalid skill directory name".to_string())?;
 
     // Verify the skill directory is directly under a skills/ directory
     let skills_parent = skill_dir
@@ -173,7 +173,7 @@ pub async fn delete_skill(path: String) -> Result<(), String> {
     }
 
     // Now safe to remove the skill directory
-    std::fs::remove_dir_all(skill_dir).map_err(|e| format!("Failed to delete skill: {e}"))?;
+    std::fs::remove_dir_all(skill_dir).map_err(|_| "Failed to delete skill".to_string())?;
 
     Ok(())
 }
@@ -229,12 +229,28 @@ fn get_skill_roots() -> Vec<PathBuf> {
 /// Returns the canonicalized path if valid
 fn validate_skill_path(path: &Path) -> Result<PathBuf, String> {
     let roots = get_skill_roots();
+    let path_str = path.display().to_string();
+
+    // Security: Reject any paths with parent directory references
+    if path_str.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+
+    // Security: Reject null bytes
+    if path_str.contains('\0') {
+        return Err("Invalid path".to_string());
+    }
 
     // First check if the path exists - if so, canonicalize it
     if path.exists() {
+        // Security: Reject symlinks to prevent TOCTOU attacks
+        if path.is_symlink() {
+            return Err("Symlinks not allowed".to_string());
+        }
+
         let canonical = path
             .canonicalize()
-            .map_err(|e| format!("Invalid path: {e}"))?;
+            .map_err(|_| "Invalid path".to_string())?;
 
         // Also canonicalize roots that exist for comparison
         for root in &roots {
@@ -248,13 +264,13 @@ fn validate_skill_path(path: &Path) -> Result<PathBuf, String> {
         }
 
         // Check if path is within a project's .claude/skills/ directory
-        let path_str = canonical.display().to_string();
-        if path_str.contains("/.claude/skills/") || path_str.contains("\\.claude\\skills\\") {
+        let canonical_str = canonical.display().to_string();
+        if canonical_str.contains("/.claude/skills/") || canonical_str.contains("\\.claude\\skills\\") {
             return Ok(canonical);
         }
 
         // Check if path is within a plugin's skills directory
-        if path_str.contains("/.claude/plugins/") || path_str.contains("\\.claude\\plugins\\") {
+        if canonical_str.contains("/.claude/plugins/") || canonical_str.contains("\\.claude\\plugins\\") {
             return Ok(canonical);
         }
 
@@ -262,8 +278,6 @@ fn validate_skill_path(path: &Path) -> Result<PathBuf, String> {
     }
 
     // For non-existent paths, do a logical check
-    let path_str = path.display().to_string();
-
     // Check against allowed root directories
     for root in &roots {
         if path.starts_with(root) {

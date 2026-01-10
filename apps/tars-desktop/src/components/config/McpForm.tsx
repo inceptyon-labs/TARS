@@ -283,7 +283,7 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
                 value={formData.env}
                 onChange={(e) => setFormData({ ...formData, env: e.target.value })}
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="API_KEY=your-key&#10;DEBUG=true"
+                placeholder="API_KEY=<YOUR_API_KEY>&#10;DEBUG=true"
               />
             </div>
 

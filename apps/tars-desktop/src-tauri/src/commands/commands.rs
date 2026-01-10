@@ -29,7 +29,7 @@ pub async fn read_command(path: String) -> Result<CommandDetails, String> {
     }
 
     let content = std::fs::read_to_string(&validated_path)
-        .map_err(|e| format!("Failed to read command: {e}"))?;
+        .map_err(|_| "Failed to read command".to_string())?;
 
     // Extract name from filename (without .md extension)
     let name = command_path
@@ -64,10 +64,10 @@ pub async fn save_command(path: String, content: String) -> Result<(), String> {
     // Ensure parent directory exists
     if let Some(parent) = validated_path.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {e}"))?;
+            .map_err(|_| "Failed to create directory".to_string())?;
     }
 
-    std::fs::write(&validated_path, content).map_err(|e| format!("Failed to save command: {e}"))?;
+    std::fs::write(&validated_path, content).map_err(|_| "Failed to save command".to_string())?;
 
     Ok(())
 }
@@ -80,7 +80,7 @@ pub async fn create_command(
     project_path: Option<String>,
 ) -> Result<CommandDetails, String> {
     // Validate the command name to prevent path traversal
-    validate_name(&name).map_err(|e| format!("Invalid command name: {e}"))?;
+    validate_name(&name).map_err(|_| "Invalid command name".to_string())?;
 
     let base_path = if scope == "user" {
         let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
@@ -115,8 +115,8 @@ Add your command instructions here.
 "#,
     );
 
-    std::fs::create_dir_all(&base_path).map_err(|e| format!("Failed to create commands dir: {e}"))?;
-    std::fs::write(&command_file, &content).map_err(|e| format!("Failed to create command: {e}"))?;
+    std::fs::create_dir_all(&base_path).map_err(|_| "Failed to create commands directory".to_string())?;
+    std::fs::write(&command_file, &content).map_err(|_| "Failed to create command".to_string())?;
 
     Ok(CommandDetails {
         name,
@@ -153,7 +153,7 @@ pub async fn move_command(
 
     // Read the content first
     let content = std::fs::read_to_string(&validated_source)
-        .map_err(|e| format!("Failed to read command: {e}"))?;
+        .map_err(|_| "Failed to read command".to_string())?;
 
     let description = extract_description(&content);
 
@@ -173,10 +173,10 @@ pub async fn move_command(
         }
 
         std::fs::create_dir_all(&target_base)
-            .map_err(|e| format!("Failed to create target directory: {e}"))?;
+            .map_err(|_| "Failed to create target directory".to_string())?;
 
         std::fs::write(&target_file, &content)
-            .map_err(|e| format!("Failed to write command to new location: {e}"))?;
+            .map_err(|_| "Failed to write command".to_string())?;
 
         final_path = target_file;
         final_scope = "user".to_string();
@@ -209,10 +209,10 @@ pub async fn move_command(
         // Now copy to all destinations
         for (target_base, target_file) in &targets {
             std::fs::create_dir_all(target_base)
-                .map_err(|e| format!("Failed to create target directory: {e}"))?;
+                .map_err(|_| "Failed to create target directory".to_string())?;
 
             std::fs::write(target_file, &content)
-                .map_err(|e| format!("Failed to write command to new location: {e}"))?;
+                .map_err(|_| "Failed to write command".to_string())?;
         }
 
         // Return the first destination as the "primary" result
@@ -222,7 +222,7 @@ pub async fn move_command(
 
     // Delete from old location
     std::fs::remove_file(&validated_source)
-        .map_err(|e| format!("Failed to remove command from old location: {e}"))?;
+        .map_err(|_| "Failed to remove command".to_string())?;
 
     Ok(CommandDetails {
         name,
@@ -267,7 +267,7 @@ pub async fn delete_command(path: String) -> Result<(), String> {
     }
 
     // Now safe to remove the command file
-    std::fs::remove_file(&validated_path).map_err(|e| format!("Failed to delete command: {e}"))?;
+    std::fs::remove_file(&validated_path).map_err(|_| "Failed to delete command".to_string())?;
 
     Ok(())
 }
@@ -315,11 +315,27 @@ fn get_command_roots() -> Vec<PathBuf> {
 /// Validate that a path is within an allowed command directory
 fn validate_command_path(path: &Path) -> Result<PathBuf, String> {
     let roots = get_command_roots();
+    let path_str = path.display().to_string();
+
+    // Security: Reject any paths with parent directory references
+    if path_str.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+
+    // Security: Reject null bytes
+    if path_str.contains('\0') {
+        return Err("Invalid path".to_string());
+    }
 
     if path.exists() {
+        // Security: Reject symlinks to prevent TOCTOU attacks
+        if path.is_symlink() {
+            return Err("Symlinks not allowed".to_string());
+        }
+
         let canonical = path
             .canonicalize()
-            .map_err(|e| format!("Invalid path: {e}"))?;
+            .map_err(|_| "Invalid path".to_string())?;
 
         for root in &roots {
             if root.exists() {
@@ -331,20 +347,19 @@ fn validate_command_path(path: &Path) -> Result<PathBuf, String> {
             }
         }
 
-        let path_str = canonical.display().to_string();
-        if path_str.contains("/.claude/commands/") || path_str.contains("\\.claude\\commands\\") {
+        let canonical_str = canonical.display().to_string();
+        if canonical_str.contains("/.claude/commands/") || canonical_str.contains("\\.claude\\commands\\") {
             return Ok(canonical);
         }
 
-        if path_str.contains("/.claude/plugins/") || path_str.contains("\\.claude\\plugins\\") {
+        if canonical_str.contains("/.claude/plugins/") || canonical_str.contains("\\.claude\\plugins\\") {
             return Ok(canonical);
         }
 
         return Err("Path is not within an allowed commands directory".to_string());
     }
 
-    let path_str = path.display().to_string();
-
+    // For non-existent paths, do a logical check
     for root in &roots {
         if path.starts_with(root) {
             return Ok(path.to_path_buf());

@@ -274,7 +274,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
       "command": "npx",
       "args": ["-y", "@anthropic/mcp-server-github"],
       "env": {
-        "GITHUB_TOKEN": "your-token"
+        "GITHUB_TOKEN": "<YOUR_TOKEN_HERE>"
       }
     }
   }
