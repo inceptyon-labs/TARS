@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel in-progress runs when a new push arrives
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -45,15 +50,26 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
 
       - name: Run tests
         run: cargo test --all
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
 
   # Frontend unit tests
   test-frontend:
@@ -75,10 +91,6 @@ jobs:
       - name: Type check
         working-directory: apps/tars-desktop
         run: bun run typecheck
-
-      - name: Run unit tests
-        working-directory: apps/tars-desktop
-        run: bun run test:run
 
       - name: Run tests with coverage
         working-directory: apps/tars-desktop
@@ -148,6 +160,12 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-linux-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-linux-
+            ${{ runner.os }}-cargo-
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Install Linux dependencies
         run: |
@@ -162,12 +180,12 @@ jobs:
             librsvg2-dev \
             libssl-dev \
             patchelf
-          pkg-config --modversion glib-2.0
-          pkg-config --modversion gobject-2.0
-          pkg-config --modversion gio-2.0
 
       - name: Build (Linux check)
-        run: cargo build --release
+        run: cargo build
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
 
   # Build check for macOS (primary target)
   build-macos:
@@ -191,9 +209,18 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-macos-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-macos-
+            ${{ runner.os }}-cargo-
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Build (macOS check)
-        run: cargo build --release
+        run: cargo build
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
 
   # Build check for Windows
   build-windows:
@@ -217,6 +244,15 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-windows-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-windows-
+            ${{ runner.os }}-cargo-
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Build (Windows check)
-        run: cargo build --release
+        run: cargo build
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
