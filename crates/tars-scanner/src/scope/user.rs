@@ -15,11 +15,13 @@ fn home_dir() -> PathBuf {
     std::env::var("HOME").map_or_else(|_| PathBuf::from("/"), PathBuf::from)
 }
 
-/// Scan user-level Claude Code configuration
+/// Scan user-level Claude Code configuration with pre-scanned plugin inventory
+///
+/// This avoids duplicate plugin scanning by accepting an already-scanned inventory.
 ///
 /// # Errors
 /// Returns an error if scanning fails
-pub fn scan_user_scope() -> ScanResult<UserScope> {
+pub fn scan_user_scope_with_plugins(plugin_inventory: &PluginInventory) -> ScanResult<UserScope> {
     let home = home_dir();
     let claude_dir = home.join(".claude");
 
@@ -29,8 +31,8 @@ pub fn scan_user_scope() -> ScanResult<UserScope> {
     // Scan user skills
     let mut skills = scan_user_skills(&claude_dir)?;
 
-    // Also scan plugin skills (uses installed_plugins.json, not claude_dir)
-    let plugin_skills = scan_plugin_skills()?;
+    // Extract plugin skills from the provided inventory (no duplicate scan)
+    let plugin_skills = extract_plugin_skills(plugin_inventory)?;
     skills.extend(plugin_skills);
 
     let commands = scan_user_commands(&claude_dir)?;
@@ -43,6 +45,16 @@ pub fn scan_user_scope() -> ScanResult<UserScope> {
         commands,
         agents,
     })
+}
+
+/// Scan user-level Claude Code configuration
+///
+/// # Errors
+/// Returns an error if scanning fails
+pub fn scan_user_scope() -> ScanResult<UserScope> {
+    // For standalone usage, scan plugins and pass to the shared function
+    let plugin_inventory = PluginInventory::scan()?;
+    scan_user_scope_with_plugins(&plugin_inventory)
 }
 
 fn scan_user_settings(claude_dir: &Path) -> ScanResult<Option<SettingsFile>> {
@@ -73,12 +85,11 @@ fn scan_user_skills(claude_dir: &Path) -> ScanResult<Vec<SkillInfo>> {
     scan_skills_directory(&skills_dir, Scope::User)
 }
 
-/// Scan plugin directories for skills (only installed plugins)
+/// Extract skills from a pre-scanned plugin inventory
 ///
-/// Reads `installed_plugins.json` to determine which plugins are installed,
-/// then scans only those plugin paths for skills.
-fn scan_plugin_skills() -> ScanResult<Vec<SkillInfo>> {
-    let plugin_inventory = PluginInventory::scan()?;
+/// Uses the already-scanned plugin inventory to extract skills,
+/// avoiding duplicate file system operations.
+fn extract_plugin_skills(plugin_inventory: &PluginInventory) -> ScanResult<Vec<SkillInfo>> {
     let mut all_skills = Vec::new();
 
     // Only scan skills from installed plugin paths

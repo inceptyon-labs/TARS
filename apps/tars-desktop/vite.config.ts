@@ -15,6 +15,43 @@ export default defineConfig(async () => ({
     },
   },
 
+  // Build optimization
+  build: {
+    // Enable source maps for debugging in production
+    sourcemap: false,
+    // Optimize chunk size
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting for better caching
+        manualChunks: {
+          // Core React dependencies
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          // UI framework
+          "vendor-ui": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-label",
+            "@radix-ui/react-select",
+            "@radix-ui/react-slot",
+            "@radix-ui/react-tabs",
+            "lucide-react",
+            "class-variance-authority",
+            "clsx",
+            "tailwind-merge",
+          ],
+          // Data fetching and state
+          "vendor-data": ["@tanstack/react-query", "zustand", "zod"],
+          // Heavy editor dependencies (loaded separately)
+          "vendor-editor": ["@monaco-editor/react"],
+        },
+      },
+    },
+    // Minification options
+    minify: "esbuild",
+    // Target modern browsers for smaller bundle
+    target: "es2020",
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
@@ -35,5 +72,10 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+  },
+
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"],
   },
 }));

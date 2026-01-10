@@ -1,21 +1,37 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from 'sonner';
 import { MainLayout } from './pages/MainLayout';
-import { ProjectsPage } from './pages/ProjectsPage';
-import { ProfilesPage } from './pages/ProfilesPage';
-import { SkillsPage } from './pages/SkillsPage';
-import { AgentsPage } from './pages/AgentsPage';
-import { CommandsPage } from './pages/CommandsPage';
-import { HooksPage } from './pages/HooksPage';
-import { McpPage } from './pages/McpPage';
-import { PluginsPage } from './pages/PluginsPage';
-import { CasePage } from './pages/CasePage';
-import { PromptsPage } from './pages/PromptsPage';
-import { UpdatesPage } from './pages/UpdatesPage';
 import { useUIStore } from './stores/ui-store';
 import './App.css';
+
+// Eagerly load frequently accessed pages
+import { ProjectsPage } from './pages/ProjectsPage';
+import { ProfilesPage } from './pages/ProfilesPage';
+
+// Lazy load larger/less frequently accessed pages for better initial load
+const SkillsPage = lazy(() =>
+  import('./pages/SkillsPage').then((m) => ({ default: m.SkillsPage }))
+);
+const AgentsPage = lazy(() =>
+  import('./pages/AgentsPage').then((m) => ({ default: m.AgentsPage }))
+);
+const CommandsPage = lazy(() =>
+  import('./pages/CommandsPage').then((m) => ({ default: m.CommandsPage }))
+);
+const HooksPage = lazy(() => import('./pages/HooksPage').then((m) => ({ default: m.HooksPage })));
+const McpPage = lazy(() => import('./pages/McpPage').then((m) => ({ default: m.McpPage })));
+const PluginsPage = lazy(() =>
+  import('./pages/PluginsPage').then((m) => ({ default: m.PluginsPage }))
+);
+const CasePage = lazy(() => import('./pages/CasePage').then((m) => ({ default: m.CasePage })));
+const PromptsPage = lazy(() =>
+  import('./pages/PromptsPage').then((m) => ({ default: m.PromptsPage }))
+);
+const UpdatesPage = lazy(() =>
+  import('./pages/UpdatesPage').then((m) => ({ default: m.UpdatesPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +79,15 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Loading fallback for lazy-loaded pages
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="animate-pulse text-muted-foreground">Loading...</div>
+    </div>
+  );
+}
+
 function App() {
   const theme = useUIStore((state) => state.theme);
 
@@ -75,16 +100,86 @@ function App() {
               <Route index element={<Navigate to="/projects" replace />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="profiles" element={<ProfilesPage />} />
-              <Route path="skills" element={<SkillsPage />} />
-              <Route path="agents" element={<AgentsPage />} />
-              <Route path="commands" element={<CommandsPage />} />
-              <Route path="hooks" element={<HooksPage />} />
-              <Route path="mcp" element={<McpPage />} />
-              <Route path="plugins" element={<PluginsPage />} />
-              <Route path="case" element={<CasePage />} />
-              <Route path="case/:section" element={<CasePage />} />
-              <Route path="prompts" element={<PromptsPage />} />
-              <Route path="updates" element={<UpdatesPage />} />
+              <Route
+                path="skills"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <SkillsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="agents"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <AgentsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="commands"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <CommandsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="hooks"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <HooksPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="mcp"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <McpPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="plugins"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <PluginsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="case"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <CasePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="case/:section"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <CasePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="prompts"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <PromptsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="updates"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <UpdatesPage />
+                  </Suspense>
+                }
+              />
             </Route>
           </Routes>
         </BrowserRouter>

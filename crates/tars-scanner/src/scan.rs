@@ -7,6 +7,7 @@ use crate::plugins::PluginInventory;
 use crate::scope::{managed, project, user};
 use crate::types::HostInfo;
 use chrono::Utc;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -37,24 +38,31 @@ impl Scanner {
     /// Returns an error if scanning fails
     pub fn scan_all(&self, project_paths: &[&Path]) -> ScanResult<Inventory> {
         let host = HostInfo::current();
-        let user_scope = self.scan_user_scope()?;
+
+        // Scan plugins first (only once) to share with user scope
+        let plugins = self.scan_plugins()?;
+
+        // Pass plugins to user scope to avoid duplicate scanning
+        let user_scope = user::scan_user_scope_with_plugins(&plugins)?;
+
         let managed_scope = if self.include_managed {
             self.scan_managed_scope()?
         } else {
             None
         };
 
-        let mut projects = Vec::new();
-        for path in project_paths {
-            match self.scan_project(path) {
-                Ok(proj) => projects.push(proj),
+        // Scan projects in parallel using rayon
+        let projects: Vec<ProjectScope> = project_paths
+            .par_iter()
+            .filter_map(|path| match self.scan_project(path) {
+                Ok(proj) => Some(proj),
                 Err(e) => {
                     eprintln!("Warning: Failed to scan project {path:?}: {e}");
+                    None
                 }
-            }
-        }
+            })
+            .collect();
 
-        let plugins = self.scan_plugins()?;
         let collisions = self.detect_collisions(&user_scope, &managed_scope, &projects, &plugins);
 
         Ok(Inventory {

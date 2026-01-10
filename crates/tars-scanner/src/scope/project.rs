@@ -137,9 +137,12 @@ fn scan_git_info(project_path: &Path) -> Option<GitInfo> {
         return None;
     }
 
-    let branch = get_git_branch(project_path).unwrap_or_else(|| "unknown".to_string());
+    // Use git status -sb to get branch and dirty status in one call
+    // Output format: "## branch...tracking [M/A/D indicators]"
+    let (branch, is_dirty) = get_git_status(project_path);
+
+    // Get remote URL (still needs separate call, but only if git repo exists)
     let remote = get_git_remote(project_path);
-    let is_dirty = check_git_dirty(project_path);
 
     Some(GitInfo {
         remote,
@@ -161,17 +164,36 @@ fn secure_git_command() -> Command {
     cmd
 }
 
-fn get_git_branch(project_path: &Path) -> Option<String> {
+/// Get branch name and dirty status in a single git call
+/// Returns (branch_name, is_dirty)
+fn get_git_status(project_path: &Path) -> (String, bool) {
     let output = secure_git_command()
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .args(["status", "-sb"])
         .current_dir(project_path)
-        .output()
-        .ok()?;
+        .output();
 
-    if output.status.success() {
-        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        None
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let lines: Vec<&str> = stdout.lines().collect();
+
+            // First line is "## branch" or "## branch...remote"
+            let branch = lines
+                .first()
+                .and_then(|line| {
+                    line.strip_prefix("## ").map(|rest| {
+                        // Handle "branch...origin/branch" format
+                        rest.split("...").next().unwrap_or(rest).to_string()
+                    })
+                })
+                .unwrap_or_else(|| "unknown".to_string());
+
+            // If there are any lines after the first, the repo is dirty
+            let is_dirty = lines.len() > 1;
+
+            (branch, is_dirty)
+        }
+        _ => ("unknown".to_string(), false),
     }
 }
 
@@ -186,18 +208,6 @@ fn get_git_remote(project_path: &Path) -> Option<String> {
         Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
         None
-    }
-}
-
-fn check_git_dirty(project_path: &Path) -> bool {
-    let output = secure_git_command()
-        .args(["status", "--porcelain"])
-        .current_dir(project_path)
-        .output();
-
-    match output {
-        Ok(out) if out.status.success() => !out.stdout.is_empty(),
-        _ => false,
     }
 }
 

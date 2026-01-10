@@ -1,4 +1,4 @@
-//! CLI integration tests using assert_cmd
+//! CLI integration tests using `assert_cmd`
 //!
 //! These tests verify the CLI commands work correctly end-to-end.
 
@@ -9,7 +9,8 @@ use tempfile::TempDir;
 
 /// Get a command instance for the tars binary
 fn tars_cmd() -> Command {
-    Command::cargo_bin("tars").expect("Failed to find tars binary")
+    // Use the cargo_bin! macro to get the path to the compiled binary
+    Command::new(assert_cmd::cargo_bin!("tars"))
 }
 
 #[test]

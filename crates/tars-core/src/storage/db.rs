@@ -32,6 +32,16 @@ impl Database {
         // Enable foreign keys
         conn.pragma_update(None, "foreign_keys", "ON")?;
 
+        // Performance optimizations
+        // WAL mode for better concurrent read/write performance
+        conn.pragma_update(None, "journal_mode", "WAL")?;
+        // NORMAL synchronous is safe with WAL and faster than FULL
+        conn.pragma_update(None, "synchronous", "NORMAL")?;
+        // 10MB cache size for better query performance
+        conn.pragma_update(None, "cache_size", "-10000")?;
+        // Store temp tables in memory
+        conn.pragma_update(None, "temp_store", "MEMORY")?;
+
         // Run migrations
         migrations::run_migrations(&conn)?;
 
