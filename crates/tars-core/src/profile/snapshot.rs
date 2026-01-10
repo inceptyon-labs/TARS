@@ -55,7 +55,9 @@ pub fn snapshot_from_project(project_path: &Path, name: String) -> Result<Profil
 pub fn snapshot_from_user(name: String) -> Result<Profile, SnapshotError> {
     let home = std::env::var("HOME")
         .map(std::path::PathBuf::from)
-        .map_err(|_| SnapshotError::PathNotFound("HOME environment variable not set".to_string()))?;
+        .map_err(|_| {
+            SnapshotError::PathNotFound("HOME environment variable not set".to_string())
+        })?;
 
     let claude_dir = home.join(".claude");
     let mut profile = Profile::new(name);

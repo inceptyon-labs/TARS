@@ -51,9 +51,7 @@ fn normalize_path(path: &Path) -> Result<PathBuf, PathError> {
                 // Check for dangerous characters that could be misinterpreted
                 let s = c.to_string_lossy();
                 if s.contains('\0') {
-                    return Err(PathError::InvalidComponent(
-                        "Null byte in path".to_string(),
-                    ));
+                    return Err(PathError::InvalidComponent("Null byte in path".to_string()));
                 }
                 normalized.push(c);
                 depth += 1;
@@ -93,9 +91,11 @@ fn verify_under_root(root: &Path, path: &Path) -> Result<(), PathError> {
 
     // If both paths exist, use canonicalization for the most accurate check
     if root.exists() && path.exists() {
-        let canonical_root = root.canonicalize()
+        let canonical_root = root
+            .canonicalize()
             .map_err(|_| PathError::EscapesRoot(path.display().to_string()))?;
-        let canonical_path = path.canonicalize()
+        let canonical_path = path
+            .canonicalize()
             .map_err(|_| PathError::EscapesRoot(path.display().to_string()))?;
 
         if !canonical_path.starts_with(&canonical_root) {

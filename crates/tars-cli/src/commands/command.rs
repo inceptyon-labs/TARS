@@ -80,7 +80,10 @@ pub enum CommandCommands {
 }
 
 /// Execute command command
-pub fn execute(cmd: CommandCommands, _project_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn execute(
+    cmd: CommandCommands,
+    _project_path: Option<&PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         CommandCommands::List { .. } => {
             println!("Command list not yet implemented");

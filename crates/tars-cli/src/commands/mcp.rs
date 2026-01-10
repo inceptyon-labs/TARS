@@ -112,7 +112,8 @@ impl McpAddArgs {
 
         let mut env = HashMap::new();
         for e in &self.env {
-            let (key, value) = e.split_once('=')
+            let (key, value) = e
+                .split_once('=')
                 .ok_or_else(|| format!("Invalid env format: {} (expected KEY=value)", e))?;
             env.insert(key.to_string(), value.to_string());
         }
@@ -183,26 +184,30 @@ pub struct McpUpdateArgs {
 }
 
 /// Execute MCP command
-pub fn execute(cmd: McpCommands, project_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn execute(
+    cmd: McpCommands,
+    project_path: Option<&PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
-        McpCommands::List { scope, json } => {
-            execute_list(scope, json, project_path)
-        }
-        McpCommands::Add(args) => {
-            execute_add(args, project_path)
-        }
-        McpCommands::Remove { name, scope, dry_run, json } => {
-            execute_remove(&name, scope, dry_run, json, project_path)
-        }
-        McpCommands::Update(args) => {
-            execute_update(args, project_path)
-        }
-        McpCommands::Move { name, from, to, force, dry_run, json } => {
-            execute_move(&name, from, &to, force, dry_run, json, project_path)
-        }
+        McpCommands::List { scope, json } => execute_list(scope, json, project_path),
+        McpCommands::Add(args) => execute_add(args, project_path),
+        McpCommands::Remove {
+            name,
+            scope,
+            dry_run,
+            json,
+        } => execute_remove(&name, scope, dry_run, json, project_path),
+        McpCommands::Update(args) => execute_update(args, project_path),
+        McpCommands::Move {
+            name,
+            from,
+            to,
+            force,
+            dry_run,
+            json,
+        } => execute_move(&name, from, &to, force, dry_run, json, project_path),
     }
 }
-
 
 fn execute_list(
     scope: Option<String>,
@@ -264,7 +269,9 @@ fn execute_list(
             for server in servers {
                 if let ConfigItemData::McpServer(config) = &server.config {
                     let transport = format!("{:?}", config.transport).to_lowercase();
-                    let detail = config.command.clone()
+                    let detail = config
+                        .command
+                        .clone()
                         .or_else(|| config.url.clone())
                         .unwrap_or_default();
                     println!("  {} ({}) - {}", server.name, transport, detail);
@@ -301,7 +308,10 @@ fn execute_add(
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
         if args.dry_run {
-            println!("Dry run: Would add MCP server '{}' to {} scope", args.name, scope);
+            println!(
+                "Dry run: Would add MCP server '{}' to {} scope",
+                args.name, scope
+            );
             if !result.files_modified.is_empty() {
                 println!("Would modify: {}", result.files_modified[0].display());
             }
@@ -311,7 +321,10 @@ fn execute_add(
                 println!("Backup created: {}", backup_id);
             }
         } else {
-            eprintln!("Failed to add MCP server: {}", result.error.unwrap_or_default());
+            eprintln!(
+                "Failed to add MCP server: {}",
+                result.error.unwrap_or_default()
+            );
             std::process::exit(1);
         }
     }
@@ -350,7 +363,10 @@ fn execute_remove(
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
         if dry_run {
-            println!("Dry run: Would remove MCP server '{}' from {} scope", name, result.scope);
+            println!(
+                "Dry run: Would remove MCP server '{}' from {} scope",
+                name, result.scope
+            );
             if !result.files_modified.is_empty() {
                 println!("Would modify: {}", result.files_modified[0].display());
             }
@@ -360,7 +376,10 @@ fn execute_remove(
                 println!("Backup created: {}", backup_id);
             }
         } else {
-            eprintln!("Failed to remove MCP server: {}", result.error.unwrap_or_default());
+            eprintln!(
+                "Failed to remove MCP server: {}",
+                result.error.unwrap_or_default()
+            );
             std::process::exit(1);
         }
     }

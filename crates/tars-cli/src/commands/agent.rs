@@ -89,7 +89,10 @@ pub enum AgentCommands {
 }
 
 /// Execute agent command
-pub fn execute(cmd: AgentCommands, _project_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn execute(
+    cmd: AgentCommands,
+    _project_path: Option<&PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         AgentCommands::List { .. } => {
             println!("Agent list not yet implemented");

@@ -49,10 +49,7 @@ impl DiffPlan {
 #[serde(tag = "type")]
 pub enum FileOperation {
     /// Create a new file
-    Create {
-        path: PathBuf,
-        content: Vec<u8>,
-    },
+    Create { path: PathBuf, content: Vec<u8> },
     /// Modify an existing file
     Modify {
         path: PathBuf,
@@ -60,9 +57,7 @@ pub enum FileOperation {
         new_content: Vec<u8>,
     },
     /// Delete a file
-    Delete {
-        path: PathBuf,
-    },
+    Delete { path: PathBuf },
 }
 
 impl FileOperation {
@@ -70,9 +65,7 @@ impl FileOperation {
     #[must_use]
     pub fn path(&self) -> &PathBuf {
         match self {
-            Self::Create { path, .. }
-            | Self::Modify { path, .. }
-            | Self::Delete { path } => path,
+            Self::Create { path, .. } | Self::Modify { path, .. } | Self::Delete { path } => path,
         }
     }
 }

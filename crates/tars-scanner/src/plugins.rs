@@ -65,14 +65,12 @@ impl PluginInventory {
                                 repo: parts[1].to_string(),
                             }
                         } else {
-                            MarketplaceSource::Url {
-                                url: repo.clone(),
-                            }
+                            MarketplaceSource::Url { url: repo.clone() }
                         }
                     }
-                    RawMarketplaceSource::Git { url } => MarketplaceSource::Url {
-                        url: url.clone(),
-                    },
+                    RawMarketplaceSource::Git { url } => {
+                        MarketplaceSource::Url { url: url.clone() }
+                    }
                     RawMarketplaceSource::Local { path } => MarketplaceSource::Local {
                         path: PathBuf::from(path),
                     },
@@ -284,10 +282,7 @@ impl PluginInventory {
                 };
 
                 // Check enabled state from settings, default to true if not specified
-                let enabled = enabled_map
-                    .get(&plugin_key)
-                    .copied()
-                    .unwrap_or(true);
+                let enabled = enabled_map.get(&plugin_key).copied().unwrap_or(true);
 
                 plugins.push(InstalledPlugin {
                     id: plugin_name.to_string(),
@@ -346,9 +341,7 @@ impl PluginInventory {
 
         plugins_obj
             .iter()
-            .filter_map(|(key, value)| {
-                value.as_bool().map(|enabled| (key.clone(), enabled))
-            })
+            .filter_map(|(key, value)| value.as_bool().map(|enabled| (key.clone(), enabled)))
             .collect()
     }
 
@@ -419,7 +412,10 @@ impl PluginInventory {
     }
 
     /// Read manifest from marketplace.json (for multi-plugin marketplaces)
-    fn read_manifest_from_marketplace_json(path: &Path, plugin_name: &str) -> Option<PluginManifest> {
+    fn read_manifest_from_marketplace_json(
+        path: &Path,
+        plugin_name: &str,
+    ) -> Option<PluginManifest> {
         let content = fs::read_to_string(path).ok()?;
         let json: serde_json::Value = serde_json::from_str(&content).ok()?;
 

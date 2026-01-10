@@ -279,7 +279,10 @@ fn test_scanner_preserves_file_permissions() {
 
     // Record permissions before
     let mut permissions_before = HashMap::new();
-    for entry in WalkDir::new(fixture.path()).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(fixture.path())
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         if entry.file_type().is_file() {
             let metadata = fs::metadata(entry.path()).unwrap();
             let relative_path = entry
@@ -297,7 +300,10 @@ fn test_scanner_preserves_file_permissions() {
     let _ = scanner.scan_all(&[fixture.path()]);
 
     // Check permissions after
-    for entry in WalkDir::new(fixture.path()).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(fixture.path())
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         if entry.file_type().is_file() {
             let metadata = fs::metadata(entry.path()).unwrap();
             let relative_path = entry
@@ -326,7 +332,10 @@ fn test_scanner_preserves_timestamps() {
 
     // Record modification times before
     let mut mtimes_before = HashMap::new();
-    for entry in WalkDir::new(fixture.path()).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(fixture.path())
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         if entry.file_type().is_file() {
             let metadata = fs::metadata(entry.path()).unwrap();
             let relative_path = entry
@@ -347,7 +356,10 @@ fn test_scanner_preserves_timestamps() {
     let _ = scanner.scan_all(&[fixture.path()]);
 
     // Check modification times after
-    for entry in WalkDir::new(fixture.path()).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(fixture.path())
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         if entry.file_type().is_file() {
             let metadata = fs::metadata(entry.path()).unwrap();
             let relative_path = entry

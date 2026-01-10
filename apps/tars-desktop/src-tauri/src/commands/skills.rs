@@ -42,8 +42,8 @@ pub async fn read_skill(path: String) -> Result<SkillInfo, String> {
         return Err("Skill file not found".to_string());
     }
 
-    let content = std::fs::read_to_string(&validated_path)
-        .map_err(|_| "Failed to read skill".to_string())?;
+    let content =
+        std::fs::read_to_string(&validated_path).map_err(|_| "Failed to read skill".to_string())?;
 
     // Extract name from path
     let name = skill_path
@@ -84,8 +84,7 @@ pub async fn read_supporting_file(path: String) -> Result<String, String> {
         return Err("File not found".to_string());
     }
 
-    std::fs::read_to_string(&validated_path)
-        .map_err(|_| "Failed to read file".to_string())
+    std::fs::read_to_string(&validated_path).map_err(|_| "Failed to read file".to_string())
 }
 
 /// Save a skill file
@@ -98,8 +97,7 @@ pub async fn save_skill(path: String, content: String) -> Result<(), String> {
 
     // Ensure parent directory exists
     if let Some(parent) = validated_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|_| "Failed to create directory".to_string())?;
+        std::fs::create_dir_all(parent).map_err(|_| "Failed to create directory".to_string())?;
     }
 
     std::fs::write(&validated_path, content).map_err(|_| "Failed to save skill".to_string())?;
@@ -148,7 +146,8 @@ Add your skill instructions here.
 "#,
     );
 
-    std::fs::create_dir_all(&skill_dir).map_err(|_| "Failed to create skill directory".to_string())?;
+    std::fs::create_dir_all(&skill_dir)
+        .map_err(|_| "Failed to create skill directory".to_string())?;
     std::fs::write(&skill_file, &content).map_err(|_| "Failed to create skill".to_string())?;
 
     Ok(SkillInfo {
@@ -175,9 +174,7 @@ pub async fn save_supporting_file(
     let validated_skill = validate_skill_path(&skill_file)?;
 
     // Get the skill directory
-    let skill_dir = validated_skill
-        .parent()
-        .ok_or("Invalid skill path")?;
+    let skill_dir = validated_skill.parent().ok_or("Invalid skill path")?;
 
     // Validate file name (no path traversal, but allow forward slashes for subdirs)
     if file_name.contains("..") || file_name.contains('\\') {
@@ -190,7 +187,8 @@ pub async fn save_supporting_file(
 
     // Validate the final path is still within the skill directory
     // Use canonicalize on parent to handle the case where file doesn't exist yet
-    let canonical_skill_dir = skill_dir.canonicalize()
+    let canonical_skill_dir = skill_dir
+        .canonicalize()
         .map_err(|_| "Invalid skill directory".to_string())?;
 
     // For new files, we can't canonicalize the full path, so check the parent
@@ -201,7 +199,8 @@ pub async fn save_supporting_file(
                 .map_err(|_| "Failed to create directory".to_string())?;
         }
 
-        let canonical_parent = parent.canonicalize()
+        let canonical_parent = parent
+            .canonicalize()
             .map_err(|_| "Invalid parent directory".to_string())?;
 
         if !canonical_parent.starts_with(&canonical_skill_dir) {
@@ -209,8 +208,7 @@ pub async fn save_supporting_file(
         }
     }
 
-    std::fs::write(&file_path, &content)
-        .map_err(|_| "Failed to save file".to_string())?;
+    std::fs::write(&file_path, &content).map_err(|_| "Failed to save file".to_string())?;
 
     // Extract just the file name for display (last component)
     let display_name = if normalized_name.contains('/') {
@@ -251,8 +249,7 @@ pub async fn delete_supporting_file(path: String) -> Result<(), String> {
         return Err("Cannot delete SKILL.md - use delete skill instead".to_string());
     }
 
-    std::fs::remove_file(&validated_path)
-        .map_err(|_| "Failed to delete file".to_string())?;
+    std::fs::remove_file(&validated_path).map_err(|_| "Failed to delete file".to_string())?;
 
     Ok(())
 }
@@ -280,9 +277,7 @@ pub async fn delete_skill(path: String) -> Result<(), String> {
     }
 
     // Get the skill directory (parent of SKILL.md)
-    let skill_dir = validated_path
-        .parent()
-        .ok_or("Invalid skill path")?;
+    let skill_dir = validated_path.parent().ok_or("Invalid skill path")?;
 
     // Verify the skill directory name is valid and doesn't contain traversal
     let dir_name = skill_dir
@@ -396,12 +391,16 @@ fn validate_skill_path(path: &Path) -> Result<PathBuf, String> {
 
         // Check if path is within a project's .claude/skills/ directory
         let canonical_str = canonical.display().to_string();
-        if canonical_str.contains("/.claude/skills/") || canonical_str.contains("\\.claude\\skills\\") {
+        if canonical_str.contains("/.claude/skills/")
+            || canonical_str.contains("\\.claude\\skills\\")
+        {
             return Ok(canonical);
         }
 
         // Check if path is within a plugin's skills directory
-        if canonical_str.contains("/.claude/plugins/") || canonical_str.contains("\\.claude\\plugins\\") {
+        if canonical_str.contains("/.claude/plugins/")
+            || canonical_str.contains("\\.claude\\plugins\\")
+        {
             return Ok(canonical);
         }
 
@@ -497,12 +496,10 @@ fn scan_supporting_files(skill_file_path: &Path, skill_content: &str) -> Vec<Sup
     }
 
     // Sort: referenced files first, then by name
-    files.sort_by(|a, b| {
-        match (a.is_referenced, b.is_referenced) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.cmp(&b.name),
-        }
+    files.sort_by(|a, b| match (a.is_referenced, b.is_referenced) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.cmp(&b.name),
     });
 
     files
@@ -587,7 +584,7 @@ fn determine_file_type(file_name: &str) -> String {
 
 /// Check if a file is referenced in the SKILL.md
 fn is_file_referenced(file_name: &str, referenced_files: &[String]) -> bool {
-    referenced_files.iter().any(|link| {
-        link == file_name || link.ends_with(&format!("/{}", file_name))
-    })
+    referenced_files
+        .iter()
+        .any(|link| link == file_name || link.ends_with(&format!("/{}", file_name)))
 }

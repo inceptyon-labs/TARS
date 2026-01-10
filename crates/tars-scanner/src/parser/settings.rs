@@ -36,8 +36,7 @@ struct RawPermissions {
 /// # Errors
 /// Returns an error if parsing fails
 pub fn parse_settings(path: &Path, content: &str) -> ScanResult<SettingsFile> {
-    let raw: RawSettings =
-        serde_json::from_str(content).map_err(ScanError::JsonParse)?;
+    let raw: RawSettings = serde_json::from_str(content).map_err(ScanError::JsonParse)?;
 
     let sha256 = compute_sha256(content);
     let hooks_count = raw.hooks.len();

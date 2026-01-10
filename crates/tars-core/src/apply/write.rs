@@ -47,9 +47,7 @@ fn apply_operation(
     match operation {
         FileOperation::Create { path, content } => {
             // Get relative path for validation
-            let relative_path = path
-                .strip_prefix(project_root)
-                .unwrap_or(path);
+            let relative_path = path.strip_prefix(project_root).unwrap_or(path);
 
             // Validate path doesn't escape project directory
             let full_path = safe_join(project_root, relative_path)?;
@@ -65,11 +63,11 @@ fn apply_operation(
             // Write the file
             fs::write(&full_path, content)?;
         }
-        FileOperation::Modify { path, new_content, .. } => {
+        FileOperation::Modify {
+            path, new_content, ..
+        } => {
             // Get relative path for validation
-            let relative_path = path
-                .strip_prefix(project_root)
-                .unwrap_or(path);
+            let relative_path = path.strip_prefix(project_root).unwrap_or(path);
 
             // Validate path doesn't escape project directory
             let full_path = safe_join(project_root, relative_path)?;
@@ -77,16 +75,18 @@ fn apply_operation(
             // Backup: save original content
             let original = fs::read(&full_path)?;
             let sha256 = compute_sha256(&original);
-            backup.add_file(BackupFile::existing(relative_path.to_path_buf(), original, sha256));
+            backup.add_file(BackupFile::existing(
+                relative_path.to_path_buf(),
+                original,
+                sha256,
+            ));
 
             // Write the new content
             fs::write(&full_path, new_content)?;
         }
         FileOperation::Delete { path } => {
             // Get relative path for validation
-            let relative_path = path
-                .strip_prefix(project_root)
-                .unwrap_or(path);
+            let relative_path = path.strip_prefix(project_root).unwrap_or(path);
 
             // Validate path doesn't escape project directory
             let full_path = safe_join(project_root, relative_path)?;
@@ -94,7 +94,11 @@ fn apply_operation(
             // Backup: save original content
             let original = fs::read(&full_path)?;
             let sha256 = compute_sha256(&original);
-            backup.add_file(BackupFile::existing(relative_path.to_path_buf(), original, sha256));
+            backup.add_file(BackupFile::existing(
+                relative_path.to_path_buf(),
+                original,
+                sha256,
+            ));
 
             // Delete the file
             fs::remove_file(&full_path)?;

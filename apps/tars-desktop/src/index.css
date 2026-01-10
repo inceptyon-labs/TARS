@@ -289,9 +289,97 @@
   top: 16px;
 }
 
+/* Smaller mark variant for compact sidebar */
+.tars-mark-sm {
+  width: 56px;
+  height: 64px;
+  display: grid;
+  grid-template-columns: 12px 1fr 12px;
+  gap: 2px;
+  position: relative;
+}
+
+.tars-mark-sm span {
+  display: block;
+  border-radius: 3px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--metal-highlight) 80%, transparent) 0%,
+    var(--metal-mid) 40%,
+    color-mix(in srgb, var(--metal-mid) 60%, black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--metal-highlight),
+    0 1px 2px var(--metal-shadow);
+}
+
+.tars-mark-sm span:nth-child(1) {
+  height: 100%;
+  align-self: end;
+}
+
+.tars-mark-sm span:nth-child(2) {
+  height: 82%;
+  align-self: start;
+}
+
+.tars-mark-sm span:nth-child(3) {
+  height: 100%;
+  align-self: end;
+}
+
+.tars-mark-sm span:nth-child(4) {
+  display: none;
+}
+
+/* Display screen on body for small mark */
+.tars-mark-sm span:nth-child(2)::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 8px;
+  background: #0a0a0a;
+  border-radius: 2px;
+}
+
+/* Braille dots for small mark - left column */
+.tars-mark-sm::before {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow:
+    0 5px 0 var(--primary),
+    0 10px 0 var(--primary),
+    0 20px 0 var(--primary);
+  left: 17px;
+  top: 15px;
+}
+
+/* Braille dots for small mark - right column */
+.tars-mark-sm::after {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow:
+    0 5px 0 var(--primary),
+    0 15px 0 var(--primary),
+    0 20px 0 var(--primary);
+  right: 17px;
+  top: 12px;
+}
+
 .tars-mark-collapsed {
-  width: 48px;
-  height: 54px;
+  width: 40px;
+  height: 46px;
   grid-template-columns: 8px 1fr 8px;
   gap: 1px;
 }
@@ -302,25 +390,25 @@
 
 /* Collapsed - asymmetric dots */
 .tars-mark-collapsed::before {
-  width: 3px;
-  height: 3px;
+  width: 2.5px;
+  height: 2.5px;
   box-shadow:
-    0 5px 0 var(--primary),
-    0 10px 0 var(--primary),
-    0 18px 0 var(--primary);
-  left: 14px;
-  top: 12px;
+    0 4px 0 var(--primary),
+    0 8px 0 var(--primary),
+    0 15px 0 var(--primary);
+  left: 12px;
+  top: 10px;
 }
 
 .tars-mark-collapsed::after {
-  width: 3px;
-  height: 3px;
+  width: 2.5px;
+  height: 2.5px;
   box-shadow:
-    0 5px 0 var(--primary),
-    0 14px 0 var(--primary),
-    0 19px 0 var(--primary);
-  right: 14px;
-  top: 10px;
+    0 4px 0 var(--primary),
+    0 11px 0 var(--primary),
+    0 15px 0 var(--primary);
+  right: 12px;
+  top: 8px;
 }
 
 /* TARS Wordmark */
@@ -347,12 +435,36 @@
   text-shadow: 0.35px 0 0 currentColor, -0.35px 0 0 currentColor;
 }
 
+/* Smaller wordmark variant */
+.tars-wordmark-sm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.tars-wordmark-text-sm {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  font-family: 'Trade Gothic Std Bold Extended', 'Trade Gothic Bold Extended', 'Trade Gothic', 'Franklin Gothic Medium',
+    'Arial Narrow', 'Oswald', sans-serif;
+  font-weight: 800;
+  font-stretch: expanded;
+  text-transform: uppercase;
+  color: var(--tars-wordmark);
+  letter-spacing: 0.2em;
+  font-size: 20px;
+  line-height: 1;
+  text-shadow: 0.25px 0 0 currentColor, -0.25px 0 0 currentColor;
+}
+
 .tars-wordmark-collapsed {
-  gap: 6px;
+  gap: 4px;
 }
 
 .tars-wordmark-collapsed .tars-wordmark-text {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 /* ============================================
@@ -729,6 +841,35 @@
   background: var(--tars-glow);
   box-shadow: 0 0 6px var(--tars-glow-soft);
   border-radius: 2px;
+}
+
+/* Section header button - clickable section titles */
+.tars-section-header {
+  cursor: pointer;
+}
+
+.tars-section-header .tars-section-title {
+  padding-left: 12px;
+}
+
+.tars-section-header .tars-section-title::before {
+  left: 0;
+}
+
+/* Sidebar resize handle */
+.tars-sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 20;
+}
+
+.tars-sidebar-resize:hover,
+.tars-sidebar-resize:active {
+  background: var(--tars-glow-soft);
 }
 
 /* Sidebar collapse toggle */

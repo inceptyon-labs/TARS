@@ -4,15 +4,12 @@
 
 use crate::state::AppState;
 use std::path::PathBuf;
-use tauri::State;
 use tars_scanner::{Inventory, Scanner};
+use tauri::State;
 
 /// Scan a project directory for Claude Code configuration
 #[tauri::command]
-pub async fn scan_project(
-    path: String,
-    _state: State<'_, AppState>,
-) -> Result<Inventory, String> {
+pub async fn scan_project(path: String, _state: State<'_, AppState>) -> Result<Inventory, String> {
     let project_path = PathBuf::from(&path);
 
     if !project_path.exists() {

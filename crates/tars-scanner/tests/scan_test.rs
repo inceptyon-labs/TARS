@@ -49,8 +49,11 @@ This is a test skill.
 "#;
     fs::write(skills_dir.join("test-skill").join("SKILL.md"), "").ok(); // Ignore if fails
     fs::create_dir_all(skills_dir.join("test-skill")).expect("Failed to create skill directory");
-    fs::write(skills_dir.join("test-skill").join("SKILL.md"), skill_content)
-        .expect("Failed to write SKILL.md");
+    fs::write(
+        skills_dir.join("test-skill").join("SKILL.md"),
+        skill_content,
+    )
+    .expect("Failed to write SKILL.md");
 
     // Create commands directory with a command
     let commands_dir = claude_dir.join("commands");
@@ -63,8 +66,7 @@ thinking: true
 
 Execute the following task: $ARGUMENTS
 "#;
-    fs::write(commands_dir.join("test-cmd.md"), command_content)
-        .expect("Failed to write command");
+    fs::write(commands_dir.join("test-cmd.md"), command_content).expect("Failed to write command");
 
     // Create hooks directory with hooks.json
     let hooks_dir = claude_dir.join("hooks");
@@ -115,11 +117,11 @@ fn test_scan_project_structure() {
     assert!(result.is_ok(), "Scan should succeed: {:?}", result.err());
 
     let project_scope = result.unwrap();
+    assert!(project_scope.claude_md.is_some(), "Should detect CLAUDE.md");
     assert!(
-        project_scope.claude_md.is_some(),
-        "Should detect CLAUDE.md"
+        project_scope.mcp.is_some(),
+        "Should detect .claude.json MCP config"
     );
-    assert!(project_scope.mcp.is_some(), "Should detect .claude.json MCP config");
 }
 
 #[test]

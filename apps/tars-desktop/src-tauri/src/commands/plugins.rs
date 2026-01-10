@@ -17,7 +17,10 @@ fn validate_plugin_source(source: &str) -> Result<(), String> {
     }
     // Allow alphanumeric, hyphens, underscores, dots, @, /, :, and common URL chars
     // Reject shell metacharacters and control characters
-    let forbidden_chars = ['`', '$', '(', ')', '{', '}', '[', ']', '|', ';', '&', '<', '>', '\\', '\n', '\r', '\0', '\'', '"', '!', '*', '?'];
+    let forbidden_chars = [
+        '`', '$', '(', ')', '{', '}', '[', ']', '|', ';', '&', '<', '>', '\\', '\n', '\r', '\0',
+        '\'', '"', '!', '*', '?',
+    ];
     for ch in forbidden_chars {
         if source.contains(ch) {
             return Err(format!("Source contains forbidden character: {}", ch));
@@ -35,7 +38,10 @@ fn validate_plugin_name(name: &str) -> Result<(), String> {
         return Err("Plugin name too long".to_string());
     }
     // Plugin names should be simple identifiers
-    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.') {
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+    {
         return Err("Plugin name contains invalid characters".to_string());
     }
     if name.starts_with('.') || name.starts_with('-') {
@@ -48,7 +54,10 @@ fn validate_plugin_name(name: &str) -> Result<(), String> {
 fn validate_scope(scope: &str) -> Result<(), String> {
     match scope {
         "user" | "project" | "local" => Ok(()),
-        _ => Err(format!("Invalid scope: {}. Must be user, project, or local", scope)),
+        _ => Err(format!(
+            "Invalid scope: {}. Must be user, project, or local",
+            scope
+        )),
     }
 }
 
@@ -214,7 +223,12 @@ pub async fn plugin_move_scope(
 
     // First uninstall from current scope (uses just plugin name)
     let uninstall_output = Command::new("claude")
-        .args(["plugin", "uninstall", &format!("--scope={}", from_scope), plugin_name])
+        .args([
+            "plugin",
+            "uninstall",
+            &format!("--scope={}", from_scope),
+            plugin_name,
+        ])
         .output()
         .map_err(|_| "Failed to run claude CLI".to_string())?;
 
@@ -224,16 +238,29 @@ pub async fn plugin_move_scope(
 
     // Then reinstall at new scope (uses full plugin@marketplace)
     let install_output = Command::new("claude")
-        .args(["plugin", "install", &format!("--scope={}", to_scope), &plugin])
+        .args([
+            "plugin",
+            "install",
+            &format!("--scope={}", to_scope),
+            &plugin,
+        ])
         .output()
         .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if install_output.status.success() {
-        Ok(format!("Moved {} from {} to {} scope", plugin_name, from_scope, to_scope))
+        Ok(format!(
+            "Moved {} from {} to {} scope",
+            plugin_name, from_scope, to_scope
+        ))
     } else {
         // Try to restore original installation if reinstall fails
         let _ = Command::new("claude")
-            .args(["plugin", "install", &format!("--scope={}", from_scope), &plugin])
+            .args([
+                "plugin",
+                "install",
+                &format!("--scope={}", from_scope),
+                &plugin,
+            ])
             .output();
 
         Err(format!("Failed to install at {} scope", to_scope))
@@ -256,8 +283,7 @@ pub async fn plugin_disable(plugin: String) -> Result<String, String> {
 
 /// Set a plugin's enabled state in ~/.claude/settings.json
 fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
-    let home = std::env::var("HOME")
-        .map_err(|_| "Could not find HOME environment variable")?;
+    let home = std::env::var("HOME").map_err(|_| "Could not find HOME environment variable")?;
     let settings_file = std::path::PathBuf::from(home)
         .join(".claude")
         .join("settings.json");
@@ -266,8 +292,7 @@ fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
     let mut settings: serde_json::Value = if settings_file.exists() {
         let content = std::fs::read_to_string(&settings_file)
             .map_err(|_| "Failed to read settings file".to_string())?;
-        serde_json::from_str(&content)
-            .map_err(|_| "Failed to parse settings file".to_string())?
+        serde_json::from_str(&content).map_err(|_| "Failed to parse settings file".to_string())?
     } else {
         serde_json::json!({})
     };
@@ -278,7 +303,10 @@ fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
     }
 
     // Set the plugin's enabled state
-    if let Some(enabled_plugins) = settings.get_mut("enabledPlugins").and_then(|p| p.as_object_mut()) {
+    if let Some(enabled_plugins) = settings
+        .get_mut("enabledPlugins")
+        .and_then(|p| p.as_object_mut())
+    {
         enabled_plugins.insert(plugin.to_string(), serde_json::Value::Bool(enabled));
     }
 
@@ -288,7 +316,11 @@ fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
     std::fs::write(&settings_file, content)
         .map_err(|_| "Failed to write settings file".to_string())?;
 
-    Ok(format!("Plugin {} {}", plugin, if enabled { "enabled" } else { "disabled" }))
+    Ok(format!(
+        "Plugin {} {}",
+        plugin,
+        if enabled { "enabled" } else { "disabled" }
+    ))
 }
 
 /// Toggle auto-update for a marketplace
@@ -299,8 +331,7 @@ pub async fn plugin_marketplace_set_auto_update(
 ) -> Result<String, String> {
     validate_plugin_name(&name)?;
 
-    let home = std::env::var("HOME")
-        .map_err(|_| "Could not find HOME environment variable")?;
+    let home = std::env::var("HOME").map_err(|_| "Could not find HOME environment variable")?;
     let marketplaces_file = std::path::PathBuf::from(home)
         .join(".claude")
         .join("plugins")
@@ -315,13 +346,16 @@ pub async fn plugin_marketplace_set_auto_update(
         .map_err(|_| "Failed to read marketplaces file".to_string())?;
 
     // Parse as JSON
-    let mut json: serde_json::Value =
-        serde_json::from_str(&content).map_err(|_| "Failed to parse marketplaces file".to_string())?;
+    let mut json: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|_| "Failed to parse marketplaces file".to_string())?;
 
     // Update the autoUpdate field for the marketplace
     if let Some(marketplace) = json.get_mut(&name) {
         if let Some(obj) = marketplace.as_object_mut() {
-            obj.insert("autoUpdate".to_string(), serde_json::Value::Bool(auto_update));
+            obj.insert(
+                "autoUpdate".to_string(),
+                serde_json::Value::Bool(auto_update),
+            );
         } else {
             return Err("Invalid marketplace configuration".to_string());
         }
@@ -365,8 +399,7 @@ pub struct CacheStatusResponse {
 /// Get cache cleanup status
 #[tauri::command]
 pub async fn cache_status() -> Result<CacheStatusResponse, String> {
-    let report = CacheCleanupReport::scan()
-        .map_err(|e| format!("Failed to scan cache: {}", e))?;
+    let report = CacheCleanupReport::scan().map_err(|e| format!("Failed to scan cache: {}", e))?;
 
     Ok(CacheStatusResponse {
         stale_entries: report
@@ -398,8 +431,7 @@ pub struct CacheCleanResult {
 /// Clean stale cache entries
 #[tauri::command]
 pub async fn cache_clean() -> Result<CacheCleanResult, String> {
-    let report = CacheCleanupReport::scan()
-        .map_err(|e| format!("Failed to scan cache: {}", e))?;
+    let report = CacheCleanupReport::scan().map_err(|e| format!("Failed to scan cache: {}", e))?;
 
     if report.stale_entries.is_empty() {
         return Ok(CacheCleanResult {
@@ -410,7 +442,8 @@ pub async fn cache_clean() -> Result<CacheCleanResult, String> {
         });
     }
 
-    let result = report.clean()
+    let result = report
+        .clean()
         .map_err(|e| format!("Failed to clean cache: {}", e))?;
 
     Ok(CacheCleanResult {
@@ -431,10 +464,16 @@ pub async fn open_claude_with_skill(skill_invocation: String) -> Result<(), Stri
     }
 
     // Validate for shell safety - only allow safe characters
-    let forbidden_chars = ['`', '$', '(', ')', '{', '}', '[', ']', '|', ';', '&', '<', '>', '\\', '\n', '\r', '\0', '\'', '"', '!', '*', '?'];
+    let forbidden_chars = [
+        '`', '$', '(', ')', '{', '}', '[', ']', '|', ';', '&', '<', '>', '\\', '\n', '\r', '\0',
+        '\'', '"', '!', '*', '?',
+    ];
     for ch in forbidden_chars {
         if skill_invocation.contains(ch) {
-            return Err(format!("Skill invocation contains forbidden character: {}", ch));
+            return Err(format!(
+                "Skill invocation contains forbidden character: {}",
+                ch
+            ));
         }
     }
 
@@ -443,10 +482,7 @@ pub async fn open_claude_with_skill(skill_invocation: String) -> Result<(), Stri
     // not via -p flag, so user needs to paste the command
 
     // First, copy to clipboard
-    let copy_script = format!(
-        r#"set the clipboard to "{}""#,
-        skill_invocation
-    );
+    let copy_script = format!(r#"set the clipboard to "{}""#, skill_invocation);
     Command::new("osascript")
         .args(["-e", &copy_script])
         .output()

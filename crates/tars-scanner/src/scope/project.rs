@@ -212,17 +212,15 @@ fn scan_hooks_directory(hooks_dir: &Path) -> ScanResult<Vec<HookInfo>> {
     let hooks_json_path = hooks_dir.join("hooks.json");
     if hooks_json_path.exists() {
         match fs::read_to_string(&hooks_json_path) {
-            Ok(content) => {
-                match parse_hooks_json(&hooks_json_path, &content) {
-                    Ok(parsed_hooks) => hooks.extend(parsed_hooks),
-                    Err(e) => {
-                        eprintln!(
-                            "Warning: Failed to parse hooks at {:?}: {}",
-                            hooks_json_path, e
-                        );
-                    }
+            Ok(content) => match parse_hooks_json(&hooks_json_path, &content) {
+                Ok(parsed_hooks) => hooks.extend(parsed_hooks),
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to parse hooks at {:?}: {}",
+                        hooks_json_path, e
+                    );
                 }
-            }
+            },
             Err(e) => {
                 eprintln!(
                     "Warning: Failed to read hooks file {:?}: {}",

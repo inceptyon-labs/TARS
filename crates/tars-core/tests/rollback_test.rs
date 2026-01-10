@@ -36,7 +36,11 @@ fn snapshot_directory(dir: &Path) -> HashMap<String, Option<String>> {
             for entry in entries.filter_map(Result::ok) {
                 let path = entry.path();
                 if path.is_file() {
-                    let relative = path.strip_prefix(base).unwrap().to_string_lossy().to_string();
+                    let relative = path
+                        .strip_prefix(base)
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string();
                     snapshot.insert(relative, hash_file(&path));
                 } else if path.is_dir() {
                     visit_dir(&path, base, snapshot);
@@ -52,8 +56,11 @@ fn snapshot_directory(dir: &Path) -> HashMap<String, Option<String>> {
 /// Create a test project with Claude Code configuration
 fn create_test_project(temp_dir: &Path) {
     // Create CLAUDE.md
-    fs::write(temp_dir.join("CLAUDE.md"), "# Project Instructions\n\nOriginal content.\n")
-        .expect("Failed to create CLAUDE.md");
+    fs::write(
+        temp_dir.join("CLAUDE.md"),
+        "# Project Instructions\n\nOriginal content.\n",
+    )
+    .expect("Failed to create CLAUDE.md");
 
     // Create .claude directory
     let claude_dir = temp_dir.join(".claude");
@@ -187,7 +194,10 @@ fn test_rollback_removes_newly_created_files() {
 
     // Verify file was created
     let new_skill_path = project_path.join(".claude/skills/brand-new-skill/SKILL.md");
-    assert!(new_skill_path.exists(), "New skill should exist after apply");
+    assert!(
+        new_skill_path.exists(),
+        "New skill should exist after apply"
+    );
 
     // Rollback
     restore_from_backup(project_path, &backup).expect("Failed to rollback");
@@ -223,9 +233,11 @@ fn test_rollback_restores_modified_file_content() {
     apply_operations(&plan, project_path, &mut backup).expect("Failed to apply");
 
     // Verify content changed
-    let after_content =
-        fs::read_to_string(project_path.join("CLAUDE.md")).expect("Failed to read");
-    assert_ne!(after_content, original_content, "Content should have changed");
+    let after_content = fs::read_to_string(project_path.join("CLAUDE.md")).expect("Failed to read");
+    assert_ne!(
+        after_content, original_content,
+        "Content should have changed"
+    );
 
     // Rollback
     restore_from_backup(project_path, &backup).expect("Failed to rollback");

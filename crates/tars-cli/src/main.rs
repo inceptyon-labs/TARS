@@ -5,8 +5,8 @@
 mod commands;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use std::path::{Path, PathBuf};
 use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use tars_core::backup::restore::restore_from_backup;
 use tars_core::diff::display::{format_plan_terminal, DiffSummary};
 use tars_core::diff::plan::generate_plan;
@@ -266,19 +266,29 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
                 }
             }
         }
-        ProfileCommands::Create { name, source, description } => {
+        ProfileCommands::Create {
+            name,
+            source,
+            description,
+        } => {
             // Validate profile name
             validate_name(&name)?;
 
-            let source_path = source
-                .map(PathBuf::from)
-                .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+            let source_path = source.map(PathBuf::from).unwrap_or_else(|| {
+                std::env::current_dir().expect("Failed to get current directory")
+            });
 
             if !source_path.exists() {
-                return Err(format!("Source path does not exist: {}", source_path.display()).into());
+                return Err(
+                    format!("Source path does not exist: {}", source_path.display()).into(),
+                );
             }
 
-            println!("Creating profile '{}' from: {}", name, source_path.display());
+            println!(
+                "Creating profile '{}' from: {}",
+                name,
+                source_path.display()
+            );
 
             let mut profile = snapshot_from_project(&source_path, name)?;
             if let Some(desc) = description {
@@ -296,7 +306,9 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
             let target_path = PathBuf::from(&target);
 
             if !target_path.exists() {
-                return Err(format!("Target path does not exist: {}", target_path.display()).into());
+                return Err(
+                    format!("Target path does not exist: {}", target_path.display()).into(),
+                );
             }
 
             // Find profile by name or ID
@@ -334,7 +346,10 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
             let backup_dir = data_dir.join("backups");
             std::fs::create_dir_all(&backup_dir)?;
 
-            let archive_path = backup_dir.join(format!("backup-{}.json", chrono::Utc::now().format("%Y%m%d-%H%M%S")));
+            let archive_path = backup_dir.join(format!(
+                "backup-{}.json",
+                chrono::Utc::now().format("%Y%m%d-%H%M%S")
+            ));
             let mut backup = Backup::new(proj.id, archive_path.clone())
                 .with_profile(prof.id)
                 .with_description(format!("Before applying profile '{}'", prof.name));
@@ -407,7 +422,9 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
         } => {
             let prof = find_profile(&profiles, &profile)?;
 
-            let output_dir = output.unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
+            let output_dir = output.unwrap_or_else(|| {
+                std::env::current_dir().expect("Failed to get current directory")
+            });
             let plugin_name = name.unwrap_or_else(|| prof.name.clone());
 
             // Validate plugin name and version for use in filenames
@@ -417,7 +434,9 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
             }
 
             if !output_dir.exists() {
-                return Err(format!("Output directory does not exist: {}", output_dir.display()).into());
+                return Err(
+                    format!("Output directory does not exist: {}", output_dir.display()).into(),
+                );
             }
 
             println!(
@@ -452,7 +471,12 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
                 println!("Backups:");
                 for b in filtered {
                     let desc = b.description.as_deref().unwrap_or("No description");
-                    println!("  {} - {} ({})", b.id, b.created_at.format("%Y-%m-%d %H:%M"), desc);
+                    println!(
+                        "  {} - {} ({})",
+                        b.id,
+                        b.created_at.format("%Y-%m-%d %H:%M"),
+                        desc
+                    );
                 }
             }
         }
@@ -501,7 +525,8 @@ fn run_cache_command(action: CacheCommands) -> Result<(), Box<dyn std::error::Er
                 return Ok(());
             }
 
-            println!("Found {} stale cache entries ({})",
+            println!(
+                "Found {} stale cache entries ({})",
                 report.stale_entries.len(),
                 report.format_size()
             );
@@ -532,7 +557,8 @@ fn run_cache_command(action: CacheCommands) -> Result<(), Box<dyn std::error::Er
 
             let result = report.clean()?;
 
-            println!("\nCleaned up {} entries, freed {}",
+            println!(
+                "\nCleaned up {} entries, freed {}",
                 result.deleted_count,
                 result.format_size()
             );

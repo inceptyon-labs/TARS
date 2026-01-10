@@ -1,7 +1,7 @@
 //! Backup and rollback functionality
 
-mod types;
 pub mod create;
 pub mod restore;
+mod types;
 
 pub use types::*;

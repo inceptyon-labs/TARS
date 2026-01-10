@@ -47,17 +47,12 @@ impl ConfigScope {
     /// Get the base directory for this scope
     pub fn base_dir(&self, project_path: Option<&PathBuf>) -> ConfigResult<PathBuf> {
         match self {
-            Self::User => {
-                dirs::home_dir().ok_or_else(|| ConfigError::Internal("Cannot find home directory".into()))
-            }
-            Self::Project | Self::Local => {
-                project_path
-                    .cloned()
-                    .ok_or_else(|| ConfigError::ValidationError("Project path required for project/local scope".into()))
-            }
-            Self::Managed => {
-                Ok(PathBuf::from("/Library/Application Support/ClaudeCode"))
-            }
+            Self::User => dirs::home_dir()
+                .ok_or_else(|| ConfigError::Internal("Cannot find home directory".into())),
+            Self::Project | Self::Local => project_path.cloned().ok_or_else(|| {
+                ConfigError::ValidationError("Project path required for project/local scope".into())
+            }),
+            Self::Managed => Ok(PathBuf::from("/Library/Application Support/ClaudeCode")),
         }
     }
 
@@ -101,9 +96,7 @@ impl ConfigScope {
                     .ok_or_else(|| ConfigError::ValidationError("Project path required".into()))?;
                 Ok(base.join(".mcp.json"))
             }
-            Self::Managed => {
-                Err(ConfigError::ManagedScope)
-            }
+            Self::Managed => Err(ConfigError::ManagedScope),
         }
     }
 
@@ -174,7 +167,10 @@ mod tests {
     fn test_scope_from_str() {
         assert_eq!(ConfigScope::from_str("user").unwrap(), ConfigScope::User);
         assert_eq!(ConfigScope::from_str("global").unwrap(), ConfigScope::User);
-        assert_eq!(ConfigScope::from_str("project").unwrap(), ConfigScope::Project);
+        assert_eq!(
+            ConfigScope::from_str("project").unwrap(),
+            ConfigScope::Project
+        );
         assert_eq!(ConfigScope::from_str("local").unwrap(), ConfigScope::Local);
         assert!(ConfigScope::from_str("invalid").is_err());
     }

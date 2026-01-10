@@ -132,17 +132,19 @@ pub async fn mcp_add(
         .map_err(|e| format!("Failed to create backup directory: {}", e))?;
 
     // Create operations manager
-    let ops = McpOps::new(project_path.map(PathBuf::from))
-        .with_backup_dir(backup_dir);
+    let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);
 
     let dry_run = params.dry_run.unwrap_or(false);
-    let result = ops.add(&params.name, scope, config, dry_run)
+    let result = ops
+        .add(&params.name, scope, config, dry_run)
         .map_err(|e| e.to_string())?;
 
     Ok(McpOperationResult {
         success: result.success,
         backup_id: result.backup_id,
-        file_path: result.files_modified.first()
+        file_path: result
+            .files_modified
+            .first()
             .map(|p| p.display().to_string())
             .unwrap_or_default(),
         diff: None,
@@ -179,17 +181,19 @@ pub async fn mcp_remove(
         .map_err(|e| format!("Failed to create backup directory: {}", e))?;
 
     // Create operations manager
-    let ops = McpOps::new(project_path.map(PathBuf::from))
-        .with_backup_dir(backup_dir);
+    let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);
 
     let dry_run = params.dry_run.unwrap_or(false);
-    let result = ops.remove(&params.name, scope_filter, dry_run)
+    let result = ops
+        .remove(&params.name, scope_filter, dry_run)
         .map_err(|e| e.to_string())?;
 
     Ok(McpOperationResult {
         success: result.success,
         backup_id: result.backup_id,
-        file_path: result.files_modified.first()
+        file_path: result
+            .files_modified
+            .first()
             .map(|p| p.display().to_string())
             .unwrap_or_default(),
         diff: None,
@@ -259,27 +263,32 @@ pub async fn mcp_move(
         .map(|h| PathBuf::from(h).join(".tars").join("backups"))
         .unwrap_or_else(|_| PathBuf::from("/tmp/tars/backups"));
 
-    let ops = McpOps::new(project_path.map(PathBuf::from))
-        .with_backup_dir(backup_dir);
+    let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);
 
-    let from_scope: Option<ConfigScope> = params.from_scope
+    let from_scope: Option<ConfigScope> = params
+        .from_scope
         .as_ref()
         .map(|s| s.parse())
         .transpose()
         .map_err(|e: tars_core::config::ConfigError| e.to_string())?;
 
-    let to_scope: ConfigScope = params.to_scope.parse()
+    let to_scope: ConfigScope = params
+        .to_scope
+        .parse()
         .map_err(|e: tars_core::config::ConfigError| e.to_string())?;
 
     let dry_run = params.dry_run.unwrap_or(false);
 
-    let result = ops.move_server(&params.name, from_scope, to_scope, dry_run)
+    let result = ops
+        .move_server(&params.name, from_scope, to_scope, dry_run)
         .map_err(|e| e.to_string())?;
 
     Ok(McpMoveResult {
         success: result.success,
         backup_id: result.backup_id,
-        removed_from: from_scope.map(|s| s.to_string()).unwrap_or_else(|| "auto".to_string()),
+        removed_from: from_scope
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "auto".to_string()),
         added_to: to_scope.to_string(),
         diff: None,
         error: result.error,

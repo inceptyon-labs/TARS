@@ -138,8 +138,7 @@ fn write_hooks_to_settings(path: &PathBuf, events: &[HookEvent]) -> Result<(), S
 
     // Ensure parent directory exists
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {e}"))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
     }
 
     // Write back to file with pretty formatting
@@ -186,7 +185,10 @@ pub async fn save_user_hooks(events: Vec<HookEvent>) -> Result<(), String> {
 
 /// Save hooks to a project scope
 #[tauri::command]
-pub async fn save_project_hooks(project_path: String, events: Vec<HookEvent>) -> Result<(), String> {
+pub async fn save_project_hooks(
+    project_path: String,
+    events: Vec<HookEvent>,
+) -> Result<(), String> {
     let path = get_project_settings_path(&project_path);
     write_hooks_to_settings(&path, &events)
 }

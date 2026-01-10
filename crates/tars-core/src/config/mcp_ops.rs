@@ -88,10 +88,9 @@ impl McpOps {
         }
 
         // Get target file path
-        let file_path = self.get_mcp_path(scope)?
-            .ok_or_else(|| ConfigError::ValidationError(
-                "Project path required for project scope".into()
-            ))?;
+        let file_path = self.get_mcp_path(scope)?.ok_or_else(|| {
+            ConfigError::ValidationError("Project path required for project scope".into())
+        })?;
 
         // Check if server already exists in this scope
         if file_path.exists() {
@@ -203,15 +202,19 @@ impl McpOps {
         }
 
         // Get target file path
-        let target_path = self.get_mcp_path(to_scope)?
-            .ok_or_else(|| ConfigError::ValidationError(
-                "Project path required for project/local scope".into()
-            ))?;
+        let target_path = self.get_mcp_path(to_scope)?.ok_or_else(|| {
+            ConfigError::ValidationError("Project path required for project/local scope".into())
+        })?;
 
         // Read the server config from source
         let servers = self.read_servers_from_file(&source_path, found_scope)?;
-        let server = servers.iter().find(|s| s.name == name)
-            .ok_or_else(|| ConfigError::ItemNotFound { name: name.to_string() })?;
+        let server =
+            servers
+                .iter()
+                .find(|s| s.name == name)
+                .ok_or_else(|| ConfigError::ItemNotFound {
+                    name: name.to_string(),
+                })?;
 
         let config = match &server.config {
             ConfigItemData::McpServer(cfg) => cfg.clone(),
@@ -293,13 +296,15 @@ impl McpOps {
             message: e.to_string(),
         })?;
 
-        let json: Value = serde_json::from_str(&content).map_err(|e| ConfigError::JsonParseError {
-            path: path.clone(),
-            message: e.to_string(),
-        })?;
+        let json: Value =
+            serde_json::from_str(&content).map_err(|e| ConfigError::JsonParseError {
+                path: path.clone(),
+                message: e.to_string(),
+            })?;
 
         // MCP config is a flat dict: { "serverName": { "type": "stdio", ... } }
-        let servers = json.as_object()
+        let servers = json
+            .as_object()
             .ok_or_else(|| ConfigError::JsonParseError {
                 path: path.clone(),
                 message: "Expected JSON object".into(),
@@ -311,7 +316,9 @@ impl McpOps {
             if name == "mcpServers" {
                 if let Some(inner) = value.as_object() {
                     for (inner_name, inner_value) in inner {
-                        if let Ok(config) = serde_json::from_value::<McpServerConfig>(inner_value.clone()) {
+                        if let Ok(config) =
+                            serde_json::from_value::<McpServerConfig>(inner_value.clone())
+                        {
                             // Only include if config is valid (has required fields)
                             if config.validate().is_ok() {
                                 items.push(ConfigItem::new(
@@ -369,7 +376,9 @@ impl McpOps {
         }
 
         match found_in.len() {
-            0 => Err(ConfigError::ItemNotFound { name: name.to_string() }),
+            0 => Err(ConfigError::ItemNotFound {
+                name: name.to_string(),
+            }),
             1 => Ok(found_in.remove(0)),
             _ => Err(ConfigError::AmbiguousItem {
                 name: name.to_string(),
@@ -410,18 +419,17 @@ impl McpOps {
 
             let backup_id = uuid::Uuid::new_v4().to_string();
             let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-            let file_name = path.file_name()
+            let file_name = path
+                .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "config".to_string());
             let backup_name = format!("{}_{}.{}.bak", file_name, timestamp, &backup_id[..8]);
             let backup_path = backup_dir.join(&backup_name);
 
             // Copy the file to backup
-            fs::copy(path, &backup_path).map_err(|e| ConfigError::BackupFailed(format!(
-                "Failed to backup {}: {}",
-                path.display(),
-                e
-            )))?;
+            fs::copy(path, &backup_path).map_err(|e| {
+                ConfigError::BackupFailed(format!("Failed to backup {}: {}", path.display(), e))
+            })?;
 
             Ok(Some(backup_id))
         } else {
@@ -452,10 +460,11 @@ impl McpOps {
         };
 
         // Add the new server
-        let config_value = serde_json::to_value(config)
-            .map_err(|e| ConfigError::Internal(e.to_string()))?;
+        let config_value =
+            serde_json::to_value(config).map_err(|e| ConfigError::Internal(e.to_string()))?;
 
-        let root = json.as_object_mut()
+        let root = json
+            .as_object_mut()
             .ok_or_else(|| ConfigError::JsonParseError {
                 path: file_path.clone(),
                 message: "Expected JSON object".into(),
@@ -495,18 +504,25 @@ impl McpOps {
         self.write_json_file(file_path, &json)
     }
 
-    fn remove_server_from_file(&self, name: &str, file_path: &PathBuf, scope: ConfigScope) -> ConfigResult<()> {
+    fn remove_server_from_file(
+        &self,
+        name: &str,
+        file_path: &PathBuf,
+        scope: ConfigScope,
+    ) -> ConfigResult<()> {
         let content = fs::read_to_string(file_path).map_err(|e| ConfigError::IoError {
             path: file_path.clone(),
             message: e.to_string(),
         })?;
 
-        let mut json: Value = serde_json::from_str(&content).map_err(|e| ConfigError::JsonParseError {
-            path: file_path.clone(),
-            message: e.to_string(),
-        })?;
+        let mut json: Value =
+            serde_json::from_str(&content).map_err(|e| ConfigError::JsonParseError {
+                path: file_path.clone(),
+                message: e.to_string(),
+            })?;
 
-        let root = json.as_object_mut()
+        let root = json
+            .as_object_mut()
             .ok_or_else(|| ConfigError::JsonParseError {
                 path: file_path.clone(),
                 message: "Expected JSON object".into(),
@@ -520,7 +536,8 @@ impl McpOps {
             }
         } else {
             // For project scope, try mcpServers first, then root
-            let removed_from_mcp = root.get_mut("mcpServers")
+            let removed_from_mcp = root
+                .get_mut("mcpServers")
                 .and_then(|v| v.as_object_mut())
                 .map(|obj| obj.remove(name).is_some())
                 .unwrap_or(false);
@@ -576,7 +593,9 @@ mod tests {
     #[test]
     fn test_list_servers() {
         let dir = TempDir::new().unwrap();
-        create_test_mcp_file(&dir, r#"{
+        create_test_mcp_file(
+            &dir,
+            r#"{
             "context7": {
                 "type": "stdio",
                 "command": "npx",
@@ -587,7 +606,8 @@ mod tests {
                 "command": "npx",
                 "args": ["@neondatabase/mcp-server"]
             }
-        }"#);
+        }"#,
+        );
 
         let ops = McpOps::new(Some(dir.path().to_path_buf()));
         // Use list_scope to only check project scope
@@ -605,7 +625,9 @@ mod tests {
         let ops = McpOps::new(Some(dir.path().to_path_buf()));
 
         let config = McpServerConfig::stdio("npx", vec!["-y".into(), "@context7/mcp".into()]);
-        let result = ops.add("context7", ConfigScope::Project, config, false).unwrap();
+        let result = ops
+            .add("context7", ConfigScope::Project, config, false)
+            .unwrap();
 
         assert!(result.success);
         assert_eq!(result.name, "context7");
@@ -648,13 +670,18 @@ mod tests {
     #[test]
     fn test_remove_server() {
         let dir = TempDir::new().unwrap();
-        create_test_mcp_file(&dir, r#"{
+        create_test_mcp_file(
+            &dir,
+            r#"{
             "context7": {"type": "stdio", "command": "npx"},
             "neon": {"type": "stdio", "command": "npx"}
-        }"#);
+        }"#,
+        );
 
         let ops = McpOps::new(Some(dir.path().to_path_buf()));
-        let result = ops.remove("context7", Some(ConfigScope::Project), false).unwrap();
+        let result = ops
+            .remove("context7", Some(ConfigScope::Project), false)
+            .unwrap();
 
         assert!(result.success);
         assert_eq!(result.name, "context7");

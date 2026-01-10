@@ -3,10 +3,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use super::{
-    AgentConfig, CommandConfig, ConfigScope, HookConfig, McpServerConfig, SkillConfig,
-};
 use super::error::ConfigError;
+use super::{AgentConfig, CommandConfig, ConfigScope, HookConfig, McpServerConfig, SkillConfig};
 
 /// Validate a config item name
 ///
@@ -53,9 +51,14 @@ pub fn validate_name(name: &str) -> Result<(), ConfigError> {
     }
 
     // Check for other problematic characters
-    if name.contains(':') || name.contains('*') || name.contains('?')
-        || name.contains('"') || name.contains('<') || name.contains('>')
-        || name.contains('|') {
+    if name.contains(':')
+        || name.contains('*')
+        || name.contains('?')
+        || name.contains('"')
+        || name.contains('<')
+        || name.contains('>')
+        || name.contains('|')
+    {
         return Err(ConfigError::ValidationError(
             "name contains invalid characters (:*?\"<>|)".into(),
         ));

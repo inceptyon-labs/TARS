@@ -161,14 +161,12 @@ pub fn scan_commands_directory(dir: &Path, scope: Scope) -> ScanResult<Vec<Comma
         let path = entry.path();
         if path.is_file() && path.extension().map_or(false, |e| e == "md") {
             match fs::read_to_string(&path) {
-                Ok(content) => {
-                    match parse_command(&path, &content, scope.clone()) {
-                        Ok(cmd) => commands.push(cmd),
-                        Err(e) => {
-                            eprintln!("Warning: Failed to parse command at {:?}: {}", path, e);
-                        }
+                Ok(content) => match parse_command(&path, &content, scope.clone()) {
+                    Ok(cmd) => commands.push(cmd),
+                    Err(e) => {
+                        eprintln!("Warning: Failed to parse command at {:?}: {}", path, e);
                     }
-                }
+                },
                 Err(e) => {
                     eprintln!("Warning: Failed to read command file {:?}: {}", path, e);
                 }
@@ -193,14 +191,12 @@ pub fn scan_agents_directory(dir: &Path, scope: Scope) -> ScanResult<Vec<AgentIn
         let path = entry.path();
         if path.is_file() && path.extension().map_or(false, |e| e == "md") {
             match fs::read_to_string(&path) {
-                Ok(content) => {
-                    match parse_agent(&path, &content, scope.clone()) {
-                        Ok(agent) => agents.push(agent),
-                        Err(e) => {
-                            eprintln!("Warning: Failed to parse agent at {:?}: {}", path, e);
-                        }
+                Ok(content) => match parse_agent(&path, &content, scope.clone()) {
+                    Ok(agent) => agents.push(agent),
+                    Err(e) => {
+                        eprintln!("Warning: Failed to parse agent at {:?}: {}", path, e);
                     }
-                }
+                },
                 Err(e) => {
                     eprintln!("Warning: Failed to read agent file {:?}: {}", path, e);
                 }

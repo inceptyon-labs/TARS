@@ -33,9 +33,7 @@ pub struct ChangelogResponse {
 #[tauri::command]
 pub async fn get_installed_claude_version() -> Result<Option<String>, String> {
     // Try to run `claude --version`
-    let output = Command::new("claude")
-        .arg("--version")
-        .output();
+    let output = Command::new("claude").arg("--version").output();
 
     match output {
         Ok(output) => {
@@ -66,7 +64,10 @@ pub async fn fetch_claude_changelog() -> Result<ChangelogResponse, String> {
         .map_err(|e| format!("Failed to fetch changelog: {e}"))?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to fetch changelog: HTTP {}", response.status()));
+        return Err(format!(
+            "Failed to fetch changelog: HTTP {}",
+            response.status()
+        ));
     }
 
     let content = response
@@ -237,7 +238,10 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
 
         // Compare versions
         let installed_version = installed.manifest.version.clone();
-        let available_version = available.version.clone().unwrap_or_else(|| "unknown".to_string());
+        let available_version = available
+            .version
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string());
 
         let update_available = if available_version != "unknown" && installed_version != "unknown" {
             version_compare(&available_version, &installed_version) == std::cmp::Ordering::Greater
@@ -259,12 +263,10 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
     let total_plugins = updates.len();
 
     // Sort: updates first, then alphabetically
-    updates.sort_by(|a, b| {
-        match (a.update_available, b.update_available) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.plugin_name.cmp(&b.plugin_name),
-        }
+    updates.sort_by(|a, b| match (a.update_available, b.update_available) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.plugin_name.cmp(&b.plugin_name),
     });
 
     Ok(PluginUpdatesResponse {

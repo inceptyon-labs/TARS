@@ -33,8 +33,7 @@ struct RawMcpServer {
 /// # Errors
 /// Returns an error if parsing fails
 pub fn parse_mcp_config(path: &Path, content: &str) -> ScanResult<McpConfig> {
-    let raw: RawMcpConfig =
-        serde_json::from_str(content).map_err(ScanError::JsonParse)?;
+    let raw: RawMcpConfig = serde_json::from_str(content).map_err(ScanError::JsonParse)?;
 
     let sha256 = compute_sha256(content);
 

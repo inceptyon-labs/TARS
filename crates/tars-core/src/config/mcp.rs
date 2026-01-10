@@ -114,9 +114,7 @@ impl McpServerConfig {
                     format!("{} {}", cmd, args)
                 }
             }
-            McpTransport::Http | McpTransport::Sse => {
-                self.url.as_deref().unwrap_or("").to_string()
-            }
+            McpTransport::Http | McpTransport::Sse => self.url.as_deref().unwrap_or("").to_string(),
         }
     }
 }

@@ -102,9 +102,8 @@ pub fn load_backup(archive_path: &Path) -> Result<Backup, RestoreError> {
     }
 
     let content = fs::read_to_string(archive_path)?;
-    let backup: Backup = serde_json::from_str(&content).map_err(|e| {
-        RestoreError::InvalidBackup(format!("Failed to parse backup: {e}"))
-    })?;
+    let backup: Backup = serde_json::from_str(&content)
+        .map_err(|e| RestoreError::InvalidBackup(format!("Failed to parse backup: {e}")))?;
 
     Ok(backup)
 }

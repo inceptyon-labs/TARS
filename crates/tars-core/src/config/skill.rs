@@ -13,7 +13,11 @@ pub struct SkillConfig {
     pub user_invocable: bool,
 
     /// List of allowed tools for this skill
-    #[serde(default, rename = "allowed-tools", skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        rename = "allowed-tools",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub allowed_tools: Vec<String>,
 
     /// Preferred model for this skill
@@ -74,7 +78,10 @@ impl SkillConfig {
         }
 
         if !self.allowed_tools.is_empty() {
-            lines.push(format!("allowed-tools: [{}]", self.allowed_tools.join(", ")));
+            lines.push(format!(
+                "allowed-tools: [{}]",
+                self.allowed_tools.join(", ")
+            ));
         }
 
         if let Some(ref model) = self.model {
@@ -121,8 +128,7 @@ mod tests {
 
     #[test]
     fn test_to_skill_md() {
-        let config = SkillConfig::new("Test skill", "Do the thing")
-            .with_user_invocable(true);
+        let config = SkillConfig::new("Test skill", "Do the thing").with_user_invocable(true);
 
         let md = config.to_skill_md();
         assert!(md.starts_with("---\n"));

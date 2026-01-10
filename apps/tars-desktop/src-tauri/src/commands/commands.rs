@@ -63,8 +63,7 @@ pub async fn save_command(path: String, content: String) -> Result<(), String> {
 
     // Ensure parent directory exists
     if let Some(parent) = validated_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|_| "Failed to create directory".to_string())?;
+        std::fs::create_dir_all(parent).map_err(|_| "Failed to create directory".to_string())?;
     }
 
     std::fs::write(&validated_path, content).map_err(|_| "Failed to save command".to_string())?;
@@ -115,7 +114,8 @@ Add your command instructions here.
 "#,
     );
 
-    std::fs::create_dir_all(&base_path).map_err(|_| "Failed to create commands directory".to_string())?;
+    std::fs::create_dir_all(&base_path)
+        .map_err(|_| "Failed to create commands directory".to_string())?;
     std::fs::write(&command_file, &content).map_err(|_| "Failed to create command".to_string())?;
 
     Ok(CommandDetails {
@@ -221,8 +221,7 @@ pub async fn move_command(
     }
 
     // Delete from old location
-    std::fs::remove_file(&validated_source)
-        .map_err(|_| "Failed to remove command".to_string())?;
+    std::fs::remove_file(&validated_source).map_err(|_| "Failed to remove command".to_string())?;
 
     Ok(CommandDetails {
         name,
@@ -348,11 +347,15 @@ fn validate_command_path(path: &Path) -> Result<PathBuf, String> {
         }
 
         let canonical_str = canonical.display().to_string();
-        if canonical_str.contains("/.claude/commands/") || canonical_str.contains("\\.claude\\commands\\") {
+        if canonical_str.contains("/.claude/commands/")
+            || canonical_str.contains("\\.claude\\commands\\")
+        {
             return Ok(canonical);
         }
 
-        if canonical_str.contains("/.claude/plugins/") || canonical_str.contains("\\.claude\\plugins\\") {
+        if canonical_str.contains("/.claude/plugins/")
+            || canonical_str.contains("\\.claude\\plugins\\")
+        {
             return Ok(canonical);
         }
 

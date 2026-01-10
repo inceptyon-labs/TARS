@@ -62,8 +62,9 @@ impl<'a> ProjectStore<'a> {
 
         match result {
             Ok(json) => {
-                let project: Project = serde_json::from_str(&json)
-                    .map_err(|e| DatabaseError::Migration(format!("Failed to parse project: {e}")))?;
+                let project: Project = serde_json::from_str(&json).map_err(|e| {
+                    DatabaseError::Migration(format!("Failed to parse project: {e}"))
+                })?;
                 Ok(Some(project))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -89,8 +90,9 @@ impl<'a> ProjectStore<'a> {
 
         match result {
             Ok(json) => {
-                let project: Project = serde_json::from_str(&json)
-                    .map_err(|e| DatabaseError::Migration(format!("Failed to parse project: {e}")))?;
+                let project: Project = serde_json::from_str(&json).map_err(|e| {
+                    DatabaseError::Migration(format!("Failed to parse project: {e}"))
+                })?;
                 Ok(Some(project))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),

@@ -1,6 +1,6 @@
 //! Profile types and operations
 
-mod types;
 pub mod snapshot;
+mod types;
 
 pub use types::*;

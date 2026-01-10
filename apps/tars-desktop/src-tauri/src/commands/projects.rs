@@ -5,9 +5,9 @@
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::State;
 use tars_core::storage::ProjectStore;
 use tars_core::Project;
+use tauri::State;
 
 /// Project summary for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,8 +136,8 @@ pub async fn read_claude_md(project_path: String) -> Result<ClaudeMdInfo, String
     let path = PathBuf::from(&project_path).join("CLAUDE.md");
 
     if path.exists() {
-        let content = std::fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read CLAUDE.md: {e}"))?;
+        let content =
+            std::fs::read_to_string(&path).map_err(|e| format!("Failed to read CLAUDE.md: {e}"))?;
         Ok(ClaudeMdInfo {
             path: path.display().to_string(),
             content: Some(content),
@@ -157,8 +157,7 @@ pub async fn read_claude_md(project_path: String) -> Result<ClaudeMdInfo, String
 pub async fn save_claude_md(project_path: String, content: String) -> Result<(), String> {
     let path = PathBuf::from(&project_path).join("CLAUDE.md");
 
-    std::fs::write(&path, &content)
-        .map_err(|e| format!("Failed to save CLAUDE.md: {e}"))?;
+    std::fs::write(&path, &content).map_err(|e| format!("Failed to save CLAUDE.md: {e}"))?;
 
     Ok(())
 }
@@ -169,8 +168,7 @@ pub async fn delete_claude_md(project_path: String) -> Result<(), String> {
     let path = PathBuf::from(&project_path).join("CLAUDE.md");
 
     if path.exists() {
-        std::fs::remove_file(&path)
-            .map_err(|e| format!("Failed to delete CLAUDE.md: {e}"))?;
+        std::fs::remove_file(&path).map_err(|e| format!("Failed to delete CLAUDE.md: {e}"))?;
     }
 
     Ok(())
@@ -190,13 +188,13 @@ pub struct ContextItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpComplexity {
     pub name: String,
-    pub server_type: String,        // "stdio", "http", "sse", "unknown"
-    pub uses_wrapper: bool,         // bash, node, python, etc.
+    pub server_type: String, // "stdio", "http", "sse", "unknown"
+    pub uses_wrapper: bool,  // bash, node, python, etc.
     pub env_var_count: usize,
     pub is_plugin: bool,
-    pub tool_count: usize,          // from inventory, 0 if unknown
+    pub tool_count: usize, // from inventory, 0 if unknown
     pub complexity_score: usize,
-    pub status: String,             // "connected", "disabled", "unknown"
+    pub status: String, // "connected", "disabled", "unknown"
 }
 
 /// Context usage statistics
@@ -231,9 +229,7 @@ fn estimate_tokens(chars: usize) -> usize {
 }
 
 fn read_file_size(path: &PathBuf) -> usize {
-    std::fs::read_to_string(path)
-        .map(|s| s.len())
-        .unwrap_or(0)
+    std::fs::read_to_string(path).map(|s| s.len()).unwrap_or(0)
 }
 
 fn collect_directory_items(dir: &PathBuf, extension: &str, scope: &str) -> Vec<ContextItem> {
@@ -324,7 +320,11 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
             if let Some(mcp_servers) = json.get("mcpServers").and_then(|v| v.as_object()) {
                 for (name, config) in mcp_servers {
                     let server_type = if config.get("url").is_some() {
-                        if config.get("url").and_then(|u| u.as_str()).map_or(false, |u| u.contains("sse")) {
+                        if config
+                            .get("url")
+                            .and_then(|u| u.as_str())
+                            .map_or(false, |u| u.contains("sse"))
+                        {
                             "sse"
                         } else {
                             "http"
@@ -356,8 +356,12 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
                         server_type: server_type.to_string(),
                         uses_wrapper: command.map_or(false, |c| {
                             let cl = c.to_lowercase();
-                            cl.contains("bash") || cl.contains("node") || cl.contains("python")
-                                || cl.contains("npx") || cl.contains("bunx") || cl.contains("uvx")
+                            cl.contains("bash")
+                                || cl.contains("node")
+                                || cl.contains("python")
+                                || cl.contains("npx")
+                                || cl.contains("bunx")
+                                || cl.contains("uvx")
                         }),
                         env_var_count: env_count,
                         is_plugin,
@@ -395,22 +399,20 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
                         .and_then(|e| e.as_object())
                         .map_or(0, |e| e.len());
 
-                    let complexity = calculate_mcp_complexity(
-                        name,
-                        server_type,
-                        command,
-                        env_count,
-                        false,
-                        0,
-                    );
+                    let complexity =
+                        calculate_mcp_complexity(name, server_type, command, env_count, false, 0);
 
                     servers.push(McpComplexity {
                         name: name.clone(),
                         server_type: server_type.to_string(),
                         uses_wrapper: command.map_or(false, |c| {
                             let cl = c.to_lowercase();
-                            cl.contains("bash") || cl.contains("node") || cl.contains("python")
-                                || cl.contains("npx") || cl.contains("bunx") || cl.contains("uvx")
+                            cl.contains("bash")
+                                || cl.contains("node")
+                                || cl.contains("python")
+                                || cl.contains("npx")
+                                || cl.contains("bunx")
+                                || cl.contains("uvx")
                         }),
                         env_var_count: env_count,
                         is_plugin: false,
@@ -441,21 +443,33 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
 
     // Skills: user + project (with per-item breakdown)
     let mut skills_items = collect_directory_items(&user_claude.join("skills"), "md", "user");
-    skills_items.extend(collect_directory_items(&project_claude.join("skills"), "md", "project"));
+    skills_items.extend(collect_directory_items(
+        &project_claude.join("skills"),
+        "md",
+        "project",
+    ));
     skills_items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
     let skills_chars: usize = skills_items.iter().map(|i| i.chars).sum();
     let skills_count = skills_items.len();
 
     // Commands: user + project (with per-item breakdown)
     let mut commands_items = collect_directory_items(&user_claude.join("commands"), "md", "user");
-    commands_items.extend(collect_directory_items(&project_claude.join("commands"), "md", "project"));
+    commands_items.extend(collect_directory_items(
+        &project_claude.join("commands"),
+        "md",
+        "project",
+    ));
     commands_items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
     let commands_chars: usize = commands_items.iter().map(|i| i.chars).sum();
     let commands_count = commands_items.len();
 
     // Agents: user + project (with per-item breakdown)
     let mut agents_items = collect_directory_items(&user_claude.join("agents"), "md", "user");
-    agents_items.extend(collect_directory_items(&project_claude.join("agents"), "md", "project"));
+    agents_items.extend(collect_directory_items(
+        &project_claude.join("agents"),
+        "md",
+        "project",
+    ));
     agents_items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
     let agents_chars: usize = agents_items.iter().map(|i| i.chars).sum();
     let agents_count = agents_items.len();
@@ -469,7 +483,8 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
     // MCP servers with complexity scoring
     let mcp_servers = parse_mcp_servers(&home, &project);
 
-    let total_chars = claude_md_chars + skills_chars + commands_chars + agents_chars + settings_chars;
+    let total_chars =
+        claude_md_chars + skills_chars + commands_chars + agents_chars + settings_chars;
 
     Ok(ContextStats {
         claude_md_chars,

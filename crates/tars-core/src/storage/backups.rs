@@ -63,8 +63,9 @@ impl<'a> BackupStore<'a> {
 
         match result {
             Ok(json) => {
-                let backup: Backup = serde_json::from_str(&json)
-                    .map_err(|e| DatabaseError::Migration(format!("Failed to parse backup: {e}")))?;
+                let backup: Backup = serde_json::from_str(&json).map_err(|e| {
+                    DatabaseError::Migration(format!("Failed to parse backup: {e}"))
+                })?;
                 Ok(Some(backup))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),

@@ -41,6 +41,10 @@ interface UIState {
   // Sidebar collapsed state
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
+
+  // Sidebar width (for resizing)
+  sidebarWidth: number;
+  setSidebarWidth: (width: number) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -78,4 +82,8 @@ export const useUIStore = create<UIState>((set) => ({
   // Sidebar
   sidebarCollapsed: false,
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+
+  // Sidebar width - default 256px (w-64)
+  sidebarWidth: 256,
+  setSidebarWidth: (width) => set({ sidebarWidth: width }),
 }));

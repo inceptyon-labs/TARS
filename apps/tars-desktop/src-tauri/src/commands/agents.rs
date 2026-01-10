@@ -28,8 +28,8 @@ pub async fn read_agent(path: String) -> Result<AgentDetails, String> {
         return Err("Agent file not found".to_string());
     }
 
-    let content = std::fs::read_to_string(&validated_path)
-        .map_err(|_| "Failed to read agent".to_string())?;
+    let content =
+        std::fs::read_to_string(&validated_path).map_err(|_| "Failed to read agent".to_string())?;
 
     // Extract name from filename (without .md extension)
     let name = agent_path
@@ -63,8 +63,7 @@ pub async fn save_agent(path: String, content: String) -> Result<(), String> {
 
     // Ensure parent directory exists
     if let Some(parent) = validated_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|_| "Failed to create directory".to_string())?;
+        std::fs::create_dir_all(parent).map_err(|_| "Failed to create directory".to_string())?;
     }
 
     std::fs::write(&validated_path, content).map_err(|_| "Failed to save agent".to_string())?;
@@ -118,7 +117,8 @@ This agent has access to file reading tools by default.
 "#,
     );
 
-    std::fs::create_dir_all(&base_path).map_err(|_| "Failed to create agents directory".to_string())?;
+    std::fs::create_dir_all(&base_path)
+        .map_err(|_| "Failed to create agents directory".to_string())?;
     std::fs::write(&agent_file, &content).map_err(|_| "Failed to create agent".to_string())?;
 
     Ok(AgentDetails {
@@ -178,8 +178,7 @@ pub async fn move_agent(
         std::fs::create_dir_all(&target_base)
             .map_err(|_| "Failed to create target directory".to_string())?;
 
-        std::fs::write(&target_file, &content)
-            .map_err(|_| "Failed to write agent".to_string())?;
+        std::fs::write(&target_file, &content).map_err(|_| "Failed to write agent".to_string())?;
 
         final_path = target_file;
         final_scope = "user".to_string();
@@ -224,8 +223,7 @@ pub async fn move_agent(
     }
 
     // Delete from old location
-    std::fs::remove_file(&validated_source)
-        .map_err(|_| "Failed to remove agent".to_string())?;
+    std::fs::remove_file(&validated_source).map_err(|_| "Failed to remove agent".to_string())?;
 
     Ok(AgentDetails {
         name,
@@ -259,13 +257,9 @@ pub async fn disable_agent(path: String) -> Result<String, String> {
     }
 
     // Get the parent (agents/) directory and filename
-    let parent = validated_path
-        .parent()
-        .ok_or("Invalid agent path")?;
+    let parent = validated_path.parent().ok_or("Invalid agent path")?;
 
-    let filename = validated_path
-        .file_name()
-        .ok_or("Invalid agent filename")?;
+    let filename = validated_path.file_name().ok_or("Invalid agent filename")?;
 
     // Check we're not already in .disabled
     if parent.file_name().and_then(|n| n.to_str()) == Some(".disabled") {
@@ -317,7 +311,9 @@ fn validate_disabled_agent_path(path: &Path) -> Result<PathBuf, String> {
     }
 
     // Verify path is within .claude directory structure
-    if !path_str.contains("/.claude/agents/.disabled/") && !path_str.contains("\\.claude\\agents\\.disabled\\") {
+    if !path_str.contains("/.claude/agents/.disabled/")
+        && !path_str.contains("\\.claude\\agents\\.disabled\\")
+    {
         return Err("Path is not within an allowed agents directory".to_string());
     }
 
@@ -345,13 +341,9 @@ pub async fn enable_agent(path: String) -> Result<String, String> {
     }
 
     // Get the parent directory (.disabled/) and grandparent (agents/)
-    let disabled_dir = validated_path
-        .parent()
-        .ok_or("Invalid agent path")?;
+    let disabled_dir = validated_path.parent().ok_or("Invalid agent path")?;
 
-    let filename = validated_path
-        .file_name()
-        .ok_or("Invalid agent filename")?;
+    let filename = validated_path.file_name().ok_or("Invalid agent filename")?;
 
     // Get the agents/ parent directory
     let agents_dir = disabled_dir
@@ -421,7 +413,9 @@ pub async fn delete_agent(path: String) -> Result<(), String> {
 /// When project_path is None, returns user-level disabled agents only
 /// When project_path is Some, returns that project's disabled agents only
 #[tauri::command]
-pub async fn list_disabled_agents(project_path: Option<String>) -> Result<Vec<AgentDetails>, String> {
+pub async fn list_disabled_agents(
+    project_path: Option<String>,
+) -> Result<Vec<AgentDetails>, String> {
     let mut disabled_agents = Vec::new();
 
     match &project_path {
@@ -564,11 +558,15 @@ fn validate_agent_path(path: &Path) -> Result<PathBuf, String> {
         }
 
         let canonical_str = canonical.display().to_string();
-        if canonical_str.contains("/.claude/agents/") || canonical_str.contains("\\.claude\\agents\\") {
+        if canonical_str.contains("/.claude/agents/")
+            || canonical_str.contains("\\.claude\\agents\\")
+        {
             return Ok(canonical);
         }
 
-        if canonical_str.contains("/.claude/plugins/") || canonical_str.contains("\\.claude\\plugins\\") {
+        if canonical_str.contains("/.claude/plugins/")
+            || canonical_str.contains("\\.claude\\plugins\\")
+        {
             return Ok(canonical);
         }
 

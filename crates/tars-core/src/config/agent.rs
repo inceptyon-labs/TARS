@@ -17,7 +17,11 @@ pub struct AgentConfig {
     pub model: Option<String>,
 
     /// Permission mode (ask, auto, deny)
-    #[serde(default, rename = "permission-mode", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "permission-mode",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub permission_mode: Option<String>,
 
     /// Available skills for this agent
@@ -142,8 +146,8 @@ mod tests {
 
     #[test]
     fn test_to_agent_md() {
-        let config = AgentConfig::new("Test agent", "Do security things")
-            .with_tools(vec!["Read".into()]);
+        let config =
+            AgentConfig::new("Test agent", "Do security things").with_tools(vec!["Read".into()]);
 
         let md = config.to_agent_md();
         assert!(md.starts_with("---\n"));
@@ -157,8 +161,7 @@ mod tests {
         let valid = AgentConfig::new("Test", "Body");
         assert!(valid.validate().is_ok());
 
-        let invalid_mode = AgentConfig::new("Test", "Body")
-            .with_permission_mode("invalid");
+        let invalid_mode = AgentConfig::new("Test", "Body").with_permission_mode("invalid");
         assert!(invalid_mode.validate().is_err());
     }
 }

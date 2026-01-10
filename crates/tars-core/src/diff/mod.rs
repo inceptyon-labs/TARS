@@ -1,7 +1,7 @@
 //! Diff generation for profile application
 
-mod types;
 pub mod display;
 pub mod plan;
+mod types;
 
 pub use types::*;

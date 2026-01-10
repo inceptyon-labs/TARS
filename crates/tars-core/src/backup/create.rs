@@ -37,7 +37,10 @@ pub fn create_backup(
 
     let mut backup = Backup::new(project_id, archive_path.clone())
         .with_profile(plan.profile_id)
-        .with_description(format!("Backup before applying profile {}", plan.profile_id));
+        .with_description(format!(
+            "Backup before applying profile {}",
+            plan.profile_id
+        ));
 
     // Collect files to backup
     for op in &plan.operations {
@@ -108,7 +111,11 @@ pub fn create_full_backup(
     if claude_md.exists() {
         let content = fs::read(&claude_md)?;
         let hash = hash_content(&content);
-        backup.add_file(BackupFile::existing(PathBuf::from("CLAUDE.md"), content, hash));
+        backup.add_file(BackupFile::existing(
+            PathBuf::from("CLAUDE.md"),
+            content,
+            hash,
+        ));
     }
 
     // Backup .claude directory contents

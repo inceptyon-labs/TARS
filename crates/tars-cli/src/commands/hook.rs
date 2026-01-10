@@ -71,7 +71,10 @@ pub enum HookCommands {
 }
 
 /// Execute hook command
-pub fn execute(cmd: HookCommands, _project_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn execute(
+    cmd: HookCommands,
+    _project_path: Option<&PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         HookCommands::List { .. } => {
             println!("Hook list not yet implemented");

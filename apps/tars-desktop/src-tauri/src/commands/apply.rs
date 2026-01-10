@@ -5,12 +5,12 @@
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::State;
 use tars_core::backup::restore::{restore_from_backup, verify_backup_integrity};
 use tars_core::diff::display::{format_plan_terminal, DiffSummary};
 use tars_core::diff::plan::generate_plan;
 use tars_core::storage::{BackupStore, ProfileStore, ProjectStore};
 use tars_core::{apply::apply_operations, Backup};
+use tauri::State;
 
 /// Diff preview for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,7 +246,8 @@ pub async fn rollback(
             .ok_or_else(|| "Backup not found".to_string())?;
 
         // Verify backup integrity
-        verify_backup_integrity(&backup).map_err(|e| format!("Backup integrity check failed: {e}"))?;
+        verify_backup_integrity(&backup)
+            .map_err(|e| format!("Backup integrity check failed: {e}"))?;
 
         let files_count = backup.files.len();
 

@@ -18,7 +18,9 @@ pub enum ConfigError {
     ItemNotFound { name: String },
 
     /// Item exists in multiple scopes (ambiguous)
-    #[error("Item '{name}' exists in multiple scopes: {scopes:?}. Specify --scope to disambiguate")]
+    #[error(
+        "Item '{name}' exists in multiple scopes: {scopes:?}. Specify --scope to disambiguate"
+    )]
     AmbiguousItem { name: String, scopes: Vec<String> },
 
     /// Invalid scope specified
@@ -35,10 +37,7 @@ pub enum ConfigError {
 
     /// Conflict during move operation
     #[error("Item '{name}' already exists in target scope {target_scope}")]
-    MoveConflict {
-        name: String,
-        target_scope: String,
-    },
+    MoveConflict { name: String, target_scope: String },
 
     /// File I/O error
     #[error("I/O error for {path}: {message}")]

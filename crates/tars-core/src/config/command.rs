@@ -76,8 +76,8 @@ mod tests {
 
     #[test]
     fn test_command_config() {
-        let config = CommandConfig::new("Review code", "Review the changes: $ARGUMENTS")
-            .with_thinking(true);
+        let config =
+            CommandConfig::new("Review code", "Review the changes: $ARGUMENTS").with_thinking(true);
 
         assert_eq!(config.description, "Review code");
         assert!(config.thinking);

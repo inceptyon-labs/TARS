@@ -408,7 +408,8 @@ fn test_parse_handles_windows_line_endings() {
 
 #[test]
 fn test_parse_handles_mixed_line_endings() {
-    let content = "---\nname: mixed-test\r\ndescription: Mixed line endings\n---\r\n\nInstructions.\n";
+    let content =
+        "---\nname: mixed-test\r\ndescription: Mixed line endings\n---\r\n\nInstructions.\n";
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_ok());
     assert_eq!(result.unwrap().name, "mixed-test");

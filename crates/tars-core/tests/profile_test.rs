@@ -3,8 +3,8 @@
 //! Tests for profile storage operations.
 
 use tars_core::profile::{
-    AgentOverlay, Adapters, ClaudeMdOverlay, CommandOverlay, McpLocation, OverlayMode,
-    PluginRef, Profile, PluginSet, RepoOverlays, SkillOverlay, UserOverlays,
+    Adapters, AgentOverlay, ClaudeMdOverlay, CommandOverlay, McpLocation, OverlayMode, PluginRef,
+    PluginSet, Profile, RepoOverlays, SkillOverlay, UserOverlays,
 };
 use tars_core::storage::db::Database;
 use tars_core::storage::profiles::ProfileStore;
@@ -148,9 +148,7 @@ fn test_get_nonexistent_profile() {
     let db = Database::in_memory().expect("Failed to create database");
     let store = ProfileStore::new(db.connection());
 
-    let result = store
-        .get(uuid::Uuid::new_v4())
-        .expect("Failed to query");
+    let result = store.get(uuid::Uuid::new_v4()).expect("Failed to query");
     assert!(result.is_none());
 }
 
@@ -159,9 +157,7 @@ fn test_get_by_name_nonexistent() {
     let db = Database::in_memory().expect("Failed to create database");
     let store = ProfileStore::new(db.connection());
 
-    let result = store
-        .get_by_name("nonexistent")
-        .expect("Failed to query");
+    let result = store.get_by_name("nonexistent").expect("Failed to query");
     assert!(result.is_none());
 }
 
@@ -326,7 +322,10 @@ fn test_profile_serialization_roundtrip() {
         retrieved.user_overlays.skills.len(),
         original.user_overlays.skills.len()
     );
-    assert_eq!(retrieved.adapters.mcp_location, original.adapters.mcp_location);
+    assert_eq!(
+        retrieved.adapters.mcp_location,
+        original.adapters.mcp_location
+    );
 }
 
 #[test]

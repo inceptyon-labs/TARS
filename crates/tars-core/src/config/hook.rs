@@ -92,17 +92,23 @@ pub enum HookDefinition {
 impl HookDefinition {
     /// Create a command hook
     pub fn command(cmd: impl Into<String>) -> Self {
-        Self::Command { command: cmd.into() }
+        Self::Command {
+            command: cmd.into(),
+        }
     }
 
     /// Create a prompt hook
     pub fn prompt(prompt: impl Into<String>) -> Self {
-        Self::Prompt { prompt: prompt.into() }
+        Self::Prompt {
+            prompt: prompt.into(),
+        }
     }
 
     /// Create an agent hook
     pub fn agent(agent: impl Into<String>) -> Self {
-        Self::Agent { agent: agent.into() }
+        Self::Agent {
+            agent: agent.into(),
+        }
     }
 
     /// Get a display string
@@ -200,8 +206,14 @@ mod tests {
 
     #[test]
     fn test_hook_trigger_parse() {
-        assert_eq!("PreToolUse".parse::<HookTrigger>().unwrap(), HookTrigger::PreToolUse);
-        assert_eq!("SessionStart".parse::<HookTrigger>().unwrap(), HookTrigger::SessionStart);
+        assert_eq!(
+            "PreToolUse".parse::<HookTrigger>().unwrap(),
+            HookTrigger::PreToolUse
+        );
+        assert_eq!(
+            "SessionStart".parse::<HookTrigger>().unwrap(),
+            HookTrigger::SessionStart
+        );
         assert!("Invalid".parse::<HookTrigger>().is_err());
     }
 
@@ -210,7 +222,8 @@ mod tests {
         let hook = HookConfig::new(
             HookTrigger::PreToolUse,
             HookDefinition::command("./lint.sh"),
-        ).with_matcher("Bash");
+        )
+        .with_matcher("Bash");
 
         assert_eq!(hook.trigger, HookTrigger::PreToolUse);
         assert_eq!(hook.matcher, Some("Bash".into()));

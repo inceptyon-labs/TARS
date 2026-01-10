@@ -86,7 +86,10 @@ pub enum SkillCommands {
 }
 
 /// Execute skill command
-pub fn execute(cmd: SkillCommands, _project_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn execute(
+    cmd: SkillCommands,
+    _project_path: Option<&PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         SkillCommands::List { .. } => {
             println!("Skill list not yet implemented");

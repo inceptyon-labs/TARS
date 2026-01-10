@@ -5,11 +5,11 @@
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use tauri::State;
 use tars_core::export::export_as_plugin;
 use tars_core::profile::snapshot::snapshot_from_project;
 use tars_core::storage::ProfileStore;
 use tars_core::Profile;
+use tauri::State;
 
 /// Profile summary for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]

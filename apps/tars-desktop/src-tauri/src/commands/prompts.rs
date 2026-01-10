@@ -62,20 +62,20 @@ pub async fn list_prompts(state: State<'_, AppState>) -> Result<Vec<PromptSummar
 
     // Ensure directory exists
     if !dir.exists() {
-        fs::create_dir_all(&dir)
-            .map_err(|e| format!("Failed to create prompts directory: {e}"))?;
+        fs::create_dir_all(&dir).map_err(|e| format!("Failed to create prompts directory: {e}"))?;
         return Ok(Vec::new());
     }
 
     let mut prompts = Vec::new();
 
-    let entries = fs::read_dir(&dir)
-        .map_err(|e| format!("Failed to read prompts directory: {e}"))?;
+    let entries =
+        fs::read_dir(&dir).map_err(|e| format!("Failed to read prompts directory: {e}"))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().is_some_and(|ext| ext == "json") {
-            let id = path.file_stem()
+            let id = path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or_default()
                 .to_string();
@@ -151,8 +151,7 @@ pub async fn create_prompt(
     let dir = prompts_dir(&state);
 
     // Ensure directory exists
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create prompts directory: {e}"))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create prompts directory: {e}"))?;
 
     let id = Uuid::new_v4().to_string();
     let now = Utc::now();
@@ -245,8 +244,7 @@ pub async fn delete_prompt(id: String, state: State<'_, AppState>) -> Result<(),
     }
 
     // Delete both files
-    fs::remove_file(&meta_path)
-        .map_err(|e| format!("Failed to delete prompt metadata: {e}"))?;
+    fs::remove_file(&meta_path).map_err(|e| format!("Failed to delete prompt metadata: {e}"))?;
 
     if content_path.exists() {
         fs::remove_file(&content_path)

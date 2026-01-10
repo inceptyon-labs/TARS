@@ -61,8 +61,9 @@ impl<'a> ProfileStore<'a> {
 
         match result {
             Ok(json) => {
-                let profile: Profile = serde_json::from_str(&json)
-                    .map_err(|e| DatabaseError::Migration(format!("Failed to parse profile: {e}")))?;
+                let profile: Profile = serde_json::from_str(&json).map_err(|e| {
+                    DatabaseError::Migration(format!("Failed to parse profile: {e}"))
+                })?;
                 Ok(Some(profile))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -88,8 +89,9 @@ impl<'a> ProfileStore<'a> {
 
         match result {
             Ok(json) => {
-                let profile: Profile = serde_json::from_str(&json)
-                    .map_err(|e| DatabaseError::Migration(format!("Failed to parse profile: {e}")))?;
+                let profile: Profile = serde_json::from_str(&json).map_err(|e| {
+                    DatabaseError::Migration(format!("Failed to parse profile: {e}"))
+                })?;
                 Ok(Some(profile))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),

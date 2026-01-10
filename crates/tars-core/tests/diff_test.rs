@@ -6,8 +6,7 @@ use std::fs;
 use tars_core::diff::plan::{generate_plan, generate_text_diff};
 use tars_core::diff::{DiffPlan, FileOperation};
 use tars_core::profile::{
-    AgentOverlay, ClaudeMdOverlay, CommandOverlay, OverlayMode, Profile, RepoOverlays,
-    SkillOverlay,
+    AgentOverlay, ClaudeMdOverlay, CommandOverlay, OverlayMode, Profile, RepoOverlays, SkillOverlay,
 };
 use tempfile::TempDir;
 use uuid::Uuid;
@@ -243,7 +242,10 @@ fn test_plan_create_claude_md() {
     match &plan.operations[0] {
         FileOperation::Create { path, content } => {
             assert!(path.ends_with("CLAUDE.md"));
-            assert_eq!(String::from_utf8_lossy(content), "# Additional Instructions");
+            assert_eq!(
+                String::from_utf8_lossy(content),
+                "# Additional Instructions"
+            );
         }
         _ => panic!("Expected Create operation"),
     }
@@ -255,11 +257,7 @@ fn test_plan_replace_claude_md() {
     let project_id = Uuid::new_v4();
 
     // Create existing CLAUDE.md
-    fs::write(
-        temp_dir.path().join("CLAUDE.md"),
-        "# Original Content",
-    )
-    .expect("Failed to write");
+    fs::write(temp_dir.path().join("CLAUDE.md"), "# Original Content").expect("Failed to write");
 
     let profile = create_test_profile_with_claude_md("claude-md-replace", OverlayMode::Replace);
 
@@ -285,11 +283,7 @@ fn test_plan_append_claude_md() {
     let project_id = Uuid::new_v4();
 
     // Create existing CLAUDE.md
-    fs::write(
-        temp_dir.path().join("CLAUDE.md"),
-        "# Original Content",
-    )
-    .expect("Failed to write");
+    fs::write(temp_dir.path().join("CLAUDE.md"), "# Original Content").expect("Failed to write");
 
     let profile = create_test_profile_with_claude_md("claude-md-append", OverlayMode::Append);
 
@@ -304,9 +298,7 @@ fn test_plan_append_claude_md() {
             assert!(content.contains("# Original Content"));
             assert!(content.contains("# Additional Instructions"));
             // Append means new content comes after original
-            assert!(
-                content.find("Original").unwrap() < content.find("Additional").unwrap()
-            );
+            assert!(content.find("Original").unwrap() < content.find("Additional").unwrap());
         }
         _ => panic!("Expected Modify operation"),
     }
@@ -318,11 +310,7 @@ fn test_plan_prepend_claude_md() {
     let project_id = Uuid::new_v4();
 
     // Create existing CLAUDE.md
-    fs::write(
-        temp_dir.path().join("CLAUDE.md"),
-        "# Original Content",
-    )
-    .expect("Failed to write");
+    fs::write(temp_dir.path().join("CLAUDE.md"), "# Original Content").expect("Failed to write");
 
     let profile = create_test_profile_with_claude_md("claude-md-prepend", OverlayMode::Prepend);
 
@@ -337,9 +325,7 @@ fn test_plan_prepend_claude_md() {
             assert!(content.contains("# Original Content"));
             assert!(content.contains("# Additional Instructions"));
             // Prepend means new content comes before original
-            assert!(
-                content.find("Additional").unwrap() < content.find("Original").unwrap()
-            );
+            assert!(content.find("Additional").unwrap() < content.find("Original").unwrap());
         }
         _ => panic!("Expected Modify operation"),
     }
