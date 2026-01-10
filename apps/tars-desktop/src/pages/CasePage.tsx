@@ -394,46 +394,80 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
       <div className="space-y-6">
         <p>
           Claude Code supports various keyboard shortcuts to help you work more efficiently.
-          {isMac ? ' Showing macOS shortcuts.' : ' Showing Windows/Linux shortcuts.'}
+          {isMac ? ' Showing macOS shortcuts.' : ' Showing Windows/Linux shortcuts.'} Press{' '}
+          <kbd className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">?</kbd> in Claude Code
+          to see available shortcuts for your environment.
         </p>
 
         <div>
-          <h4 className="font-semibold mb-3">Session Control</h4>
+          <h4 className="font-semibold mb-3">General Controls</h4>
           <div className="bg-secondary/50 rounded-lg p-4">
-            <KeyboardShortcut mac="Ctrl+C" other="Ctrl+C" description="Cancel current generation" />
             <KeyboardShortcut
-              mac="Ctrl+C Ctrl+C"
-              other="Ctrl+C Ctrl+C"
-              description="Force quit (double tap)"
+              mac="Ctrl+C"
+              other="Ctrl+C"
+              description="Cancel current input or generation"
             />
-            <KeyboardShortcut mac="Ctrl+D" other="Ctrl+D" description="Exit Claude Code" />
+            <KeyboardShortcut mac="Ctrl+D" other="Ctrl+D" description="Exit Claude Code session" />
             <KeyboardShortcut
               mac="Ctrl+L"
               other="Ctrl+L"
-              description="Clear screen (keeps history)"
+              description="Clear terminal screen (keeps history)"
+            />
+            <KeyboardShortcut mac="Ctrl+O" other="Ctrl+O" description="Toggle verbose output" />
+            <KeyboardShortcut
+              mac="Ctrl+R"
+              other="Ctrl+R"
+              description="Reverse search command history"
+            />
+            <KeyboardShortcut mac="⌘+V" other="Ctrl+V" description="Paste image from clipboard" />
+            <KeyboardShortcut mac="Ctrl+B" other="Ctrl+B" description="Background running tasks" />
+            <KeyboardShortcut mac="← / →" other="← / →" description="Cycle through dialog tabs" />
+            <KeyboardShortcut mac="↑ / ↓" other="↑ / ↓" description="Navigate command history" />
+            <KeyboardShortcut
+              mac="Esc Esc"
+              other="Esc Esc"
+              description="Rewind code/conversation"
             />
           </div>
         </div>
 
         <div>
-          <h4 className="font-semibold mb-3">Input & History</h4>
+          <h4 className="font-semibold mb-3">Mode & Model Toggles</h4>
           <div className="bg-secondary/50 rounded-lg p-4">
-            <KeyboardShortcut
-              mac="↑ / ↓"
-              other="↑ / ↓"
-              description="Cycle through command history"
-            />
-            <KeyboardShortcut
-              mac="Esc Esc"
-              other="Esc Esc"
-              description="Edit last prompt / Clear input"
-            />
+            <KeyboardShortcut mac="Option+T" other="Alt+T" description="Toggle extended thinking" />
+            <KeyboardShortcut mac="Option+P" other="Alt+P" description="Switch model" />
             <KeyboardShortcut
               mac="Shift+Tab"
               other="Shift+Tab"
-              description="Cycle permission modes"
+              description="Toggle permission modes"
             />
-            <KeyboardShortcut mac="⌘+Esc" other="Ctrl+Esc" description="Quick open" />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-3">Text Editing</h4>
+          <div className="bg-secondary/50 rounded-lg p-4">
+            <KeyboardShortcut mac="Ctrl+A" other="Ctrl+A" description="Move to start of line" />
+            <KeyboardShortcut mac="Ctrl+E" other="Ctrl+E" description="Move to end of line" />
+            <KeyboardShortcut
+              mac="Option+B"
+              other="Alt+B"
+              description="Move cursor back one word"
+            />
+            <KeyboardShortcut
+              mac="Option+F"
+              other="Alt+F"
+              description="Move cursor forward one word"
+            />
+            <KeyboardShortcut mac="Ctrl+K" other="Ctrl+K" description="Delete to end of line" />
+            <KeyboardShortcut mac="Ctrl+U" other="Ctrl+U" description="Delete entire line" />
+            <KeyboardShortcut mac="Ctrl+W" other="Ctrl+W" description="Delete previous word" />
+            <KeyboardShortcut mac="Ctrl+Y" other="Ctrl+Y" description="Paste deleted text" />
+            <KeyboardShortcut
+              mac="Option+Y"
+              other="Alt+Y"
+              description="Cycle paste history (after Ctrl+Y)"
+            />
           </div>
         </div>
 
@@ -441,40 +475,58 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
           <h4 className="font-semibold mb-3">Multi-line Input</h4>
           <div className="bg-secondary/50 rounded-lg p-4">
             <KeyboardShortcut
-              mac="\\ + Enter"
-              other="\\ + Enter"
-              description="Multi-line input (works everywhere)"
+              mac="\ + Enter"
+              other="\ + Enter"
+              description="Quick escape (works everywhere)"
+            />
+            <KeyboardShortcut
+              mac="Option+Enter"
+              other="Shift+Enter"
+              description="Default multiline"
             />
             <KeyboardShortcut
               mac="Shift+Enter"
               other="Shift+Enter"
-              description="Multi-line (after /terminal-setup)"
+              description="After /terminal-setup"
             />
+            <KeyboardShortcut mac="Ctrl+J" other="Ctrl+J" description="Line feed character" />
           </div>
         </div>
 
         <div>
-          <h4 className="font-semibold mb-3">Text Editing (Bash-style)</h4>
+          <h4 className="font-semibold mb-3">Quick Commands</h4>
           <div className="bg-secondary/50 rounded-lg p-4">
-            <KeyboardShortcut mac="Ctrl+A" other="Ctrl+A" description="Move to start of line" />
-            <KeyboardShortcut mac="Ctrl+E" other="Ctrl+E" description="Move to end of line" />
-            <KeyboardShortcut mac="Option+F" other="Alt+F" description="Move forward one word" />
-            <KeyboardShortcut mac="Option+B" other="Alt+B" description="Move back one word" />
-            <KeyboardShortcut mac="Ctrl+W" other="Ctrl+W" description="Delete previous word" />
-            <KeyboardShortcut mac="Ctrl+U" other="Ctrl+U" description="Delete to start of line" />
-            <KeyboardShortcut mac="Ctrl+K" other="Ctrl+K" description="Delete to end of line" />
+            <KeyboardShortcut
+              mac="# at start"
+              other="# at start"
+              description="Memory shortcut - add to CLAUDE.md"
+            />
+            <KeyboardShortcut mac="/ at start" other="/ at start" description="Slash command" />
+            <KeyboardShortcut
+              mac="! at start"
+              other="! at start"
+              description="Bash mode - execute directly"
+            />
+            <KeyboardShortcut mac="@" other="@" description="File path mention / autocomplete" />
           </div>
         </div>
 
         <div>
           <h4 className="font-semibold mb-3">Permission Modes</h4>
           <p className="text-muted-foreground mb-3">
-            Use <kbd className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">Shift+Tab</kbd> to
-            cycle through:
+            Use{' '}
+            <kbd className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">
+              {isMac ? 'Shift+Tab' : 'Shift+Tab'}
+            </kbd>{' '}
+            or{' '}
+            <kbd className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">
+              {isMac ? 'Option+M' : 'Alt+M'}
+            </kbd>{' '}
+            to cycle through:
           </p>
           <ul className="list-disc list-inside space-y-2 text-muted-foreground">
             <li>
-              <strong>Edit mode</strong> (default) - Requires approval before file changes
+              <strong>Normal mode</strong> (default) - Requires approval before file changes
             </li>
             <li>
               <strong>Auto-accept mode</strong> - Writes files without asking permission
@@ -485,23 +537,26 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
           </ul>
         </div>
 
-        <div>
-          <h4 className="font-semibold mb-3">Conversation History</h4>
-          <p className="text-muted-foreground">
-            Double-tap{' '}
-            <kbd className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">Escape</kbd> on an
-            empty input to browse history and restore to an earlier point. This rewinds the
-            conversation but doesn't undo file changes.
-          </p>
-        </div>
-
         {isMac && (
           <div className="mt-6 p-4 bg-primary/10 rounded-lg">
-            <h4 className="font-semibold mb-2 text-primary">macOS Note</h4>
-            <p className="text-sm text-muted-foreground">
-              Option/Alt key shortcuts (Option+B, Option+F) require configuring Option as Meta in
-              your terminal settings.
+            <h4 className="font-semibold mb-2 text-primary">macOS Terminal Configuration</h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              Option key shortcuts require configuring your terminal to send Option as Meta:
             </p>
+            <ul className="text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
+              <li>
+                <strong>iTerm2</strong>: Settings → Profiles → Keys → Set Left/Right Option key to
+                "Esc+"
+              </li>
+              <li>
+                <strong>Terminal.app</strong>: Settings → Profiles → Keyboard → "Use Option as Meta
+                Key"
+              </li>
+              <li>
+                <strong>VS Code</strong>: Settings → Profiles → Keys → Set Left/Right Option key to
+                "Esc+"
+              </li>
+            </ul>
           </div>
         )}
       </div>
