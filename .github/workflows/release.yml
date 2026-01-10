@@ -110,8 +110,6 @@ jobs:
 
       - name: Install dependencies (Linux)
         if: matrix.platform == 'ubuntu-22.04'
-        env:
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -126,6 +124,10 @@ jobs:
             libglib2.0-dev \
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
+
+      - name: Set PKG_CONFIG_PATH (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
 
       - name: Install frontend dependencies
         working-directory: apps/tars-desktop
@@ -143,8 +145,6 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Linux pkg-config
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
         with:
           projectPath: apps/tars-desktop
           releaseId: ${{ needs.create-release.outputs.release_id }}
