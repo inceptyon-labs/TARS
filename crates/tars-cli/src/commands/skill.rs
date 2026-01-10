@@ -86,6 +86,7 @@ pub enum SkillCommands {
 }
 
 /// Execute skill command
+#[allow(dead_code)]
 pub fn execute(
     cmd: SkillCommands,
     _project_path: Option<&PathBuf>,

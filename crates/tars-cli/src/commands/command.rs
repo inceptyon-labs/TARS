@@ -80,6 +80,7 @@ pub enum CommandCommands {
 }
 
 /// Execute command command
+#[allow(dead_code)]
 pub fn execute(
     cmd: CommandCommands,
     _project_path: Option<&PathBuf>,

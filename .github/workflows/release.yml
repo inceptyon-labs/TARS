@@ -110,6 +110,8 @@ jobs:
 
       - name: Install dependencies (Linux)
         if: matrix.platform == 'ubuntu-22.04'
+        env:
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -141,6 +143,8 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Linux pkg-config
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
         with:
           projectPath: apps/tars-desktop
           releaseId: ${{ needs.create-release.outputs.release_id }}

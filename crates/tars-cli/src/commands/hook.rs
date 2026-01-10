@@ -71,6 +71,7 @@ pub enum HookCommands {
 }
 
 /// Execute hook command
+#[allow(dead_code)]
 pub fn execute(
     cmd: HookCommands,
     _project_path: Option<&PathBuf>,

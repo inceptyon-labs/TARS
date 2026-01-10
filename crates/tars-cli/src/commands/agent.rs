@@ -89,6 +89,7 @@ pub enum AgentCommands {
 }
 
 /// Execute agent command
+#[allow(dead_code)]
 pub fn execute(
     cmd: AgentCommands,
     _project_path: Option<&PathBuf>,
