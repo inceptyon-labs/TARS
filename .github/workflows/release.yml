@@ -88,7 +88,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             name: Windows-x64
           # Linux build
-          - platform: ubuntu-22.04
+          - platform: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             name: Linux-x64
 
@@ -109,24 +109,26 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install dependencies (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            libglib2.0-dev \
-            pkg-config
-          # Set PKG_CONFIG_PATH for subsequent steps
-          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
       - name: Verify pkg-config (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+          pkg-config --cflags glib-2.0
           pkg-config --cflags gobject-2.0
-          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/gobject-2.0.pc
+          pkg-config --cflags gio-2.0
 
       - name: Install frontend dependencies
         working-directory: apps/tars-desktop
