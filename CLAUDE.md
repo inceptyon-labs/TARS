@@ -10,20 +10,28 @@ TARS (Tooling, Agents, Roles, Skills) is a macOS desktop app for managing Claude
 
 ## Build Commands
 
-Once implementation begins:
-
 ```bash
 # Rust crates
 cargo build                           # Build all crates
 cargo test                            # Run all tests
 cargo run -p tars-cli -- scan         # Run scanner CLI
 
-# Tauri app (after Task 3)
+# Tauri app
 cd apps/tars-desktop
 bun install
 bun run tauri dev                     # Development mode
 bun run tauri build                   # Production build
 ```
+
+## Setup
+
+After cloning, enable the pre-commit hooks:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+This runs `cargo fmt` checks before each commit.
 
 ## Architecture
 

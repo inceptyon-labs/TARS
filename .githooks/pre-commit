@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Format Rust code
+echo "Running cargo fmt..."
+cargo fmt --all -- --check
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Rust formatting check failed. Running cargo fmt..."
+    cargo fmt --all
+    echo ""
+    echo "Files have been formatted. Please review and re-stage the changes."
+    exit 1
+fi
+
+echo "✓ All checks passed"

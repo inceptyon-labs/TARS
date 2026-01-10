@@ -10,8 +10,23 @@ import {
   Package,
   ExternalLink,
   ChevronRight,
-  Search
+  Search,
+  Keyboard
 } from 'lucide-react';
+
+// Detect if user is on macOS
+const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+// Keyboard shortcut component that shows OS-specific keys
+function KeyboardShortcut({ mac, other, description }: { mac: string; other: string; description: string }) {
+  const keys = isMac ? mac : other;
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+      <span className="text-muted-foreground">{description}</span>
+      <kbd className="px-2 py-1 bg-muted rounded text-sm font-mono">{keys}</kbd>
+    </div>
+  );
+}
 
 interface KnowledgeSection {
   id: string;
