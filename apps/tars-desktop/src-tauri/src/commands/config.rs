@@ -199,6 +199,7 @@ pub async fn mcp_remove(
 
 /// Parameters for mcp_update command
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct McpUpdateParams {
     pub name: String,
     pub scope: Option<String>,
@@ -225,6 +226,7 @@ pub struct McpMoveParams {
     pub from_scope: Option<String>,
     #[serde(rename = "toScope")]
     pub to_scope: String,
+    #[allow(dead_code)]
     pub force: Option<bool>,
     #[serde(rename = "dryRun")]
     pub dry_run: Option<bool>,
@@ -290,6 +292,7 @@ pub async fn mcp_move(
 
 /// Parameters for config_rollback command
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct RollbackParams {
     #[serde(rename = "backupId")]
     pub backup_id: String,

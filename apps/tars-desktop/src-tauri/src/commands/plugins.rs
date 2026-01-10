@@ -173,34 +173,53 @@ pub async fn plugin_move_scope(
     }
 }
 
-/// Enable a plugin
+/// Enable a plugin by setting it to true in enabledPlugins
 #[tauri::command]
 pub async fn plugin_enable(plugin: String) -> Result<String, String> {
-    let output = Command::new("claude")
-        .args(["plugin", "enable", &plugin])
-        .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
-    }
+    set_plugin_enabled(&plugin, true)
 }
 
-/// Disable a plugin
+/// Disable a plugin by setting it to false in enabledPlugins
 #[tauri::command]
 pub async fn plugin_disable(plugin: String) -> Result<String, String> {
-    let output = Command::new("claude")
-        .args(["plugin", "disable", &plugin])
-        .output()
-        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+    set_plugin_enabled(&plugin, false)
+}
 
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+/// Set a plugin's enabled state in ~/.claude/settings.json
+fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
+    let home = std::env::var("HOME")
+        .map_err(|_| "Could not find HOME environment variable")?;
+    let settings_file = std::path::PathBuf::from(home)
+        .join(".claude")
+        .join("settings.json");
+
+    // Read existing settings or create empty object
+    let mut settings: serde_json::Value = if settings_file.exists() {
+        let content = std::fs::read_to_string(&settings_file)
+            .map_err(|e| format!("Failed to read settings file: {}", e))?;
+        serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse settings JSON: {}", e))?
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        serde_json::json!({})
+    };
+
+    // Ensure enabledPlugins object exists
+    if settings.get("enabledPlugins").is_none() {
+        settings["enabledPlugins"] = serde_json::json!({});
     }
+
+    // Set the plugin's enabled state
+    if let Some(enabled_plugins) = settings.get_mut("enabledPlugins").and_then(|p| p.as_object_mut()) {
+        enabled_plugins.insert(plugin.to_string(), serde_json::Value::Bool(enabled));
+    }
+
+    // Write back to file
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+    std::fs::write(&settings_file, content)
+        .map_err(|e| format!("Failed to write settings file: {}", e))?;
+
+    Ok(format!("Plugin {} {}", plugin, if enabled { "enabled" } else { "disabled" }))
 }
 
 /// Toggle auto-update for a marketplace

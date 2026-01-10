@@ -535,7 +535,6 @@ export function AgentsPage() {
               onSave={handleSaveAgent}
               onMove={handleOpenMoveDialog}
               readOnly={selectedAgent.scope !== 'user' && selectedAgent.scope !== 'project'}
-              defaultViewMode
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4">

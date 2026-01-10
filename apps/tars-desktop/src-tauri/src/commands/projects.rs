@@ -268,7 +268,7 @@ fn collect_directory_items(dir: &PathBuf, extension: &str, scope: &str) -> Vec<C
 }
 
 fn calculate_mcp_complexity(
-    name: &str,
+    _name: &str,
     server_type: &str,
     command: Option<&str>,
     env_count: usize,

@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Save, RotateCcw, ArrowRightLeft, Pencil } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { Save, RotateCcw, ArrowRightLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   MDXEditor,
   headingsPlugin,
@@ -60,6 +60,35 @@ function getScopeLabel(scope?: string): string {
   }
 }
 
+/** Parse frontmatter from markdown content */
+function parseFrontmatter(content: string): { frontmatter: string | null; body: string } {
+  const trimmed = content.trimStart();
+  if (!trimmed.startsWith('---')) {
+    return { frontmatter: null, body: content };
+  }
+
+  // Find the closing ---
+  const endIndex = trimmed.indexOf('---', 3);
+  if (endIndex === -1) {
+    return { frontmatter: null, body: content };
+  }
+
+  // Extract frontmatter (without the --- delimiters)
+  const frontmatter = trimmed.slice(3, endIndex).trim();
+  // Extract body (after the closing ---)
+  const body = trimmed.slice(endIndex + 3).trimStart();
+
+  return { frontmatter, body };
+}
+
+/** Combine frontmatter and body back into markdown */
+function combineFrontmatter(frontmatter: string | null, body: string): string {
+  if (!frontmatter) {
+    return body;
+  }
+  return `---\n${frontmatter}\n---\n\n${body}`;
+}
+
 // Editor plugins configuration
 const editorPlugins = [
   headingsPlugin(),
@@ -85,6 +114,7 @@ const editorPlugins = [
       bash: 'Bash',
       sql: 'SQL',
       markdown: 'Markdown',
+      yaml: 'YAML',
       '': 'Plain Text',
     },
   }),
@@ -131,6 +161,7 @@ const readOnlyPlugins = [
       bash: 'Bash',
       sql: 'SQL',
       markdown: 'Markdown',
+      yaml: 'YAML',
       '': 'Plain Text',
     },
   }),
@@ -138,15 +169,27 @@ const readOnlyPlugins = [
 
 export function MarkdownEditor({ item, onSave, onMove, readOnly = false, defaultViewMode = false }: MarkdownEditorProps) {
   const editorRef = useRef<MDXEditorMethods>(null);
-  const [content, setContent] = useState(item.content);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [isViewMode, setIsViewMode] = useState(defaultViewMode);
+  const [frontmatterExpanded, setFrontmatterExpanded] = useState(true);
+
+  // Parse frontmatter from the original content
+  const { frontmatter: originalFrontmatter, body: originalBody } = useMemo(
+    () => parseFrontmatter(item.content),
+    [item.content]
+  );
+
+  // State for editable frontmatter and body
+  const [frontmatter, setFrontmatter] = useState(originalFrontmatter);
+  const [body, setBody] = useState(originalBody);
 
   // Sync content when item changes
   useEffect(() => {
-    setContent(item.content);
+    const parsed = parseFrontmatter(item.content);
+    setFrontmatter(parsed.frontmatter);
+    setBody(parsed.body);
     setError(null);
     setEditorKey((k) => k + 1); // Force editor remount
     // Reset to view mode when item changes (if defaultViewMode is enabled)
@@ -155,7 +198,9 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
     }
   }, [item.path, item.content, defaultViewMode]);
 
-  const hasChanges = content !== item.content && !readOnly && !isViewMode;
+  // Check if content has changed
+  const currentContent = combineFrontmatter(frontmatter, body);
+  const hasChanges = currentContent !== item.content && !readOnly && !isViewMode;
 
   // Determine if we're in an editable state (not read-only and not in view mode)
   const isEditing = !readOnly && !isViewMode;
@@ -165,17 +210,21 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
     setSaving(true);
     setError(null);
     try {
-      const currentContent = editorRef.current?.getMarkdown() || content;
-      await onSave(item.path, currentContent);
+      // Get the latest body from the editor
+      const editorBody = editorRef.current?.getMarkdown() || body;
+      const fullContent = combineFrontmatter(frontmatter, editorBody);
+      await onSave(item.path, fullContent);
     } catch (err) {
       setError(String(err));
     } finally {
       setSaving(false);
     }
-  }, [content, hasChanges, onSave, item.path]);
+  }, [body, frontmatter, hasChanges, onSave, item.path]);
 
   const handleReset = useCallback(() => {
-    setContent(item.content);
+    const parsed = parseFrontmatter(item.content);
+    setFrontmatter(parsed.frontmatter);
+    setBody(parsed.body);
     setError(null);
     setEditorKey((k) => k + 1); // Force editor remount
     // Return to view mode if defaultViewMode is enabled
@@ -183,11 +232,6 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
       setIsViewMode(true);
     }
   }, [item.content, defaultViewMode]);
-
-  const handleEnterEdit = useCallback(() => {
-    setIsViewMode(false);
-    setEditorKey((k) => k + 1); // Force editor remount with edit mode
-  }, []);
 
   // Handle Cmd+S / Ctrl+S
   const handleKeyDown = useCallback(
@@ -224,17 +268,7 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
           {isEditing && hasChanges && (
             <span className="text-xs text-muted-foreground">Unsaved changes</span>
           )}
-          {/* Edit button shown in view mode */}
-          {!readOnly && isViewMode && (
-            <button
-              onClick={handleEnterEdit}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-            >
-              <Pencil className="h-4 w-4" />
-              Edit
-            </button>
-          )}
-          {/* Move/Reset/Save buttons shown in edit mode */}
+          {/* Move/Reset/Save buttons */}
           {onMove && isEditing && (
             <button
               onClick={() => onMove(item.path)}
@@ -275,13 +309,54 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
         </div>
       )}
 
+      {/* Frontmatter panel */}
+      {frontmatter && (
+        <div className="border-b border-border shrink-0">
+          <button
+            onClick={() => setFrontmatterExpanded(!frontmatterExpanded)}
+            className="w-full px-4 py-2 flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
+            {frontmatterExpanded ? (
+              <ChevronDown className="h-3 w-3" />
+            ) : (
+              <ChevronRight className="h-3 w-3" />
+            )}
+            <span className="uppercase tracking-wider">Frontmatter</span>
+            <span className="text-primary font-mono">YAML</span>
+          </button>
+          {frontmatterExpanded && (
+            <div className="px-4 pb-3">
+              <textarea
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = `${el.scrollHeight + 4}px`;
+                  }
+                }}
+                value={frontmatter}
+                onChange={isEditing ? (e) => {
+                  setFrontmatter(e.target.value);
+                  // Auto-resize on change
+                  const el = e.target;
+                  el.style.height = 'auto';
+                  el.style.height = `${el.scrollHeight + 4}px`;
+                } : undefined}
+                readOnly={!isEditing}
+                className="w-full bg-secondary text-secondary-foreground font-mono text-sm p-3 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 overflow-hidden"
+                spellCheck={false}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Editor */}
       <div className="flex-1 mdx-editor-container">
         <MDXEditor
           key={`editor-${editorKey}`}
           ref={isEditing ? editorRef : undefined}
-          markdown={content}
-          onChange={isEditing ? (markdown) => setContent(markdown) : undefined}
+          markdown={body}
+          onChange={isEditing ? (markdown) => setBody(markdown) : undefined}
           readOnly={readOnly || isViewMode}
           plugins={isEditing ? editorPlugins : readOnlyPlugins}
           contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"

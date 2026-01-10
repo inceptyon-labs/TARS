@@ -19,6 +19,13 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: 'Trade Gothic Std Bold Extended';
+  src: url('./assets/fonts/Trade-Gothic-Std-Bold-Extended.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
 :root {
   --radius: 0.375rem;
 
@@ -66,6 +73,7 @@
   /* TARS amber glow */
   --tars-glow: #d4922a;
   --tars-glow-soft: rgba(212, 146, 42, 0.3);
+  --tars-wordmark: #c87435;
 }
 
 .dark {
@@ -113,6 +121,7 @@
   /* TARS amber glow - more vibrant in dark */
   --tars-glow: #e6a33a;
   --tars-glow-soft: rgba(230, 163, 58, 0.25);
+  --tars-wordmark: #d58945;
 }
 
 @theme inline {
@@ -187,22 +196,163 @@
   background: var(--metal-highlight);
 }
 
-/* TARS Logo watermark in sidebar */
-.tars-watermark {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 180px;
-  height: 180px;
-  opacity: 0.06;
-  pointer-events: none;
-  filter: grayscale(100%);
+/* TARS Mark - Based on Interstellar robot */
+.tars-mark {
+  width: 72px;
+  height: 80px;
+  display: grid;
+  grid-template-columns: 15px 1fr 15px;
+  gap: 2px;
+  position: relative;
 }
 
-.dark .tars-watermark {
-  opacity: 0.08;
-  filter: grayscale(100%) brightness(2);
+.tars-mark span {
+  display: block;
+  border-radius: 3px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--metal-highlight) 80%, transparent) 0%,
+    var(--metal-mid) 40%,
+    color-mix(in srgb, var(--metal-mid) 60%, black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--metal-highlight),
+    0 1px 2px var(--metal-shadow);
+}
+
+/* Left leg - thin, extends lower */
+.tars-mark span:nth-child(1) {
+  height: 100%;
+  align-self: end;
+}
+
+/* Center body - wide, shorter */
+.tars-mark span:nth-child(2) {
+  height: 82%;
+  align-self: start;
+}
+
+/* Right leg - thin, extends lower */
+.tars-mark span:nth-child(3) {
+  height: 100%;
+  align-self: end;
+}
+
+/* Hide 4th span if present */
+.tars-mark span:nth-child(4) {
+  display: none;
+}
+
+/* Display screen on body */
+.tars-mark span:nth-child(2)::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 10px;
+  background: #0a0a0a;
+  border-radius: 2px;
+}
+
+/* Braille-like dots - asymmetric pattern on body */
+/* Left dot column */
+.tars-mark::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow:
+    0 7px 0 var(--primary),
+    0 14px 0 var(--primary),
+    0 28px 0 var(--primary);
+  left: 22px;
+  top: 20px;
+}
+
+/* Right dot column - different pattern */
+.tars-mark::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow:
+    0 7px 0 var(--primary),
+    0 21px 0 var(--primary),
+    0 28px 0 var(--primary);
+  right: 22px;
+  top: 16px;
+}
+
+.tars-mark-collapsed {
+  width: 48px;
+  height: 54px;
+  grid-template-columns: 8px 1fr 8px;
+  gap: 1px;
+}
+
+.tars-mark-collapsed span:nth-child(2) {
+  height: 80%;
+}
+
+/* Collapsed - asymmetric dots */
+.tars-mark-collapsed::before {
+  width: 3px;
+  height: 3px;
+  box-shadow:
+    0 5px 0 var(--primary),
+    0 10px 0 var(--primary),
+    0 18px 0 var(--primary);
+  left: 14px;
+  top: 12px;
+}
+
+.tars-mark-collapsed::after {
+  width: 3px;
+  height: 3px;
+  box-shadow:
+    0 5px 0 var(--primary),
+    0 14px 0 var(--primary),
+    0 19px 0 var(--primary);
+  right: 14px;
+  top: 10px;
+}
+
+/* TARS Wordmark */
+.tars-wordmark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.tars-wordmark-text {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  font-family: 'Trade Gothic Std Bold Extended', 'Trade Gothic Bold Extended', 'Trade Gothic', 'Franklin Gothic Medium',
+    'Arial Narrow', 'Oswald', sans-serif;
+  font-weight: 800;
+  font-stretch: expanded;
+  text-transform: uppercase;
+  color: var(--tars-wordmark);
+  letter-spacing: 0.25em;
+  font-size: 28px;
+  line-height: 1;
+  text-shadow: 0.35px 0 0 currentColor, -0.35px 0 0 currentColor;
+}
+
+.tars-wordmark-collapsed {
+  gap: 6px;
+}
+
+.tars-wordmark-collapsed .tars-wordmark-text {
+  font-size: 20px;
 }
 
 /* ============================================
@@ -559,6 +709,62 @@
     0 1px 3px var(--metal-shadow);
 }
 
+/* Sidebar section headers */
+.tars-section-title {
+  position: relative;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: color-mix(in srgb, var(--sidebar-foreground) 65%, transparent);
+}
+
+.tars-section-title::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%) rotate(45deg);
+  background: var(--tars-glow);
+  box-shadow: 0 0 6px var(--tars-glow-soft);
+  border-radius: 2px;
+}
+
+/* Sidebar collapse toggle */
+.tars-sidebar-toggle {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+  box-shadow:
+    inset 0 1px 0 var(--metal-highlight),
+    0 1px 2px var(--metal-shadow);
+  transition: all 0.15s ease;
+}
+
+.tars-sidebar-toggle:hover {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--border) 70%, var(--foreground));
+}
+
+/* Scrollable sidebar without visible scrollbar */
+.tars-sidebar-scroll {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tars-sidebar-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 /* Metallic text effect */
 .text-metallic {
   background: linear-gradient(
@@ -680,4 +886,152 @@ svg {
   color: var(--muted-foreground);
   pointer-events: none;
   z-index: 10;
+}
+
+/* ============================================
+   MDXEditor Overrides - TARS Theme
+   ============================================ */
+
+/* MDXEditor container */
+.mdx-editor-container {
+  overflow: auto;
+  height: 100%;
+}
+
+.mdx-editor-container .mdxeditor {
+  height: 100%;
+  background: var(--card);
+  color: var(--foreground);
+}
+
+/* MDXEditor toolbar */
+.mdx-editor-container [class*="_toolbarRoot_"] {
+  background: var(--secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.mdx-editor-container [class*="_toolbarRoot_"] button {
+  color: var(--foreground) !important;
+}
+
+.mdx-editor-container [class*="_toolbarRoot_"] button:hover {
+  background: var(--muted) !important;
+}
+
+/* MDXEditor select/dropdown triggers - the problematic dropdowns */
+.mdx-editor-container select,
+.mdx-editor-container [class*="_selectTrigger_"],
+.mdx-editor-container [class*="_select_"] > button,
+.mdx-editor-container [role="combobox"] {
+  background: var(--secondary) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  border-radius: var(--radius) !important;
+  box-shadow:
+    inset 0 1px 0 var(--metal-highlight),
+    0 1px 2px var(--metal-shadow) !important;
+}
+
+.mdx-editor-container select:hover,
+.mdx-editor-container [class*="_selectTrigger_"]:hover,
+.mdx-editor-container [class*="_select_"] > button:hover,
+.mdx-editor-container [role="combobox"]:hover {
+  background: color-mix(in srgb, var(--secondary) 100%, white 5%) !important;
+}
+
+.mdx-editor-container select:focus,
+.mdx-editor-container [class*="_selectTrigger_"]:focus,
+.mdx-editor-container [class*="_select_"] > button:focus,
+.mdx-editor-container [role="combobox"]:focus {
+  outline: none !important;
+  border-color: var(--primary) !important;
+  box-shadow:
+    inset 0 1px 2px var(--metal-shadow),
+    0 0 0 3px var(--tars-glow-soft) !important;
+}
+
+/* MDXEditor dropdown content/popover */
+.mdx-editor-container [class*="_selectContent_"],
+.mdx-editor-container [role="listbox"],
+[data-radix-popper-content-wrapper] [class*="_selectContent_"] {
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 4px 12px var(--metal-shadow) !important;
+  color: var(--foreground) !important;
+}
+
+/* MDXEditor dropdown items */
+.mdx-editor-container [class*="_selectItem_"],
+.mdx-editor-container [role="option"],
+[data-radix-popper-content-wrapper] [class*="_selectItem_"] {
+  color: var(--foreground) !important;
+}
+
+.mdx-editor-container [class*="_selectItem_"]:hover,
+.mdx-editor-container [role="option"]:hover,
+.mdx-editor-container [class*="_selectItem_"][data-highlighted],
+.mdx-editor-container [role="option"][data-highlighted],
+[data-radix-popper-content-wrapper] [class*="_selectItem_"]:hover {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+/* Code block language selector in MDXEditor - more specific targeting */
+.mdx-editor-container [class*="_codeBlockEditorWrapper_"] select,
+.mdx-editor-container [class*="cm-editor"] + div select,
+.mdx-editor-container .cm-scroller + div select {
+  background: var(--secondary) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  border-radius: var(--radius) !important;
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.75rem !important;
+  min-width: 80px !important;
+}
+
+/* Code blocks within MDXEditor */
+.mdx-editor-container .cm-editor {
+  background: var(--secondary) !important;
+  border-radius: var(--radius) !important;
+}
+
+.mdx-editor-container .cm-editor .cm-content {
+  color: var(--foreground) !important;
+}
+
+.mdx-editor-container .cm-editor .cm-gutters {
+  background: var(--secondary) !important;
+  border-right: 1px solid var(--border) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.mdx-editor-container .cm-editor .cm-activeLineGutter,
+.mdx-editor-container .cm-editor .cm-activeLine {
+  background: var(--muted) !important;
+}
+
+/* Prose code blocks - ensure visibility in light mode */
+.prose pre,
+.prose code {
+  background: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
+}
+
+.prose pre {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.prose code:not(pre code) {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+/* Dark mode prose adjustments */
+.dark .prose pre,
+.dark .prose code {
+  background: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
 }

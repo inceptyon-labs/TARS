@@ -422,7 +422,6 @@ export function CommandsPage() {
               onSave={handleSaveCommand}
               onMove={handleOpenMoveDialog}
               readOnly={selectedCommand.scope !== 'user' && selectedCommand.scope !== 'project'}
-              defaultViewMode
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4">

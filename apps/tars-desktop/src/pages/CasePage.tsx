@@ -37,7 +37,7 @@ const sections: KnowledgeSection[] = [
         </p>
 
         <h4 className="font-semibold mt-6">Structure</h4>
-        <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`---
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`---
 name: my-skill
 description: What this skill does
 user_invocable: true
@@ -87,7 +87,7 @@ Use $ARGUMENTS to reference user input.`}</pre>
         </p>
 
         <h4 className="font-semibold mt-6">Structure</h4>
-        <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`---
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`---
 name: code-reviewer
 description: Reviews code for quality and security
 tools:
@@ -140,7 +140,7 @@ You are an expert code reviewer. When given code to review:
         </p>
 
         <h4 className="font-semibold mt-6">Structure</h4>
-        <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`---
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`---
 description: Generate a git commit message
 ---
 
@@ -202,7 +202,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
         </ul>
 
         <h4 className="font-semibold mt-6">Configuration Example</h4>
-        <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`{
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`{
   "hooks": {
     "PreToolUse": [
       {
@@ -261,7 +261,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
         </ul>
 
         <h4 className="font-semibold mt-6">Configuration Example</h4>
-        <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`{
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`{
   "mcpServers": {
     "filesystem": {
       "command": "npx",
@@ -307,7 +307,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
         </p>
 
         <h4 className="font-semibold mt-6">Plugin Structure</h4>
-        <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`.claude-plugin/
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`.claude-plugin/
 ├── plugin.json       # Manifest file
 ├── skills/          # Skill definitions
 │   └── my-skill.md
@@ -318,7 +318,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
 └── hooks.json       # Hook configurations`}</pre>
 
         <h4 className="font-semibold mt-6">Plugin Manifest (plugin.json)</h4>
-        <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">{`{
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`{
   "name": "my-plugin",
   "version": "1.0.0",
   "description": "My awesome plugin",

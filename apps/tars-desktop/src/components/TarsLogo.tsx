@@ -4,6 +4,7 @@ interface TarsLogoProps {
 }
 
 export function TarsLogo({ className = '', size = 32 }: TarsLogoProps) {
+  // Scale factor based on size (viewBox is 64x64)
   return (
     <svg
       width={size}
@@ -13,58 +14,96 @@ export function TarsLogo({ className = '', size = 32 }: TarsLogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Main monolith body */}
+      {/* Four articulated segments like TARS robot */}
+      {/* Segment 1 - leftmost */}
       <rect
-        x="16"
-        y="4"
-        width="32"
-        height="56"
-        rx="2"
-        fill="url(#metallic-gradient)"
+        x="8"
+        y="6"
+        width="10"
+        height="52"
+        rx="1.5"
+        fill="url(#segment-gradient-1)"
       />
 
-      {/* Segment lines */}
-      <line x1="16" y1="16" x2="48" y2="16" stroke="#1a1a1a" strokeWidth="1" />
-      <line x1="16" y1="28" x2="48" y2="28" stroke="#1a1a1a" strokeWidth="1" />
-      <line x1="16" y1="40" x2="48" y2="40" stroke="#1a1a1a" strokeWidth="1" />
-      <line x1="16" y1="52" x2="48" y2="52" stroke="#1a1a1a" strokeWidth="1" />
-
-      {/* Vertical segment line */}
-      <line x1="32" y1="4" x2="32" y2="60" stroke="#1a1a1a" strokeWidth="0.5" />
-
-      {/* Display screen */}
+      {/* Segment 2 */}
       <rect
         x="20"
-        y="20"
-        width="24"
-        height="8"
-        rx="1"
-        fill="#0a0a0a"
+        y="4"
+        width="10"
+        height="56"
+        rx="1.5"
+        fill="url(#segment-gradient-2)"
       />
 
-      {/* Amber status indicators */}
-      <circle cx="24" cy="34" r="2" fill="#d4a574" />
-      <circle cx="32" cy="34" r="2" fill="#d4a574" />
-      <circle cx="40" cy="34" r="2" fill="#d4a574" />
-
-      {/* Subtle reflection highlight */}
+      {/* Segment 3 */}
       <rect
-        x="17"
-        y="5"
-        width="8"
-        height="54"
-        fill="url(#highlight-gradient)"
-        opacity="0.3"
+        x="32"
+        y="4"
+        width="10"
+        height="56"
+        rx="1.5"
+        fill="url(#segment-gradient-2)"
       />
+
+      {/* Segment 4 - rightmost */}
+      <rect
+        x="44"
+        y="6"
+        width="10"
+        height="52"
+        rx="1.5"
+        fill="url(#segment-gradient-1)"
+      />
+
+      {/* Braille-like dots on segment 2 - matching TARS pattern */}
+      {/* Top group */}
+      <circle cx="25" cy="18" r="1.8" fill="#d4a574" />
+      <circle cx="25" cy="24" r="1.8" fill="#d4a574" />
+      <circle cx="25" cy="30" r="1.8" fill="#d4a574" />
+
+      {/* Bottom group */}
+      <circle cx="25" cy="40" r="1.8" fill="#d4a574" />
+      <circle cx="25" cy="46" r="1.8" fill="#d4a574" />
+
+      {/* Braille-like dots on segment 3 - mirrored pattern */}
+      {/* Top group */}
+      <circle cx="37" cy="18" r="1.8" fill="#d4a574" />
+      <circle cx="37" cy="24" r="1.8" fill="#d4a574" />
+      <circle cx="37" cy="30" r="1.8" fill="#d4a574" />
+
+      {/* Bottom group */}
+      <circle cx="37" cy="40" r="1.8" fill="#d4a574" />
+      <circle cx="37" cy="46" r="1.8" fill="#d4a574" />
+
+      {/* Display screen area on center segments */}
+      <rect
+        x="22"
+        y="10"
+        width="18"
+        height="4"
+        rx="0.5"
+        fill="#0a0a0a"
+        opacity="0.6"
+      />
+
+      {/* Subtle highlights on segments */}
+      <rect x="8" y="6" width="2" height="52" rx="0.5" fill="url(#highlight)" opacity="0.2" />
+      <rect x="20" y="4" width="2" height="56" rx="0.5" fill="url(#highlight)" opacity="0.25" />
+      <rect x="32" y="4" width="2" height="56" rx="0.5" fill="url(#highlight)" opacity="0.25" />
+      <rect x="44" y="6" width="2" height="52" rx="0.5" fill="url(#highlight)" opacity="0.2" />
 
       <defs>
-        <linearGradient id="metallic-gradient" x1="16" y1="4" x2="48" y2="60" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#5a5a5a" />
-          <stop offset="30%" stopColor="#4a4a4a" />
-          <stop offset="70%" stopColor="#3a3a3a" />
+        <linearGradient id="segment-gradient-1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#4a4a4a" />
+          <stop offset="50%" stopColor="#3a3a3a" />
           <stop offset="100%" stopColor="#2a2a2a" />
         </linearGradient>
-        <linearGradient id="highlight-gradient" x1="17" y1="5" x2="25" y2="5" gradientUnits="userSpaceOnUse">
+        <linearGradient id="segment-gradient-2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#555555" />
+          <stop offset="50%" stopColor="#404040" />
+          <stop offset="100%" stopColor="#303030" />
+        </linearGradient>
+        <linearGradient id="highlight" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#ffffff" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
@@ -83,18 +122,17 @@ export function TarsLogoMark({ className = '', size = 24 }: TarsLogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Simplified monolith */}
-      <rect
-        x="6"
-        y="2"
-        width="12"
-        height="20"
-        rx="1"
-        fill="currentColor"
-        opacity="0.8"
-      />
-      {/* Amber dot */}
-      <circle cx="12" cy="12" r="2" fill="#d4a574" />
+      {/* Simplified 4-segment design */}
+      <rect x="3" y="3" width="4" height="18" rx="0.5" fill="currentColor" opacity="0.7" />
+      <rect x="8" y="2" width="4" height="20" rx="0.5" fill="currentColor" opacity="0.85" />
+      <rect x="13" y="2" width="4" height="20" rx="0.5" fill="currentColor" opacity="0.85" />
+      <rect x="18" y="3" width="4" height="18" rx="0.5" fill="currentColor" opacity="0.7" />
+
+      {/* Braille dots */}
+      <circle cx="10" cy="8" r="1" fill="#d4a574" />
+      <circle cx="10" cy="12" r="1" fill="#d4a574" />
+      <circle cx="15" cy="8" r="1" fill="#d4a574" />
+      <circle cx="15" cy="12" r="1" fill="#d4a574" />
     </svg>
   );
 }

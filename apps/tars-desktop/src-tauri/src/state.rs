@@ -49,6 +49,7 @@ impl AppState {
     }
 
     /// Check if the database is initialized
+    #[allow(dead_code)]
     pub fn is_initialized(&self) -> bool {
         let guard = self
             .db
