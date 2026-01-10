@@ -93,6 +93,8 @@ jobs:
             name: Linux-x64
 
     runs-on: ${{ matrix.platform }}
+    env:
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 
     steps:
       - name: Checkout

@@ -42,6 +42,8 @@ jobs:
 
   build-check:
     runs-on: ubuntu-22.04
+    env:
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 
     steps:
       - name: Checkout
@@ -104,6 +106,9 @@ jobs:
 
       - name: Check Tauri build
         working-directory: apps/tars-desktop
-        env:
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
-        run: cargo build --release
+        run: |
+          export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig"
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+          pkg-config --list-all | grep glib
+          cargo clean
+          cargo build --release
