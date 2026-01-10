@@ -20,7 +20,7 @@ export const mockInvokeResponses: Record<string, unknown> = {
 };
 
 // Helper to set up mock responses
-export function setupTauriMock(responses?: Record<string, unknown>) {
+export async function setupTauriMock(responses?: Record<string, unknown>) {
   const allResponses = { ...mockInvokeResponses, ...responses };
 
   const { invoke } = vi.mocked(await import('@tauri-apps/api/core'));

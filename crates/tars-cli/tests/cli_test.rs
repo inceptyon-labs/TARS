@@ -416,8 +416,11 @@ fn test_profile_export_creates_plugin() {
         .success()
         .stdout(predicate::str::contains("Created plugin"));
 
-    // Verify plugin was created
-    assert!(output_dir.path().join("export-test-1.0.0").exists());
+    // Verify plugin structure was created in output directory
+    assert!(output_dir
+        .path()
+        .join(".claude-plugin/plugin.json")
+        .exists());
 }
 
 #[test]
