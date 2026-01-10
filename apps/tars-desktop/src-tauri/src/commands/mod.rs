@@ -13,6 +13,7 @@ pub mod projects;
 pub mod prompts;
 pub mod scanner;
 pub mod skills;
+pub mod updates;
 pub mod utils;
 
 // Re-export all commands for easy registration
@@ -27,4 +28,5 @@ pub use projects::*;
 pub use prompts::*;
 pub use scanner::*;
 pub use skills::*;
+pub use updates::*;
 pub use utils::*;

@@ -13,6 +13,7 @@ import { McpPage } from './pages/McpPage';
 import { PluginsPage } from './pages/PluginsPage';
 import { CasePage } from './pages/CasePage';
 import { PromptsPage } from './pages/PromptsPage';
+import { UpdatesPage } from './pages/UpdatesPage';
 import { useUIStore } from './stores/ui-store';
 import './App.css';
 
@@ -84,6 +85,7 @@ function App() {
               <Route path="case" element={<CasePage />} />
               <Route path="case/:section" element={<CasePage />} />
               <Route path="prompts" element={<PromptsPage />} />
+              <Route path="updates" element={<UpdatesPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

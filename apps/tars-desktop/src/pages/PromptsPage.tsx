@@ -42,6 +42,7 @@ import {
   type MDXEditorMethods,
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
+import { useUIStore } from '../stores/ui-store';
 import { listPrompts, readPrompt, createPrompt, updatePrompt, deletePrompt } from '../lib/ipc';
 import type { PromptSummary } from '../lib/types';
 import { Button } from '../components/ui/button';
@@ -50,6 +51,7 @@ import { ConfirmDialog } from '../components/config/ConfirmDialog';
 
 export function PromptsPage() {
   const queryClient = useQueryClient();
+  const theme = useUIStore((state) => state.theme);
   const editorRef = useRef<MDXEditorMethods>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -401,6 +403,7 @@ export function PromptsPage() {
                       markdown={editContent}
                       onChange={(markdown) => setEditContent(markdown)}
                       plugins={editorPlugins}
+                      className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
                       contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
                     />
                   </div>
@@ -436,6 +439,7 @@ export function PromptsPage() {
                           },
                         }),
                       ]}
+                      className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
                       contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full"
                     />
                   </div>

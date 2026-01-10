@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Save, RotateCcw, ArrowRightLeft, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, RotateCcw, ArrowRightLeft, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import yaml from 'js-yaml';
 import {
   MDXEditor,
   headingsPlugin,
@@ -25,6 +27,7 @@ import {
   type MDXEditorMethods,
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
+import { useUIStore } from '../stores/ui-store';
 
 export interface EditableItem {
   name: string;
@@ -87,6 +90,24 @@ function combineFrontmatter(frontmatter: string | null, body: string): string {
     return body;
   }
   return `---\n${frontmatter}\n---\n\n${body}`;
+}
+
+/** Validate YAML frontmatter and return error message if invalid */
+function validateYaml(content: string): string | null {
+  if (!content.trim()) {
+    return null; // Empty is valid
+  }
+  try {
+    yaml.load(content);
+    return null;
+  } catch (e) {
+    if (e instanceof yaml.YAMLException) {
+      // Extract just the useful part of the error message
+      const message = e.message.split('\n')[0];
+      return message || 'Invalid YAML syntax';
+    }
+    return 'Invalid YAML syntax';
+  }
 }
 
 // Editor plugins configuration
@@ -169,6 +190,7 @@ const readOnlyPlugins = [
 
 export function MarkdownEditor({ item, onSave, onMove, readOnly = false, defaultViewMode = false }: MarkdownEditorProps) {
   const editorRef = useRef<MDXEditorMethods>(null);
+  const theme = useUIStore((state) => state.theme);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
@@ -184,6 +206,12 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
   // State for editable frontmatter and body
   const [frontmatter, setFrontmatter] = useState(originalFrontmatter);
   const [body, setBody] = useState(originalBody);
+
+  // Validate YAML frontmatter in real-time
+  const yamlError = useMemo(
+    () => (frontmatter ? validateYaml(frontmatter) : null),
+    [frontmatter]
+  );
 
   // Sync content when item changes
   useEffect(() => {
@@ -207,6 +235,12 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
 
   const handleSave = useCallback(async () => {
     if (!hasChanges) return;
+    if (yamlError) {
+      toast.error('Invalid YAML frontmatter', {
+        description: yamlError,
+      });
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -219,7 +253,7 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
     } finally {
       setSaving(false);
     }
-  }, [body, frontmatter, hasChanges, onSave, item.path]);
+  }, [body, frontmatter, hasChanges, onSave, item.path, yamlError]);
 
   const handleReset = useCallback(() => {
     const parsed = parseFrontmatter(item.content);
@@ -291,8 +325,9 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
               </button>
               <button
                 onClick={handleSave}
-                disabled={!hasChanges || saving}
+                disabled={!hasChanges || saving || !!yamlError}
                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                title={yamlError ? 'Fix YAML errors before saving' : undefined}
               >
                 <Save className="h-4 w-4" />
                 {saving ? 'Saving...' : 'Save'}
@@ -342,9 +377,19 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
                   el.style.height = `${el.scrollHeight + 4}px`;
                 } : undefined}
                 readOnly={!isEditing}
-                className="w-full bg-secondary text-secondary-foreground font-mono text-sm p-3 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 overflow-hidden"
+                className={`w-full bg-secondary text-secondary-foreground font-mono text-sm p-3 rounded-lg border focus:outline-none focus:ring-2 overflow-hidden ${
+                  yamlError
+                    ? 'border-destructive focus:ring-destructive/50'
+                    : 'border-border focus:ring-primary/50'
+                }`}
                 spellCheck={false}
               />
+              {yamlError && (
+                <div className="mt-2 flex items-start gap-2 text-destructive text-xs">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{yamlError}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -359,6 +404,7 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
           onChange={isEditing ? (markdown) => setBody(markdown) : undefined}
           readOnly={readOnly || isViewMode}
           plugins={isEditing ? editorPlugins : readOnlyPlugins}
+          className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
           contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
         />
       </div>

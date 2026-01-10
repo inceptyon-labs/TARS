@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Save, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, RotateCcw, ChevronDown, ChevronRight, FileText, FileCode, FileJson, File, Link2, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import yaml from 'js-yaml';
 import {
   MDXEditor,
   headingsPlugin,
@@ -25,7 +27,9 @@ import {
   type MDXEditorMethods,
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
-import type { SkillDetails } from '../lib/types';
+import type { SkillDetails, SupportingFile } from '../lib/types';
+import { readSupportingFile, saveSupportingFile, deleteSupportingFile } from '../lib/ipc';
+import { useUIStore } from '../stores/ui-store';
 
 interface SkillEditorProps {
   skill: SkillDetails;
@@ -60,6 +64,24 @@ function combineFrontmatter(frontmatter: string | null, body: string): string {
     return body;
   }
   return `---\n${frontmatter}\n---\n\n${body}`;
+}
+
+/** Validate YAML frontmatter and return error message if invalid */
+function validateYaml(content: string): string | null {
+  if (!content.trim()) {
+    return null; // Empty is valid
+  }
+  try {
+    yaml.load(content);
+    return null;
+  } catch (e) {
+    if (e instanceof yaml.YAMLException) {
+      // Extract just the useful part of the error message
+      const message = e.message.split('\n')[0];
+      return message || 'Invalid YAML syntax';
+    }
+    return 'Invalid YAML syntax';
+  }
 }
 
 // Editor plugins configuration
@@ -140,12 +162,37 @@ const readOnlyPlugins = [
   }),
 ];
 
+/** Get icon for file type */
+function getFileIcon(fileType: string) {
+  switch (fileType) {
+    case 'markdown':
+      return FileText;
+    case 'script':
+      return FileCode;
+    case 'config':
+      return FileJson;
+    default:
+      return File;
+  }
+}
+
 export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProps) {
   const editorRef = useRef<MDXEditorMethods>(null);
+  const theme = useUIStore((state) => state.theme);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [frontmatterExpanded, setFrontmatterExpanded] = useState(true);
+  const [supportingFilesExpanded, setSupportingFilesExpanded] = useState(false);
+  const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
+  const [showNewFileForm, setShowNewFileForm] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [newFileContent, setNewFileContent] = useState('');
+  const [creatingFile, setCreatingFile] = useState(false);
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  const [localSupportingFiles, setLocalSupportingFiles] = useState<SupportingFile[]>([]);
 
   // Parse frontmatter from the original content
   const { frontmatter: originalFrontmatter, body: originalBody } = useMemo(
@@ -157,6 +204,12 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
   const [frontmatter, setFrontmatter] = useState(originalFrontmatter);
   const [body, setBody] = useState(originalBody);
 
+  // Validate YAML frontmatter in real-time
+  const yamlError = useMemo(
+    () => (frontmatter ? validateYaml(frontmatter) : null),
+    [frontmatter]
+  );
+
   // Sync content when skill changes
   useEffect(() => {
     const parsed = parseFrontmatter(skill.content);
@@ -164,7 +217,91 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
     setBody(parsed.body);
     setError(null);
     setEditorKey((k) => k + 1); // Force editor remount
-  }, [skill.path, skill.content]);
+    // Reset supporting files state
+    setExpandedFile(null);
+    setFileContents({});
+    setSupportingFilesExpanded(false);
+    setShowNewFileForm(false);
+    setNewFileName('');
+    setNewFileContent('');
+    // Sync local supporting files from skill
+    setLocalSupportingFiles(skill.supporting_files || []);
+  }, [skill.path, skill.content, skill.supporting_files]);
+
+  // Load supporting file content when expanded
+  const handleExpandFile = useCallback(async (file: SupportingFile) => {
+    if (expandedFile === file.path) {
+      setExpandedFile(null);
+      return;
+    }
+
+    setExpandedFile(file.path);
+
+    // Check if we already have the content cached
+    if (fileContents[file.path]) {
+      return;
+    }
+
+    setLoadingFile(file.path);
+    try {
+      const content = await readSupportingFile(file.path);
+      setFileContents((prev) => ({ ...prev, [file.path]: content }));
+    } catch (err) {
+      console.error('Failed to load supporting file:', err);
+      setFileContents((prev) => ({ ...prev, [file.path]: `Error loading file: ${err}` }));
+    } finally {
+      setLoadingFile(null);
+    }
+  }, [expandedFile, fileContents]);
+
+  // Create a new supporting file
+  const handleCreateFile = useCallback(async () => {
+    if (!newFileName.trim()) return;
+
+    setCreatingFile(true);
+    try {
+      const newFile = await saveSupportingFile(skill.path, newFileName.trim(), newFileContent);
+      setLocalSupportingFiles((prev) => [...prev, newFile]);
+      setFileContents((prev) => ({ ...prev, [newFile.path]: newFileContent }));
+      setShowNewFileForm(false);
+      setNewFileName('');
+      setNewFileContent('');
+      toast.success(`Created "${newFileName}"`);
+    } catch (err) {
+      console.error('Failed to create file:', err);
+      toast.error('Failed to create file', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setCreatingFile(false);
+    }
+  }, [skill.path, newFileName, newFileContent]);
+
+  // Delete a supporting file
+  const handleDeleteFile = useCallback(async (file: SupportingFile) => {
+    setDeletingFile(file.path);
+    try {
+      await deleteSupportingFile(file.path);
+      setLocalSupportingFiles((prev) => prev.filter((f) => f.path !== file.path));
+      if (expandedFile === file.path) {
+        setExpandedFile(null);
+      }
+      // Remove from cache
+      setFileContents((prev) => {
+        const copy = { ...prev };
+        delete copy[file.path];
+        return copy;
+      });
+      toast.success(`Deleted "${file.name}"`);
+    } catch (err) {
+      console.error('Failed to delete file:', err);
+      toast.error('Failed to delete file', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setDeletingFile(null);
+    }
+  }, [expandedFile]);
 
   // Check if content has changed
   const currentContent = combineFrontmatter(frontmatter, body);
@@ -172,6 +309,12 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
 
   const handleSave = useCallback(async () => {
     if (!hasChanges) return;
+    if (yamlError) {
+      toast.error('Invalid YAML frontmatter', {
+        description: yamlError,
+      });
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -183,7 +326,7 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
     } finally {
       setSaving(false);
     }
-  }, [body, frontmatter, hasChanges, onSave, skill.path]);
+  }, [body, frontmatter, hasChanges, onSave, skill.path, yamlError]);
 
   const handleReset = useCallback(() => {
     const parsed = parseFrontmatter(skill.content);
@@ -234,8 +377,9 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
             </button>
             <button
               onClick={handleSave}
-              disabled={!hasChanges || saving}
+              disabled={!hasChanges || saving || !!yamlError}
               className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              title={yamlError ? 'Fix YAML errors before saving' : undefined}
             >
               <Save className="h-4 w-4" />
               {saving ? 'Saving...' : 'Save'}
@@ -284,13 +428,162 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
                   el.style.height = `${el.scrollHeight + 4}px`;
                 } : undefined}
                 readOnly={readOnly}
-                className="w-full bg-secondary text-secondary-foreground font-mono text-sm p-3 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 overflow-hidden"
+                className={`w-full bg-secondary text-secondary-foreground font-mono text-sm p-3 rounded-lg border focus:outline-none focus:ring-2 overflow-hidden ${
+                  yamlError
+                    ? 'border-destructive focus:ring-destructive/50'
+                    : 'border-border focus:ring-primary/50'
+                }`}
                 spellCheck={false}
               />
+              {yamlError && (
+                <div className="mt-2 flex items-start gap-2 text-destructive text-xs">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{yamlError}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
+
+      {/* Supporting Files panel */}
+      <div className="border-b border-border shrink-0">
+        <button
+          onClick={() => setSupportingFilesExpanded(!supportingFilesExpanded)}
+          className="w-full px-4 py-2 flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+        >
+          {supportingFilesExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+          <span className="uppercase tracking-wider">Supporting Files</span>
+          <span className="text-muted-foreground/60">({localSupportingFiles.length})</span>
+        </button>
+        {supportingFilesExpanded && (
+          <div className="px-4 pb-3 space-y-2">
+            {/* File list */}
+            {localSupportingFiles.length > 0 && (
+              <div className="space-y-1">
+                {localSupportingFiles.map((file) => {
+                  const FileIcon = getFileIcon(file.file_type);
+                  const isExpanded = expandedFile === file.path;
+                  const isLoading = loadingFile === file.path;
+                  const isDeleting = deletingFile === file.path;
+                  const content = fileContents[file.path];
+
+                  return (
+                    <div key={file.path} className="border border-border rounded-lg overflow-hidden">
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => handleExpandFile(file)}
+                          className="flex-1 px-3 py-2 flex items-center gap-2 text-sm hover:bg-muted/50 transition-colors"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                          )}
+                          <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="font-medium truncate">{file.name}</span>
+                          {file.is_referenced && (
+                            <span className="flex items-center gap-1 text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                              <Link2 className="h-3 w-3" />
+                              linked
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground/60 ml-auto shrink-0">
+                            {file.file_type}
+                          </span>
+                        </button>
+                        {!readOnly && (
+                          <button
+                            onClick={() => handleDeleteFile(file)}
+                            disabled={isDeleting}
+                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            title="Delete file"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      {isExpanded && (
+                        <div className="border-t border-border">
+                          {isLoading ? (
+                            <div className="p-3 text-sm text-muted-foreground">Loading...</div>
+                          ) : content ? (
+                            <pre className="p-3 text-xs font-mono bg-secondary text-secondary-foreground overflow-auto max-h-64 whitespace-pre-wrap">
+                              {content}
+                            </pre>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* New file form */}
+            {!readOnly && showNewFileForm && (
+              <div className="border border-border rounded-lg p-3 space-y-2">
+                <input
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  placeholder="reference.md or scripts/helper.py"
+                  className="w-full px-3 py-1.5 text-sm bg-secondary border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  autoFocus
+                />
+                <textarea
+                  value={newFileContent}
+                  onChange={(e) => setNewFileContent(e.target.value)}
+                  placeholder="File content (optional)"
+                  rows={4}
+                  className="w-full px-3 py-2 text-sm font-mono bg-secondary border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => {
+                      setShowNewFileForm(false);
+                      setNewFileName('');
+                      setNewFileContent('');
+                    }}
+                    className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateFile}
+                    disabled={!newFileName.trim() || creatingFile}
+                    className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {creatingFile ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Add file button */}
+            {!readOnly && !showNewFileForm && (
+              <button
+                onClick={() => setShowNewFileForm(true)}
+                className="w-full px-3 py-2 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-dashed border-border rounded-lg transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add supporting file
+              </button>
+            )}
+
+            {/* Empty state */}
+            {localSupportingFiles.length === 0 && !showNewFileForm && (
+              <p className="text-xs text-muted-foreground/60 text-center py-2">
+                No supporting files yet
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Editor */}
       <div className="flex-1 mdx-editor-container overflow-auto">
@@ -301,6 +594,7 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
           onChange={readOnly ? undefined : (markdown) => setBody(markdown)}
           readOnly={readOnly}
           plugins={readOnly ? readOnlyPlugins : editorPlugins}
+          className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
           contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
         />
       </div>

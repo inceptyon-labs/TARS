@@ -41,6 +41,7 @@ import {
   type MDXEditorMethods,
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
+import { useUIStore } from '../stores/ui-store';
 import type { Inventory, SkillInfo, CommandInfo, AgentInfo, HookInfo, McpServer } from '../lib/types';
 import { readClaudeMd, saveClaudeMd, getContextStats } from '../lib/ipc';
 import { Button } from './ui/button';
@@ -78,6 +79,7 @@ function groupByScope<T extends { scope: { type: string } | string }>(items: T[]
 export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const theme = useUIStore((state) => state.theme);
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(
     new Set(['context', 'claude-md'])
   );
@@ -582,6 +584,7 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
                           ),
                         }),
                       ]}
+                      className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
                       contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
                     />
                   </div>

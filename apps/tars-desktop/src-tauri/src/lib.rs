@@ -53,9 +53,12 @@ pub fn run() {
             commands::rollback,
             // Skill commands
             commands::read_skill,
+            commands::read_supporting_file,
             commands::save_skill,
+            commands::save_supporting_file,
             commands::create_skill,
             commands::delete_skill,
+            commands::delete_supporting_file,
             // Agent commands
             commands::read_agent,
             commands::save_agent,
@@ -97,6 +100,8 @@ pub fn run() {
             // Cache commands
             commands::cache_status,
             commands::cache_clean,
+            // Plugin skill commands
+            commands::open_claude_with_skill,
             // Prompts commands
             commands::list_prompts,
             commands::read_prompt,
@@ -109,6 +114,11 @@ pub fn run() {
             commands::get_home_dir,
             commands::list_subdirectories,
             commands::get_app_version,
+            // Update commands
+            commands::get_installed_claude_version,
+            commands::fetch_claude_changelog,
+            commands::get_claude_version_info,
+            commands::check_plugin_updates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

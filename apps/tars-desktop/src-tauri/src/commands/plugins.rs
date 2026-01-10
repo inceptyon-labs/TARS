@@ -420,3 +420,48 @@ pub async fn cache_clean() -> Result<CacheCleanResult, String> {
         errors: result.errors,
     })
 }
+
+/// Open Terminal with Claude Code and run a specific skill/command
+/// The skill should be in format "/plugin-name:skill-name"
+#[tauri::command]
+pub async fn open_claude_with_skill(skill_invocation: String) -> Result<(), String> {
+    // Validate the skill invocation format
+    if !skill_invocation.starts_with('/') {
+        return Err("Skill invocation must start with /".to_string());
+    }
+
+    // Validate for shell safety - only allow safe characters
+    let forbidden_chars = ['`', '$', '(', ')', '{', '}', '[', ']', '|', ';', '&', '<', '>', '\\', '\n', '\r', '\0', '\'', '"', '!', '*', '?'];
+    for ch in forbidden_chars {
+        if skill_invocation.contains(ch) {
+            return Err(format!("Skill invocation contains forbidden character: {}", ch));
+        }
+    }
+
+    // Copy the skill command to clipboard, then open Terminal with Claude
+    // Skills are processed by Claude Code's runtime when typed interactively,
+    // not via -p flag, so user needs to paste the command
+
+    // First, copy to clipboard
+    let copy_script = format!(
+        r#"set the clipboard to "{}""#,
+        skill_invocation
+    );
+    Command::new("osascript")
+        .args(["-e", &copy_script])
+        .output()
+        .map_err(|_| "Failed to copy to clipboard".to_string())?;
+
+    // Then open Terminal with Claude and instructions
+    let terminal_script = r#"tell application "Terminal"
+    activate
+    do script "echo '📋 Skill command copied to clipboard - paste it after Claude starts\n' && claude"
+end tell"#;
+
+    Command::new("osascript")
+        .args(["-e", terminal_script])
+        .spawn()
+        .map_err(|_| "Failed to open Terminal".to_string())?;
+
+    Ok(())
+}

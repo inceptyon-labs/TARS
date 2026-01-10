@@ -35,6 +35,8 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 ### Skills Management
 - **Browse & search** - Filter skills by scope (User, Project, Plugin, Managed)
 - **Create & edit** - Full markdown editor with YAML frontmatter support
+- **Real-time YAML validation** - Inline error highlighting for frontmatter syntax issues
+- **Supporting files** - View and manage progressive disclosure files (reference.md, examples.md, scripts/) alongside skills
 - **Scope management** - Move skills between user and project scopes
 - **Syntax highlighting** - Code blocks with language-specific highlighting
 
@@ -43,11 +45,13 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 - **Enable/disable** - Toggle agents on/off without deleting
 - **Scope control** - Move agents between configuration scopes
 - **Markdown editing** - Rich editor for agent prompts and instructions
+- **Real-time YAML validation** - Inline error highlighting for frontmatter syntax issues
 
 ### Commands Management
 - **Slash commands** - Create custom `/command-name` definitions
 - **Template support** - Use `$ARGUMENTS` placeholder for dynamic input
 - **Scope hierarchy** - Manage commands at user or project level
+- **Real-time YAML validation** - Inline error highlighting for frontmatter syntax issues
 
 ### Hooks Configuration
 - **Event-driven hooks** - Configure actions for Claude Code events
@@ -93,6 +97,13 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 - **Rich editing** - MDXEditor with full markdown support
 - **Code blocks** - Syntax highlighting for 14+ languages
 - **Separate storage** - Stored in `~/.tars/prompts/`, independent of Claude config
+
+### Updates
+- **Claude Code updates** - Compare installed vs latest version with update notifications
+- **Plugin updates** - Detect available updates for marketplace plugins with version comparison
+- **Changelog viewer** - Browse Claude Code release notes with version highlights
+- **Automatic polling** - Checks for updates on startup and every 10 minutes
+- **Sidebar badge** - Visual indicator showing total update count
 
 ### UI Features
 - **Theme support** - System, light, and dark modes

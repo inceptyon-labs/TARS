@@ -42,6 +42,7 @@ export interface AvailablePlugin {
   id: string;
   name: string;
   description: string;
+  version?: string;
   author?: { name: string; email?: string };
   installed: boolean;
 }
@@ -74,6 +75,14 @@ export interface PluginManifest {
   skills?: string;
   hooks?: string;
   mcp_servers?: string;
+  parsed_skills: PluginSkillInfo[];
+}
+
+export interface PluginSkillInfo {
+  name: string;
+  invocation: string;
+  is_init: boolean;
+  is_settings: boolean;
 }
 
 export interface UserScope {
@@ -251,12 +260,20 @@ export interface BackupInfo {
 }
 
 // Skill types
+export interface SupportingFile {
+  name: string;
+  path: string;
+  file_type: 'markdown' | 'script' | 'config' | 'text' | 'other';
+  is_referenced: boolean;
+}
+
 export interface SkillDetails {
   name: string;
   path: string;
   content: string;
   description: string | null;
   scope: SkillScope | string; // Can be SkillScope object or simple string from Tauri
+  supporting_files: SupportingFile[];
 }
 
 // Agent types
@@ -353,4 +370,38 @@ export interface PromptSummary {
   preview: string;
   created_at: string;
   updated_at: string;
+}
+
+// Update types
+export interface ClaudeVersionInfo {
+  installed_version: string | null;
+  latest_version: string | null;
+  update_available: boolean;
+}
+
+export interface ChangelogEntry {
+  version: string;
+  content: string;
+}
+
+export interface ChangelogResponse {
+  entries: ChangelogEntry[];
+  raw_content: string;
+  fetched_at: string;
+}
+
+// Plugin update types
+export interface PluginUpdateInfo {
+  plugin_id: string;
+  plugin_name: string;
+  marketplace: string;
+  installed_version: string;
+  available_version: string;
+  update_available: boolean;
+}
+
+export interface PluginUpdatesResponse {
+  updates: PluginUpdateInfo[];
+  total_plugins: number;
+  plugins_with_updates: number;
 }

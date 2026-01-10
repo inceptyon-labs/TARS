@@ -35,7 +35,12 @@ function getScopeCategory(scope: SkillScope): string {
 }
 
 /** Check if a skill is editable (user-created skills only) */
-function isSkillEditable(scope: SkillScope): boolean {
+function isSkillEditable(scope: SkillScope | string): boolean {
+  // Handle string scope (from create_skill command)
+  if (typeof scope === 'string') {
+    return scope === 'user' || scope === 'project';
+  }
+  // Handle object scope (from scanner)
   return scope.type === 'User' || scope.type === 'Project' || scope.type === 'Local';
 }
 
@@ -355,7 +360,7 @@ export function SkillsPage() {
             <SkillEditor
               skill={selectedSkill}
               onSave={handleSaveSkill}
-              readOnly={!isSkillEditable(selectedSkill.scope as unknown as SkillScope)}
+              readOnly={!isSkillEditable(selectedSkill.scope)}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4">

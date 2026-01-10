@@ -140,7 +140,43 @@ impl PluginInventory {
     ) -> Vec<AvailablePlugin> {
         let mut available = Vec::new();
 
-        // Check both "plugins/" and "external_plugins/" directories
+        // First, check if the marketplace root itself is a single-plugin marketplace
+        // (i.e., the marketplace directory IS the plugin, with .claude-plugin/plugin.json at root)
+        let root_manifest_path = marketplace_dir.join(".claude-plugin").join("plugin.json");
+        if root_manifest_path.exists() {
+            let manifest: Option<PluginManifest> = fs::read_to_string(&root_manifest_path)
+                .ok()
+                .and_then(|c| serde_json::from_str(&c).ok());
+
+            // For single-plugin marketplaces, the plugin ID is the marketplace name
+            let plugin_id = marketplace_dir
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(marketplace_name)
+                .to_string();
+
+            let is_installed = installed_plugins
+                .get(marketplace_name)
+                .map(|ids| ids.contains(&plugin_id))
+                .unwrap_or(false);
+
+            available.push(AvailablePlugin {
+                id: plugin_id.clone(),
+                name: manifest
+                    .as_ref()
+                    .map(|m| m.name.clone())
+                    .unwrap_or_else(|| plugin_id.clone()),
+                description: manifest
+                    .as_ref()
+                    .map(|m| m.description.clone())
+                    .unwrap_or_default(),
+                version: manifest.as_ref().map(|m| m.version.clone()),
+                author: manifest.and_then(|m| m.author),
+                installed: is_installed,
+            });
+        }
+
+        // Then check "plugins/" and "external_plugins/" directories for multi-plugin marketplaces
         for subdir in &["plugins", "external_plugins"] {
             let plugins_path = marketplace_dir.join(subdir);
             if !plugins_path.exists() {
@@ -193,6 +229,7 @@ impl PluginInventory {
                         .as_ref()
                         .map(|m| m.description.clone())
                         .unwrap_or_default(),
+                    version: manifest.as_ref().map(|m| m.version.clone()),
                     author: manifest.and_then(|m| m.author),
                     installed: is_installed,
                 });
@@ -226,8 +263,17 @@ impl PluginInventory {
             let marketplace = parts.get(1).map(|s| s.to_string());
 
             for install in installs {
-                let manifest_path = PathBuf::from(&install.install_path).join("plugin.json");
-                let manifest = Self::read_manifest(&manifest_path);
+                // Try multiple locations for plugin.json:
+                // 1. install_path/plugin.json (legacy)
+                // 2. install_path/.claude-plugin/plugin.json
+                // 3. marketplaces/{marketplace}/plugins/{plugin}/.claude-plugin/plugin.json
+                // 4. marketplaces/{marketplace}/.claude-plugin/plugin.json (single-plugin marketplace)
+                let manifest = Self::find_and_read_manifest(
+                    plugins_dir,
+                    &install.install_path,
+                    plugin_name,
+                    marketplace.as_deref(),
+                );
 
                 let scope = match install.scope.as_str() {
                     "user" => Scope::User,
@@ -260,6 +306,7 @@ impl PluginInventory {
                         skills: None,
                         hooks: None,
                         mcp_servers: None,
+                        parsed_skills: Vec::new(),
                     }),
                     installed_at: install.installed_at,
                     last_updated: install.last_updated,
@@ -305,9 +352,177 @@ impl PluginInventory {
             .collect()
     }
 
-    fn read_manifest(path: &Path) -> Option<PluginManifest> {
+    /// Find and read manifest from multiple possible locations
+    fn find_and_read_manifest(
+        plugins_dir: &Path,
+        install_path: &str,
+        plugin_name: &str,
+        marketplace: Option<&str>,
+    ) -> Option<PluginManifest> {
+        let install_path = PathBuf::from(install_path);
+
+        // Try locations in order of likelihood
+        let possible_paths = [
+            // 1. install_path/.claude-plugin/plugin.json
+            install_path.join(".claude-plugin").join("plugin.json"),
+            // 2. install_path/plugin.json (legacy)
+            install_path.join("plugin.json"),
+        ];
+
+        for path in &possible_paths {
+            if let Some(manifest) = Self::read_manifest(path, plugin_name) {
+                return Some(manifest);
+            }
+        }
+
+        // 3. Try marketplace directory if we have marketplace info
+        if let Some(mkt) = marketplace {
+            // Multi-plugin marketplace: marketplaces/{marketplace}/plugins/{plugin}/.claude-plugin/plugin.json
+            let marketplace_plugin_path = plugins_dir
+                .join("marketplaces")
+                .join(mkt)
+                .join("plugins")
+                .join(plugin_name)
+                .join(".claude-plugin")
+                .join("plugin.json");
+
+            if let Some(manifest) = Self::read_manifest(&marketplace_plugin_path, plugin_name) {
+                return Some(manifest);
+            }
+
+            // Single-plugin marketplace: marketplaces/{marketplace}/.claude-plugin/plugin.json
+            let single_plugin_path = plugins_dir
+                .join("marketplaces")
+                .join(mkt)
+                .join(".claude-plugin")
+                .join("plugin.json");
+
+            if let Some(manifest) = Self::read_manifest(&single_plugin_path, plugin_name) {
+                return Some(manifest);
+            }
+
+            // Multi-plugin marketplace with marketplace.json
+            let marketplace_json_path = plugins_dir
+                .join("marketplaces")
+                .join(mkt)
+                .join(".claude-plugin")
+                .join("marketplace.json");
+
+            if let Some(manifest) =
+                Self::read_manifest_from_marketplace_json(&marketplace_json_path, plugin_name)
+            {
+                return Some(manifest);
+            }
+        }
+
+        None
+    }
+
+    /// Read manifest from marketplace.json (for multi-plugin marketplaces)
+    fn read_manifest_from_marketplace_json(path: &Path, plugin_name: &str) -> Option<PluginManifest> {
         let content = fs::read_to_string(path).ok()?;
-        serde_json::from_str(&content).ok()
+        let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+
+        // Find the plugin in the plugins array
+        let plugins = json.get("plugins")?.as_array()?;
+
+        for plugin in plugins {
+            let name = plugin.get("name")?.as_str()?;
+            if name == plugin_name {
+                // Extract commands array
+                let commands: Vec<PathBuf> = plugin
+                    .get("commands")
+                    .and_then(|c| c.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(PathBuf::from))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                // Extract description
+                let description = plugin
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                // Get owner info from marketplace root
+                let author = json.get("owner").and_then(|o| {
+                    Some(Author {
+                        name: o.get("name")?.as_str()?.to_string(),
+                        email: o.get("email").and_then(|e| e.as_str()).map(String::from),
+                    })
+                });
+
+                // Parse skills from commands
+                let parsed_skills = Self::parse_skills_from_commands(&commands, plugin_name);
+
+                return Some(PluginManifest {
+                    name: name.to_string(),
+                    version: json
+                        .get("metadata")
+                        .and_then(|m| m.get("version"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string(),
+                    description,
+                    author,
+                    commands,
+                    agents: None,
+                    skills: plugin.get("skills").and_then(|s| {
+                        s.as_array()
+                            .and_then(|arr| arr.first())
+                            .and_then(|v| v.as_str())
+                            .map(PathBuf::from)
+                    }),
+                    hooks: None,
+                    mcp_servers: None,
+                    parsed_skills,
+                });
+            }
+        }
+
+        None
+    }
+
+    fn read_manifest(path: &Path, plugin_id: &str) -> Option<PluginManifest> {
+        let content = fs::read_to_string(path).ok()?;
+        let mut manifest: PluginManifest = serde_json::from_str(&content).ok()?;
+
+        // Parse skills from command paths
+        manifest.parsed_skills = Self::parse_skills_from_commands(&manifest.commands, plugin_id);
+
+        Some(manifest)
+    }
+
+    /// Parse skill information from command file paths
+    fn parse_skills_from_commands(commands: &[PathBuf], plugin_id: &str) -> Vec<PluginSkillInfo> {
+        commands
+            .iter()
+            .filter_map(|cmd_path| {
+                // Extract skill name from path like "./commands/notifications-init.md"
+                let file_name = cmd_path.file_stem()?.to_str()?;
+                let name = file_name.to_string();
+                let invocation = format!("/{}:{}", plugin_id, name);
+
+                // Detect init/settings skills by name patterns
+                let name_lower = name.to_lowercase();
+                let is_init = name_lower.contains("init")
+                    || name_lower.contains("setup")
+                    || name_lower.contains("install");
+                let is_settings = name_lower.contains("setting")
+                    || name_lower.contains("config")
+                    || name_lower.contains("preference");
+
+                Some(PluginSkillInfo {
+                    name,
+                    invocation,
+                    is_init,
+                    is_settings,
+                })
+            })
+            .collect()
     }
 }
 
@@ -379,6 +594,8 @@ pub struct AvailablePlugin {
     pub name: String,
     /// Plugin description
     pub description: String,
+    /// Plugin version from manifest
+    pub version: Option<String>,
     /// Author information
     pub author: Option<Author>,
     /// Whether this plugin is already installed
@@ -442,6 +659,22 @@ pub struct PluginManifest {
     pub hooks: Option<PathBuf>,
     /// Path to MCP servers configuration
     pub mcp_servers: Option<PathBuf>,
+    /// Parsed skill/command info (not from JSON, computed during scan)
+    #[serde(default)]
+    pub parsed_skills: Vec<PluginSkillInfo>,
+}
+
+/// Information about a skill/command provided by a plugin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginSkillInfo {
+    /// Skill name (e.g., "notifications-init")
+    pub name: String,
+    /// Full invocation command (e.g., "/plugin-name:skill-name")
+    pub invocation: String,
+    /// Whether this looks like an init/setup skill
+    pub is_init: bool,
+    /// Whether this looks like a settings/config skill
+    pub is_settings: bool,
 }
 
 /// Author information

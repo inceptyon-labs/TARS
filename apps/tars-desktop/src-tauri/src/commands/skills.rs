@@ -14,6 +14,20 @@ pub struct SkillInfo {
     pub content: String,
     pub description: Option<String>,
     pub scope: String, // "user" or "project"
+    pub supporting_files: Vec<SupportingFile>,
+}
+
+/// A supporting file in a skill directory
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SupportingFile {
+    /// File name (e.g., "reference.md")
+    pub name: String,
+    /// Full path to the file
+    pub path: String,
+    /// File type: "markdown", "script", "other"
+    pub file_type: String,
+    /// Whether this file is referenced in SKILL.md
+    pub is_referenced: bool,
 }
 
 /// Read a skill file
@@ -45,13 +59,33 @@ pub async fn read_skill(path: String) -> Result<SkillInfo, String> {
     // Try to extract description from frontmatter
     let description = extract_description(&content);
 
+    // Scan for supporting files in the skill directory
+    let supporting_files = scan_supporting_files(&validated_path, &content);
+
     Ok(SkillInfo {
         name,
         path,
         content,
         description,
         scope,
+        supporting_files,
     })
+}
+
+/// Read a supporting file from a skill directory
+#[tauri::command]
+pub async fn read_supporting_file(path: String) -> Result<String, String> {
+    let file_path = PathBuf::from(&path);
+
+    // Validate the path is within allowed skill directories
+    let validated_path = validate_skill_path(&file_path)?;
+
+    if !validated_path.exists() {
+        return Err("File not found".to_string());
+    }
+
+    std::fs::read_to_string(&validated_path)
+        .map_err(|_| "Failed to read file".to_string())
 }
 
 /// Save a skill file
@@ -123,7 +157,104 @@ Add your skill instructions here.
         content,
         description: Some("A new skill".to_string()),
         scope,
+        supporting_files: Vec::new(),
     })
+}
+
+/// Save a supporting file in a skill directory
+/// Supports subdirectories like "scripts/helper.py"
+#[tauri::command]
+pub async fn save_supporting_file(
+    skill_path: String,
+    file_name: String,
+    content: String,
+) -> Result<SupportingFile, String> {
+    let skill_file = PathBuf::from(&skill_path);
+
+    // Validate the skill path
+    let validated_skill = validate_skill_path(&skill_file)?;
+
+    // Get the skill directory
+    let skill_dir = validated_skill
+        .parent()
+        .ok_or("Invalid skill path")?;
+
+    // Validate file name (no path traversal, but allow forward slashes for subdirs)
+    if file_name.contains("..") || file_name.contains('\\') {
+        return Err("Invalid file name".to_string());
+    }
+
+    // Normalize path separators and build the file path
+    let normalized_name = file_name.replace('\\', "/");
+    let file_path = skill_dir.join(&normalized_name);
+
+    // Validate the final path is still within the skill directory
+    // Use canonicalize on parent to handle the case where file doesn't exist yet
+    let canonical_skill_dir = skill_dir.canonicalize()
+        .map_err(|_| "Invalid skill directory".to_string())?;
+
+    // For new files, we can't canonicalize the full path, so check the parent
+    if let Some(parent) = file_path.parent() {
+        // Create parent directories if they don't exist
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|_| "Failed to create directory".to_string())?;
+        }
+
+        let canonical_parent = parent.canonicalize()
+            .map_err(|_| "Invalid parent directory".to_string())?;
+
+        if !canonical_parent.starts_with(&canonical_skill_dir) {
+            return Err("Path is outside skill directory".to_string());
+        }
+    }
+
+    std::fs::write(&file_path, &content)
+        .map_err(|_| "Failed to save file".to_string())?;
+
+    // Extract just the file name for display (last component)
+    let display_name = if normalized_name.contains('/') {
+        normalized_name.clone()
+    } else {
+        file_name.clone()
+    };
+
+    let file_type = determine_file_type(&display_name);
+
+    Ok(SupportingFile {
+        name: display_name,
+        path: file_path.display().to_string(),
+        file_type,
+        is_referenced: false,
+    })
+}
+
+/// Delete a supporting file from a skill directory
+#[tauri::command]
+pub async fn delete_supporting_file(path: String) -> Result<(), String> {
+    let file_path = PathBuf::from(&path);
+
+    // Validate the path is within allowed skill directories
+    let validated_path = validate_skill_path(&file_path)?;
+
+    if !validated_path.exists() {
+        return Err("File not found".to_string());
+    }
+
+    // Don't allow deleting SKILL.md
+    let file_name = validated_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    if file_name == "SKILL.md" {
+        return Err("Cannot delete SKILL.md - use delete skill instead".to_string());
+    }
+
+    std::fs::remove_file(&validated_path)
+        .map_err(|_| "Failed to delete file".to_string())?;
+
+    Ok(())
 }
 
 /// Delete a skill
@@ -318,4 +449,145 @@ fn extract_description(content: &str) -> Option<String> {
     }
 
     None
+}
+
+/// Scan a skill directory for supporting files (reference.md, examples.md, scripts/, etc.)
+fn scan_supporting_files(skill_file_path: &Path, skill_content: &str) -> Vec<SupportingFile> {
+    let mut files = Vec::new();
+
+    // Get the skill directory (parent of SKILL.md)
+    let skill_dir = match skill_file_path.parent() {
+        Some(dir) => dir,
+        None => return files,
+    };
+
+    // Extract markdown links from SKILL.md to check if files are referenced
+    // Pattern: [text](filename) or [text](./filename)
+    let referenced_files: Vec<String> = extract_markdown_links(skill_content);
+
+    // Scan the skill directory
+    if let Ok(entries) = std::fs::read_dir(skill_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let file_name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(name) => name.to_string(),
+                None => continue,
+            };
+
+            // Skip SKILL.md itself and hidden files
+            if file_name == "SKILL.md" || file_name.starts_with('.') {
+                continue;
+            }
+
+            if path.is_file() {
+                let file_type = determine_file_type(&file_name);
+                let is_referenced = is_file_referenced(&file_name, &referenced_files);
+
+                files.push(SupportingFile {
+                    name: file_name,
+                    path: path.display().to_string(),
+                    file_type,
+                    is_referenced,
+                });
+            } else if path.is_dir() {
+                // Scan subdirectories like scripts/
+                scan_subdirectory(&path, &mut files, &referenced_files);
+            }
+        }
+    }
+
+    // Sort: referenced files first, then by name
+    files.sort_by(|a, b| {
+        match (a.is_referenced, b.is_referenced) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.cmp(&b.name),
+        }
+    });
+
+    files
+}
+
+/// Scan a subdirectory for supporting files
+fn scan_subdirectory(dir: &Path, files: &mut Vec<SupportingFile>, referenced_files: &[String]) {
+    let dir_name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = match path.file_name().and_then(|n| n.to_str()) {
+                    Some(name) => name.to_string(),
+                    None => continue,
+                };
+
+                // Skip hidden files
+                if file_name.starts_with('.') {
+                    continue;
+                }
+
+                let display_name = format!("{}/{}", dir_name, file_name);
+                let file_type = determine_file_type(&file_name);
+                let is_referenced = is_file_referenced(&display_name, referenced_files)
+                    || is_file_referenced(&file_name, referenced_files);
+
+                files.push(SupportingFile {
+                    name: display_name,
+                    path: path.display().to_string(),
+                    file_type,
+                    is_referenced,
+                });
+            }
+        }
+    }
+}
+
+/// Extract markdown links from content
+fn extract_markdown_links(content: &str) -> Vec<String> {
+    let mut links = Vec::new();
+
+    // Simple regex-like pattern matching for [text](link)
+    // Look for patterns like [text](filename.md) or [text](./filename.md) or [text](scripts/helper.py)
+    let mut in_link = false;
+    let mut link_start = 0;
+
+    for (i, c) in content.char_indices() {
+        if c == ']' && i + 1 < content.len() {
+            if content[i + 1..].starts_with('(') {
+                in_link = true;
+                link_start = i + 2;
+            }
+        } else if in_link && c == ')' {
+            let link = &content[link_start..i];
+            // Only include local file references (not http/https)
+            if !link.starts_with("http://") && !link.starts_with("https://") {
+                // Normalize: remove leading ./ if present
+                let normalized = link.trim_start_matches("./");
+                links.push(normalized.to_string());
+            }
+            in_link = false;
+        }
+    }
+
+    links
+}
+
+/// Determine file type from extension
+fn determine_file_type(file_name: &str) -> String {
+    let extension = file_name.rsplit('.').next().unwrap_or("");
+
+    match extension.to_lowercase().as_str() {
+        "md" | "markdown" => "markdown".to_string(),
+        "py" | "sh" | "bash" | "js" | "ts" | "rb" | "pl" => "script".to_string(),
+        "json" | "yaml" | "yml" | "toml" => "config".to_string(),
+        "txt" => "text".to_string(),
+        _ => "other".to_string(),
+    }
+}
+
+/// Check if a file is referenced in the SKILL.md
+fn is_file_referenced(file_name: &str, referenced_files: &[String]) -> bool {
+    referenced_files.iter().any(|link| {
+        link == file_name || link.ends_with(&format!("/{}", file_name))
+    })
 }

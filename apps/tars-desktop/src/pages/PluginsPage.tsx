@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   Store,
+  Terminal,
   Trash2,
   Power,
   PowerOff,
@@ -22,7 +23,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
 import { scanUserScope, listProjects } from '../lib/ipc';
-import type { AvailablePlugin, CacheStatusResponse, Marketplace, PluginInventory } from '../lib/types';
+import type { AvailablePlugin, CacheStatusResponse, Marketplace, PluginInventory, PluginSkillInfo } from '../lib/types';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import {
@@ -66,6 +67,12 @@ export function PluginsPage() {
   // Cache cleanup state
   const [cleaningCache, setCleaningCache] = useState(false);
   const [showCacheDetails, setShowCacheDetails] = useState(false);
+
+  // Skills dialog state
+  const [skillsDialogPlugin, setSkillsDialogPlugin] = useState<{
+    name: string;
+    skills: PluginSkillInfo[];
+  } | null>(null);
 
   const {
     data: inventory,
@@ -198,6 +205,23 @@ export function PluginsPage() {
         description: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  async function handleCopySkill(skill: PluginSkillInfo) {
+    try {
+      await navigator.clipboard.writeText(skill.invocation);
+      toast.success('Copied to clipboard', {
+        description: `Paste "${skill.invocation}" in Claude Code`,
+      });
+    } catch (err) {
+      toast.error('Failed to copy', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  function handleShowSkills(pluginName: string, skills: PluginSkillInfo[]) {
+    setSkillsDialogPlugin({ name: pluginName, skills });
   }
 
   function handleInstallClick(pluginId: string, marketplace: string) {
@@ -548,84 +572,118 @@ export function PluginsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plugins.installed.map((plugin) => (
-                    <TableRow key={`${plugin.id}-${plugin.marketplace}`} className={!plugin.enabled ? 'opacity-60' : ''}>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium">{plugin.id}</span>
-                          {plugin.manifest.description && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[250px]">
-                              {plugin.manifest.description}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {plugin.marketplace || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-mono">{plugin.version}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className="text-xs text-muted-foreground cursor-help"
-                          title={`Installed: ${formatFullDate(plugin.installed_at)}\nLast updated: ${formatFullDate(plugin.last_updated)}`}
-                        >
-                          {formatRelativeDate(plugin.last_updated)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className="text-xs px-2 py-0.5 bg-muted rounded"
-                          title={plugin.scope.type === 'User'
-                            ? 'User scope - available everywhere'
-                            : plugin.scope.type === 'Project'
-                            ? 'Project scope - specific to a project'
-                            : plugin.scope.type === 'Local'
-                            ? 'Local scope - project-specific, not tracked by git'
-                            : 'Managed scope - controlled by system admin'}
-                        >
-                          {plugin.scope.type.toLowerCase()}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {plugin.enabled ? (
-                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 rounded">
-                            Enabled
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 rounded">
-                            Disabled
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleTogglePlugin(plugin.id, plugin.marketplace, plugin.enabled)}
-                            title={plugin.enabled ? 'Disable' : 'Enable'}
-                          >
-                            {plugin.enabled ? (
-                              <Power className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <PowerOff className="h-4 w-4 text-muted-foreground" />
+                  {plugins.installed.map((plugin) => {
+                    const skills = plugin.manifest.parsed_skills || [];
+
+                    return (
+                      <TableRow key={`${plugin.id}-${plugin.marketplace}`} className={!plugin.enabled ? 'opacity-60' : ''}>
+                        <TableCell>
+                          <div>
+                            <span className="font-medium">{plugin.id}</span>
+                            {plugin.manifest.description && (
+                              <p className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                {plugin.manifest.description}
+                              </p>
                             )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleUninstallPlugin(plugin.id, plugin.scope.type.toLowerCase())}
-                            title="Uninstall"
+                            {skills.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {skills.map((skill) => (
+                                  <span
+                                    key={skill.name}
+                                    className={`text-xs px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${
+                                      skill.is_init
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                        : skill.is_settings
+                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                    }`}
+                                    title={`Click to copy ${skill.invocation}`}
+                                    onClick={() => handleCopySkill(skill)}
+                                  >
+                                    {skill.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {plugin.marketplace || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs font-mono">{plugin.version}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className="text-xs text-muted-foreground cursor-help"
+                            title={`Installed: ${formatFullDate(plugin.installed_at)}\nLast updated: ${formatFullDate(plugin.last_updated)}`}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {formatRelativeDate(plugin.last_updated)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className="text-xs px-2 py-0.5 bg-muted rounded"
+                            title={plugin.scope.type === 'User'
+                              ? 'User scope - available everywhere'
+                              : plugin.scope.type === 'Project'
+                              ? 'Project scope - specific to a project'
+                              : plugin.scope.type === 'Local'
+                              ? 'Local scope - project-specific, not tracked by git'
+                              : 'Managed scope - controlled by system admin'}
+                          >
+                            {plugin.scope.type.toLowerCase()}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {plugin.enabled ? (
+                            <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 rounded">
+                              Enabled
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 rounded">
+                              Disabled
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {skills.length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleShowSkills(plugin.id, skills)}
+                                title="View available commands"
+                              >
+                                <Terminal className="h-4 w-4 text-primary" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTogglePlugin(plugin.id, plugin.marketplace, plugin.enabled)}
+                              title={plugin.enabled ? 'Disable' : 'Enable'}
+                            >
+                              {plugin.enabled ? (
+                                <Power className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <PowerOff className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleUninstallPlugin(plugin.id, plugin.scope.type.toLowerCase())}
+                              title="Uninstall"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -1014,6 +1072,60 @@ export function PluginsPage() {
               Install{installScope !== 'user' && selectedProjects.length > 0
                 ? ` to ${selectedProjects.length} project${selectedProjects.length > 1 ? 's' : ''}`
                 : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Skills Dialog */}
+      <Dialog open={!!skillsDialogPlugin} onOpenChange={(open) => !open && setSkillsDialogPlugin(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              {skillsDialogPlugin?.name} Commands
+            </DialogTitle>
+            <DialogDescription>
+              Copy these commands and paste them in Claude Code to run them.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            {skillsDialogPlugin?.skills.map((skill) => (
+              <div
+                key={skill.name}
+                className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm font-mono">{skill.invocation}</code>
+                    {skill.is_init && (
+                      <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded">
+                        init
+                      </span>
+                    )}
+                    {skill.is_settings && (
+                      <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded">
+                        settings
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopySkill(skill)}
+                >
+                  Copy
+                </Button>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <p className="text-xs text-muted-foreground mr-auto">
+              Paste in your Claude Code terminal to run
+            </p>
+            <Button variant="outline" onClick={() => setSkillsDialogPlugin(null)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -209,6 +209,28 @@ export async function deleteSkill(path: string): Promise<void> {
   return invoke('delete_skill', { path });
 }
 
+export async function readSupportingFile(path: string): Promise<string> {
+  return invoke('read_supporting_file', { path });
+}
+
+import type { SupportingFile } from '../types';
+
+export async function saveSupportingFile(
+  skillPath: string,
+  fileName: string,
+  content: string
+): Promise<SupportingFile> {
+  return invoke('save_supporting_file', {
+    skillPath,
+    fileName,
+    content,
+  });
+}
+
+export async function deleteSupportingFile(path: string): Promise<void> {
+  return invoke('delete_supporting_file', { path });
+}
+
 // Agent commands
 export async function readAgent(path: string): Promise<AgentDetails> {
   return invoke('read_agent', { path });
@@ -367,4 +389,23 @@ export async function updatePrompt(id: string, title: string, content: string): 
 
 export async function deletePrompt(id: string): Promise<void> {
   return invoke('delete_prompt', { id });
+}
+
+// Update commands
+import type { ClaudeVersionInfo, ChangelogResponse, PluginUpdatesResponse } from '../types';
+
+export async function getInstalledClaudeVersion(): Promise<string | null> {
+  return invoke('get_installed_claude_version');
+}
+
+export async function fetchClaudeChangelog(): Promise<ChangelogResponse> {
+  return invoke('fetch_claude_changelog');
+}
+
+export async function getClaudeVersionInfo(): Promise<ClaudeVersionInfo> {
+  return invoke('get_claude_version_info');
+}
+
+export async function checkPluginUpdates(): Promise<PluginUpdatesResponse> {
+  return invoke('check_plugin_updates');
 }
