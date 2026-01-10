@@ -42,8 +42,6 @@ jobs:
 
   build-check:
     runs-on: ubuntu-22.04
-    env:
-      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 
     steps:
       - name: Checkout
@@ -60,53 +58,12 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          echo "Installing dependencies..."
           sudo apt-get install -y \
-            build-essential \
-            pkg-config \
             libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
+            libappindicator3-dev \
             librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            libgtk-3-dev \
-            libglib2.0-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
-          echo "Checking if libglib2.0-dev was installed:"
-          dpkg -l | grep libglib2.0-dev || echo "NOT INSTALLED!"
-          echo "Checking for glib2.0 related packages:"
-          apt-cache search glib2.0 | grep -E "^lib.*-dev" | head -10
-
-      - name: Debug pkg-config
-        run: |
-          set +e  # Don't exit on error
-          echo "Looking for glib-2.0.pc..."
-          find /usr -name "glib*.pc" 2>/dev/null | head -20 || echo "No glib*.pc files found"
-          echo "---"
-          echo "Checking libglib2.0-dev installation:"
-          dpkg -L libglib2.0-dev 2>&1 | head -20 || echo "Package not installed or error"
-          echo "---"
-          echo "Looking for .pc files in libglib2.0-dev:"
-          dpkg -L libglib2.0-dev 2>&1 | grep -E "\.pc$" || echo "No .pc files found"
-          echo "---"
-          echo "Directory: /usr/lib/x86_64-linux-gnu/pkgconfig/"
-          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/ 2>&1 | grep glib || echo "No glib files"
-          echo "---"
-          echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-          which pkg-config
-          pkg-config --version
-
-      - name: Set PKG_CONFIG_PATH (Linux)
-        run: |
-          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
-          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
-          echo "Set PKG_CONFIG_PATH to: $PKG_CONFIG_PATH"
-
-      - name: Verify PKG_CONFIG_PATH
-        run: |
-          echo "PKG_CONFIG_PATH is now: $PKG_CONFIG_PATH"
-          pkg-config --list-all | grep glib || echo "glib not found"
+            pkg-config
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Install frontend dependencies
         working-directory: apps/tars-desktop
@@ -122,9 +79,4 @@ jobs:
 
       - name: Check Tauri build
         working-directory: apps/tars-desktop
-        run: |
-          export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
-          pkg-config --list-all | grep glib
-          cargo clean
-          cargo build --release
+        run: cargo build --release
