@@ -104,4 +104,6 @@ jobs:
 
       - name: Check Tauri build
         working-directory: apps/tars-desktop
+        env:
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
         run: cargo build --release
