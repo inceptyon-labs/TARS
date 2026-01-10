@@ -151,20 +151,19 @@ pub async fn apply_profile(
             .ok_or_else(|| "Profile not found".to_string())?;
 
         // Get or create project
-        let project = match projects.get_by_path(&path) {
-            Ok(Some(p)) => p,
-            _ => {
-                let name = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("Unknown")
-                    .to_string();
-                let p = tars_core::Project::new(path.clone()).with_name(name);
-                projects
-                    .create(&p)
-                    .map_err(|e| format!("Failed to create project: {e}"))?;
-                p
-            }
+        let project = if let Ok(Some(p)) = projects.get_by_path(&path) {
+            p
+        } else {
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("Unknown")
+                .to_string();
+            let p = tars_core::Project::new(path.clone()).with_name(name);
+            projects
+                .create(&p)
+                .map_err(|e| format!("Failed to create project: {e}"))?;
+            p
         };
 
         let plan = generate_plan(project.id, &path, &profile)

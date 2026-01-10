@@ -50,7 +50,10 @@ pub async fn scan_projects(
     }
 
     let scanner = Scanner::new();
-    let path_refs: Vec<&std::path::Path> = project_paths.iter().map(|p| p.as_path()).collect();
+    let path_refs: Vec<&std::path::Path> = project_paths
+        .iter()
+        .map(std::path::PathBuf::as_path)
+        .collect();
 
     scanner
         .scan_all(&path_refs)

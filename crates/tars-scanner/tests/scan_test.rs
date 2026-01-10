@@ -3,8 +3,7 @@
 //! Tests the full scanning pipeline against fixture directories.
 
 use std::fs;
-use std::path::PathBuf;
-use tars_scanner::{Inventory, Scanner};
+use tars_scanner::Scanner;
 use tempfile::TempDir;
 
 /// Create a test fixture directory with Claude Code configuration
@@ -34,7 +33,7 @@ fn create_test_fixture() -> TempDir {
     let skills_dir = claude_dir.join("skills");
     fs::create_dir_all(&skills_dir).expect("Failed to create skills directory");
 
-    let skill_content = r#"---
+    let skill_content = r"---
 name: test-skill
 description: A test skill for integration testing
 user-invocable: true
@@ -46,7 +45,7 @@ allowed-tools:
 # Test Skill
 
 This is a test skill.
-"#;
+";
     fs::write(skills_dir.join("test-skill").join("SKILL.md"), "").ok(); // Ignore if fails
     fs::create_dir_all(skills_dir.join("test-skill")).expect("Failed to create skill directory");
     fs::write(
@@ -59,13 +58,13 @@ This is a test skill.
     let commands_dir = claude_dir.join("commands");
     fs::create_dir_all(&commands_dir).expect("Failed to create commands directory");
 
-    let command_content = r#"---
+    let command_content = r"---
 description: A test command
 thinking: true
 ---
 
 Execute the following task: $ARGUMENTS
-"#;
+";
     fs::write(commands_dir.join("test-cmd.md"), command_content).expect("Failed to write command");
 
     // Create hooks directory with hooks.json
@@ -87,10 +86,10 @@ Execute the following task: $ARGUMENTS
     fs::write(hooks_dir.join("hooks.json"), hooks_content).expect("Failed to write hooks.json");
 
     // Create a CLAUDE.md file
-    let claude_md = r#"# Project Instructions
+    let claude_md = r"# Project Instructions
 
 This is a test project for TARS scanner integration tests.
-"#;
+";
     fs::write(base.join("CLAUDE.md"), claude_md).expect("Failed to write CLAUDE.md");
 
     // Create .claude.json (MCP config at project root)

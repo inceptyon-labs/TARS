@@ -63,30 +63,30 @@ fn create_readonly_test_fixture() -> TempDir {
     // Create skills directory
     let skills_dir = claude_dir.join("skills");
     fs::create_dir_all(skills_dir.join("my-skill")).unwrap();
-    let skill = r#"---
+    let skill = r"---
 name: my-skill
 description: Test skill
 ---
 
 Instructions here.
-"#;
+";
     fs::write(skills_dir.join("my-skill").join("SKILL.md"), skill).unwrap();
 
     // Create commands directory
     let commands_dir = claude_dir.join("commands");
     fs::create_dir_all(&commands_dir).unwrap();
-    let command = r#"---
+    let command = r"---
 description: Test command
 ---
 
 Do $ARGUMENTS
-"#;
+";
     fs::write(commands_dir.join("my-command.md"), command).unwrap();
 
     // Create agents directory
     let agents_dir = claude_dir.join("agents");
     fs::create_dir_all(&agents_dir).unwrap();
-    let agent = r#"---
+    let agent = r"---
 name: my-agent
 description: Test agent
 tools:
@@ -95,7 +95,7 @@ tools:
 ---
 
 Agent instructions.
-"#;
+";
     fs::write(agents_dir.join("my-agent.md"), agent).unwrap();
 
     // Create CLAUDE.md
@@ -140,8 +140,7 @@ fn test_scanner_is_readonly_single_project() {
         assert_eq!(
             Some(before_hash),
             after_hash,
-            "File {} should not be modified",
-            path
+            "File {path} should not be modified"
         );
     }
 }
@@ -173,8 +172,7 @@ fn test_scanner_is_readonly_full_scan() {
         assert_eq!(
             Some(before_hash),
             after_hash,
-            "File {} should not be modified after full scan",
-            path
+            "File {path} should not be modified after full scan"
         );
     }
 }
@@ -191,7 +189,7 @@ fn test_scanner_is_readonly_multiple_scans() {
     // Scan multiple times
     for i in 0..5 {
         let result = scanner.scan_project(fixture.path());
-        assert!(result.is_ok(), "Scan {} should succeed", i);
+        assert!(result.is_ok(), "Scan {i} should succeed");
     }
 
     // Take final snapshot
@@ -209,8 +207,7 @@ fn test_scanner_is_readonly_multiple_scans() {
         assert_eq!(
             Some(initial_hash),
             final_hash,
-            "File {} should not be modified after multiple scans",
-            path
+            "File {path} should not be modified after multiple scans"
         );
     }
 }
@@ -316,8 +313,7 @@ fn test_scanner_preserves_file_permissions() {
             assert_eq!(
                 before_mode,
                 Some(&metadata.permissions().mode()),
-                "File {} permissions should not change",
-                relative_path
+                "File {relative_path} permissions should not change"
             );
         }
     }
@@ -372,8 +368,7 @@ fn test_scanner_preserves_timestamps() {
             assert_eq!(
                 before_mtime,
                 Some(&metadata.modified().unwrap()),
-                "File {} modification time should not change",
-                relative_path
+                "File {relative_path} modification time should not change"
             );
         }
     }

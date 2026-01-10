@@ -41,10 +41,9 @@ pub async fn get_installed_claude_version() -> Result<Option<String>, String> {
                 let version_str = String::from_utf8_lossy(&output.stdout);
                 // Parse "2.1.3 (Claude Code)" -> "2.1.3"
                 let version = version_str
-                    .trim()
                     .split_whitespace()
                     .next()
-                    .map(|s| s.to_string());
+                    .map(std::string::ToString::to_string);
                 Ok(version)
             } else {
                 Ok(None)
@@ -252,7 +251,7 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
         updates.push(PluginUpdateInfo {
             plugin_id: installed.id.clone(),
             plugin_name: installed.manifest.name.clone(),
-            marketplace: marketplace_name.to_string(),
+            marketplace: marketplace_name.clone(),
             installed_version,
             available_version,
             update_available,

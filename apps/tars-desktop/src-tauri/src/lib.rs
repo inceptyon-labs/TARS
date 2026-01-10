@@ -2,6 +2,21 @@
 //!
 //! Tauri-based desktop app for managing Claude Code configuration.
 
+#![allow(
+    clippy::manual_let_else,
+    clippy::needless_continue,
+    clippy::ptr_arg,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::module_name_repetitions,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::module_inception,
+    clippy::cast_possible_truncation
+)]
+
 mod commands;
 mod state;
 

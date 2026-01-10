@@ -6,16 +6,12 @@ use std::collections::HashMap;
 /// MCP server transport type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum McpTransport {
+    #[default]
     Stdio,
     Http,
     Sse,
-}
-
-impl Default for McpTransport {
-    fn default() -> Self {
-        Self::Stdio
-    }
 }
 
 /// MCP server configuration
@@ -103,6 +99,7 @@ impl McpServerConfig {
     }
 
     /// Get a display string for this config
+    #[must_use]
     pub fn display(&self) -> String {
         match self.transport {
             McpTransport::Stdio => {
@@ -111,7 +108,7 @@ impl McpServerConfig {
                 if args.is_empty() {
                     cmd.to_string()
                 } else {
-                    format!("{} {}", cmd, args)
+                    format!("{cmd} {args}")
                 }
             }
             McpTransport::Http | McpTransport::Sse => self.url.as_deref().unwrap_or("").to_string(),

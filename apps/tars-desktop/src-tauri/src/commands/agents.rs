@@ -89,18 +89,18 @@ pub async fn create_agent(
         PathBuf::from(project).join(".claude/agents")
     };
 
-    let agent_file = base_path.join(format!("{}.md", name));
+    let agent_file = base_path.join(format!("{name}.md"));
 
     // Validate the final path is within allowed directories
     validate_agent_path(&agent_file)?;
 
     if agent_file.exists() {
-        return Err(format!("Agent '{}' already exists", name));
+        return Err(format!("Agent '{name}' already exists"));
     }
 
     // Create default agent content
     let content = format!(
-        r#"---
+        r"---
 name: {name}
 description: A new agent
 tools:
@@ -114,7 +114,7 @@ tools:
 Add your agent instructions here.
 
 This agent has access to file reading tools by default.
-"#,
+",
     );
 
     std::fs::create_dir_all(&base_path)
@@ -167,12 +167,12 @@ pub async fn move_agent(
     if targetScope == "user" {
         let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
         let target_base = PathBuf::from(home).join(".claude/agents");
-        let target_file = target_base.join(format!("{}.md", name));
+        let target_file = target_base.join(format!("{name}.md"));
 
         validate_agent_path(&target_file)?;
 
         if target_file.exists() {
-            return Err(format!("Agent '{}' already exists in user scope", name));
+            return Err(format!("Agent '{name}' already exists in user scope"));
         }
 
         std::fs::create_dir_all(&target_base)
@@ -194,14 +194,13 @@ pub async fn move_agent(
         let mut targets: Vec<(PathBuf, PathBuf)> = Vec::new();
         for project in &projects {
             let target_base = PathBuf::from(project).join(".claude/agents");
-            let target_file = target_base.join(format!("{}.md", name));
+            let target_file = target_base.join(format!("{name}.md"));
 
             validate_agent_path(&target_file)?;
 
             if target_file.exists() {
                 return Err(format!(
-                    "Agent '{}' already exists in project '{}'",
-                    name, project
+                    "Agent '{name}' already exists in project '{project}'"
                 ));
             }
 
@@ -410,8 +409,8 @@ pub async fn delete_agent(path: String) -> Result<(), String> {
 }
 
 /// List disabled agents
-/// When project_path is None, returns user-level disabled agents only
-/// When project_path is Some, returns that project's disabled agents only
+/// When `project_path` is None, returns user-level disabled agents only
+/// When `project_path` is Some, returns that project's disabled agents only
 #[tauri::command]
 pub async fn list_disabled_agents(
     project_path: Option<String>,

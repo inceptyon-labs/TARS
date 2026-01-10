@@ -24,6 +24,7 @@ pub struct McpOps {
 
 impl McpOps {
     /// Create a new MCP operations manager
+    #[must_use]
     pub fn new(project_path: Option<PathBuf>) -> Self {
         Self {
             project_path,
@@ -32,6 +33,7 @@ impl McpOps {
     }
 
     /// Enable file backups to a directory
+    #[must_use]
     pub fn with_backup_dir(mut self, dir: PathBuf) -> Self {
         self.backup_dir = Some(dir);
         self
@@ -196,8 +198,7 @@ impl McpOps {
         // Can't move to the same scope
         if found_scope == to_scope {
             return Err(ConfigError::ValidationError(format!(
-                "Server '{}' is already in {} scope",
-                name, to_scope
+                "Server '{name}' is already in {to_scope} scope"
             )));
         }
 
@@ -421,8 +422,7 @@ impl McpOps {
             let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
             let file_name = path
                 .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| "config".to_string());
+                .map_or_else(|| "config".to_string(), |n| n.to_string_lossy().to_string());
             let backup_name = format!("{}_{}.{}.bak", file_name, timestamp, &backup_id[..8]);
             let backup_path = backup_dir.join(&backup_name);
 
@@ -539,8 +539,7 @@ impl McpOps {
             let removed_from_mcp = root
                 .get_mut("mcpServers")
                 .and_then(|v| v.as_object_mut())
-                .map(|obj| obj.remove(name).is_some())
-                .unwrap_or(false);
+                .is_some_and(|obj| obj.remove(name).is_some());
 
             if !removed_from_mcp {
                 root.remove(name);

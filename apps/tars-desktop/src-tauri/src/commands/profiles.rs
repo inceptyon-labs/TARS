@@ -198,9 +198,10 @@ fn validate_export_path(path: &Path) -> Result<PathBuf, String> {
         }
     }
 
-    Err(format!(
+    Err(
         "Export path must be within ~/Downloads, ~/Desktop, ~/Documents, or ~/.tars/exports"
-    ))
+            .to_string(),
+    )
 }
 
 /// Export a profile as a plugin

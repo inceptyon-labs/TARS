@@ -1,4 +1,4 @@
-//! Storage layer (SQLite + file bundles)
+//! Storage layer (`SQLite` + file bundles)
 
 pub mod backups;
 pub mod db;

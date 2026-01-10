@@ -23,7 +23,7 @@ fn validate_plugin_source(source: &str) -> Result<(), String> {
     ];
     for ch in forbidden_chars {
         if source.contains(ch) {
-            return Err(format!("Source contains forbidden character: {}", ch));
+            return Err(format!("Source contains forbidden character: {ch}"));
         }
     }
     Ok(())
@@ -55,8 +55,7 @@ fn validate_scope(scope: &str) -> Result<(), String> {
     match scope {
         "user" | "project" | "local" => Ok(()),
         _ => Err(format!(
-            "Invalid scope: {}. Must be user, project, or local",
-            scope
+            "Invalid scope: {scope}. Must be user, project, or local"
         )),
     }
 }
@@ -120,7 +119,7 @@ pub async fn plugin_marketplace_update(name: Option<String>) -> Result<String, S
 }
 
 /// Install a plugin
-/// For project/local scope, project_path must be provided to run CLI from that directory
+/// For project/local scope, `project_path` must be provided to run CLI from that directory
 #[tauri::command]
 pub async fn plugin_install(
     plugin: String,
@@ -140,7 +139,7 @@ pub async fn plugin_install(
     // Add scope if specified (user, project, or local)
     let scope_flag;
     if let Some(ref s) = scope {
-        scope_flag = format!("--scope={}", s);
+        scope_flag = format!("--scope={s}");
         args.push(&scope_flag);
     }
 
@@ -186,7 +185,7 @@ pub async fn plugin_uninstall(plugin: String, scope: Option<String>) -> Result<S
     // Add scope if specified
     let scope_flag;
     if let Some(ref s) = scope {
-        scope_flag = format!("--scope={}", s);
+        scope_flag = format!("--scope={s}");
         args.push(&scope_flag);
     }
 
@@ -226,31 +225,25 @@ pub async fn plugin_move_scope(
         .args([
             "plugin",
             "uninstall",
-            &format!("--scope={}", from_scope),
+            &format!("--scope={from_scope}"),
             plugin_name,
         ])
         .output()
         .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if !uninstall_output.status.success() {
-        return Err(format!("Failed to uninstall from {} scope", from_scope));
+        return Err(format!("Failed to uninstall from {from_scope} scope"));
     }
 
     // Then reinstall at new scope (uses full plugin@marketplace)
     let install_output = Command::new("claude")
-        .args([
-            "plugin",
-            "install",
-            &format!("--scope={}", to_scope),
-            &plugin,
-        ])
+        .args(["plugin", "install", &format!("--scope={to_scope}"), &plugin])
         .output()
         .map_err(|_| "Failed to run claude CLI".to_string())?;
 
     if install_output.status.success() {
         Ok(format!(
-            "Moved {} from {} to {} scope",
-            plugin_name, from_scope, to_scope
+            "Moved {plugin_name} from {from_scope} to {to_scope} scope"
         ))
     } else {
         // Try to restore original installation if reinstall fails
@@ -258,12 +251,12 @@ pub async fn plugin_move_scope(
             .args([
                 "plugin",
                 "install",
-                &format!("--scope={}", from_scope),
+                &format!("--scope={from_scope}"),
                 &plugin,
             ])
             .output();
 
-        Err(format!("Failed to install at {} scope", to_scope))
+        Err(format!("Failed to install at {to_scope} scope"))
     }
 }
 
@@ -399,7 +392,7 @@ pub struct CacheStatusResponse {
 /// Get cache cleanup status
 #[tauri::command]
 pub async fn cache_status() -> Result<CacheStatusResponse, String> {
-    let report = CacheCleanupReport::scan().map_err(|e| format!("Failed to scan cache: {}", e))?;
+    let report = CacheCleanupReport::scan().map_err(|e| format!("Failed to scan cache: {e}"))?;
 
     Ok(CacheStatusResponse {
         stale_entries: report
@@ -431,7 +424,7 @@ pub struct CacheCleanResult {
 /// Clean stale cache entries
 #[tauri::command]
 pub async fn cache_clean() -> Result<CacheCleanResult, String> {
-    let report = CacheCleanupReport::scan().map_err(|e| format!("Failed to scan cache: {}", e))?;
+    let report = CacheCleanupReport::scan().map_err(|e| format!("Failed to scan cache: {e}"))?;
 
     if report.stale_entries.is_empty() {
         return Ok(CacheCleanResult {
@@ -444,7 +437,7 @@ pub async fn cache_clean() -> Result<CacheCleanResult, String> {
 
     let result = report
         .clean()
-        .map_err(|e| format!("Failed to clean cache: {}", e))?;
+        .map_err(|e| format!("Failed to clean cache: {e}"))?;
 
     Ok(CacheCleanResult {
         deleted_count: result.deleted_count,
@@ -471,8 +464,7 @@ pub async fn open_claude_with_skill(skill_invocation: String) -> Result<(), Stri
     for ch in forbidden_chars {
         if skill_invocation.contains(ch) {
             return Err(format!(
-                "Skill invocation contains forbidden character: {}",
-                ch
+                "Skill invocation contains forbidden character: {ch}"
             ));
         }
     }
@@ -482,7 +474,7 @@ pub async fn open_claude_with_skill(skill_invocation: String) -> Result<(), Stri
     // not via -p flag, so user needs to paste the command
 
     // First, copy to clipboard
-    let copy_script = format!(r#"set the clipboard to "{}""#, skill_invocation);
+    let copy_script = format!(r#"set the clipboard to "{skill_invocation}""#);
     Command::new("osascript")
         .args(["-e", &copy_script])
         .output()

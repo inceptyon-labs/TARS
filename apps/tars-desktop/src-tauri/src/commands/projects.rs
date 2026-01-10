@@ -239,7 +239,7 @@ fn collect_directory_items(dir: &PathBuf, extension: &str, scope: &str) -> Vec<C
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == extension) {
+                if path.extension().is_some_and(|ext| ext == extension) {
                     let chars = read_file_size(&path);
                     let name = path
                         .file_stem()
@@ -323,7 +323,7 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
                         if config
                             .get("url")
                             .and_then(|u| u.as_str())
-                            .map_or(false, |u| u.contains("sse"))
+                            .is_some_and(|u| u.contains("sse"))
                         {
                             "sse"
                         } else {
@@ -339,7 +339,7 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
                     let env_count = config
                         .get("env")
                         .and_then(|e| e.as_object())
-                        .map_or(0, |e| e.len());
+                        .map_or(0, serde_json::Map::len);
                     let is_plugin = name.starts_with("plugin:");
 
                     let complexity = calculate_mcp_complexity(
@@ -354,7 +354,7 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
                     servers.push(McpComplexity {
                         name: name.clone(),
                         server_type: server_type.to_string(),
-                        uses_wrapper: command.map_or(false, |c| {
+                        uses_wrapper: command.is_some_and(|c| {
                             let cl = c.to_lowercase();
                             cl.contains("bash")
                                 || cl.contains("node")
@@ -397,7 +397,7 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
                     let env_count = config
                         .get("env")
                         .and_then(|e| e.as_object())
-                        .map_or(0, |e| e.len());
+                        .map_or(0, serde_json::Map::len);
 
                     let complexity =
                         calculate_mcp_complexity(name, server_type, command, env_count, false, 0);
@@ -405,7 +405,7 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
                     servers.push(McpComplexity {
                         name: name.clone(),
                         server_type: server_type.to_string(),
-                        uses_wrapper: command.map_or(false, |c| {
+                        uses_wrapper: command.is_some_and(|c| {
                             let cl = c.to_lowercase();
                             cl.contains("bash")
                                 || cl.contains("node")

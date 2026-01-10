@@ -68,7 +68,7 @@ pub fn parse_skill(path: &Path, content: &str, scope: Scope) -> ScanResult<Skill
 
     let data = result
         .data
-        .ok_or_else(|| ScanError::NoFrontmatter)?
+        .ok_or(ScanError::NoFrontmatter)?
         .deserialize::<SkillFrontmatter>()
         .map_err(|e| ScanError::FrontmatterParse(e.to_string()))?;
 
@@ -100,7 +100,7 @@ pub fn parse_agent(path: &Path, content: &str, scope: Scope) -> ScanResult<Agent
 
     let data = result
         .data
-        .ok_or_else(|| ScanError::NoFrontmatter)?
+        .ok_or(ScanError::NoFrontmatter)?
         .deserialize::<AgentFrontmatter>()
         .map_err(|e| ScanError::FrontmatterParse(e.to_string()))?;
 
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_parse_skill() {
-        let content = r#"---
+        let content = r"---
 name: test-skill
 description: A test skill
 user-invocable: true
@@ -182,7 +182,7 @@ allowed-tools:
 ---
 
 # Test Skill Instructions
-"#;
+";
         let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
         assert!(result.is_ok());
         let skill = result.unwrap();
@@ -194,13 +194,13 @@ allowed-tools:
 
     #[test]
     fn test_parse_command() {
-        let content = r#"---
+        let content = r"---
 description: A test command
 thinking: true
 ---
 
 Do something with $ARGUMENTS
-"#;
+";
         let result = parse_command(&PathBuf::from("test-cmd.md"), content, Scope::Project);
         assert!(result.is_ok());
         let cmd = result.unwrap();

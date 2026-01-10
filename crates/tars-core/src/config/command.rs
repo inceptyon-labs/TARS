@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Command configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CommandConfig {
     /// Command description
     pub description: String,
@@ -27,6 +27,7 @@ impl CommandConfig {
     }
 
     /// Enable thinking mode
+    #[must_use]
     pub fn with_thinking(mut self, thinking: bool) -> Self {
         self.thinking = thinking;
         self
@@ -44,6 +45,7 @@ impl CommandConfig {
     }
 
     /// Generate frontmatter YAML
+    #[must_use]
     pub fn to_frontmatter(&self) -> String {
         let mut lines = vec![format!("description: \"{}\"", self.description)];
 
@@ -55,18 +57,9 @@ impl CommandConfig {
     }
 
     /// Generate full command .md content
+    #[must_use]
     pub fn to_command_md(&self) -> String {
         format!("---\n{}\n---\n\n{}", self.to_frontmatter(), self.body)
-    }
-}
-
-impl Default for CommandConfig {
-    fn default() -> Self {
-        Self {
-            description: String::new(),
-            thinking: false,
-            body: String::new(),
-        }
     }
 }
 

@@ -36,10 +36,10 @@ pub fn scan_project(path: &Path) -> ScanResult<ProjectScope> {
         )));
     }
 
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| "unnamed".to_string());
+    let name = path.file_name().map_or_else(
+        || "unnamed".to_string(),
+        |n| n.to_string_lossy().to_string(),
+    );
 
     let claude_dir = path.join(".claude");
     let claude_dir_exists = claude_dir.exists() && claude_dir.is_dir();
@@ -215,17 +215,11 @@ fn scan_hooks_directory(hooks_dir: &Path) -> ScanResult<Vec<HookInfo>> {
             Ok(content) => match parse_hooks_json(&hooks_json_path, &content) {
                 Ok(parsed_hooks) => hooks.extend(parsed_hooks),
                 Err(e) => {
-                    eprintln!(
-                        "Warning: Failed to parse hooks at {:?}: {}",
-                        hooks_json_path, e
-                    );
+                    eprintln!("Warning: Failed to parse hooks at {hooks_json_path:?}: {e}");
                 }
             },
             Err(e) => {
-                eprintln!(
-                    "Warning: Failed to read hooks file {:?}: {}",
-                    hooks_json_path, e
-                );
+                eprintln!("Warning: Failed to read hooks file {hooks_json_path:?}: {e}");
             }
         }
     }

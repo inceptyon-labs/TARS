@@ -82,7 +82,7 @@ pub fn create_backup(
 
     // Write backup data to archive (simplified - just JSON for now)
     let backup_json = serde_json::to_string_pretty(&backup)
-        .map_err(|e| BackupCreateError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        .map_err(|e| BackupCreateError::Io(std::io::Error::other(e)))?;
     fs::write(&archive_path, backup_json)?;
 
     Ok(backup)
@@ -126,7 +126,7 @@ pub fn create_full_backup(
 
     // Write backup data
     let backup_json = serde_json::to_string_pretty(&backup)
-        .map_err(|e| BackupCreateError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        .map_err(|e| BackupCreateError::Io(std::io::Error::other(e)))?;
     fs::write(&archive_path, backup_json)?;
 
     Ok(backup)

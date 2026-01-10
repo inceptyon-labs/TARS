@@ -80,6 +80,7 @@ pub enum ConfigItemType {
 
 impl ConfigItemType {
     /// Get a human-readable display name
+    #[must_use]
     pub fn display_name(&self) -> &'static str {
         match self {
             Self::McpServer => "MCP server",
@@ -91,6 +92,7 @@ impl ConfigItemType {
     }
 
     /// Get the plural form
+    #[must_use]
     pub fn plural(&self) -> &'static str {
         match self {
             Self::McpServer => "MCP servers",
@@ -119,6 +121,7 @@ pub struct ConfigItem {
 
 impl ConfigItem {
     /// Create a new config item
+    #[must_use]
     pub fn new(
         name: String,
         item_type: ConfigItemType,
@@ -136,6 +139,7 @@ impl ConfigItem {
     }
 
     /// Get the display name for this item
+    #[must_use]
     pub fn display_name(&self) -> String {
         format!("{} '{}'", self.item_type.display_name(), self.name)
     }
@@ -154,6 +158,7 @@ pub enum ConfigItemData {
 
 impl ConfigItemData {
     /// Get the item type
+    #[must_use]
     pub fn item_type(&self) -> ConfigItemType {
         match self {
             Self::McpServer(_) => ConfigItemType::McpServer,

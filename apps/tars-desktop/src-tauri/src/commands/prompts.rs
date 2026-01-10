@@ -38,12 +38,12 @@ fn prompts_dir(state: &AppState) -> PathBuf {
 
 /// Get the path for a specific prompt
 fn prompt_path(state: &AppState, id: &str) -> PathBuf {
-    prompts_dir(state).join(format!("{}.md", id))
+    prompts_dir(state).join(format!("{id}.md"))
 }
 
 /// Get the metadata path for a prompt
 fn prompt_meta_path(state: &AppState, id: &str) -> PathBuf {
-    prompts_dir(state).join(format!("{}.json", id))
+    prompts_dir(state).join(format!("{id}.json"))
 }
 
 /// Prompt metadata stored alongside content

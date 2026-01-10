@@ -89,18 +89,18 @@ pub async fn create_command(
         PathBuf::from(project).join(".claude/commands")
     };
 
-    let command_file = base_path.join(format!("{}.md", name));
+    let command_file = base_path.join(format!("{name}.md"));
 
     // Validate the final path is within allowed directories
     validate_command_path(&command_file)?;
 
     if command_file.exists() {
-        return Err(format!("Command '{}' already exists", name));
+        return Err(format!("Command '{name}' already exists"));
     }
 
     // Create default command content
     let content = format!(
-        r#"---
+        r"---
 description: A new command
 ---
 
@@ -111,7 +111,7 @@ This command does something useful.
 Arguments provided by the user: $ARGUMENTS
 
 Add your command instructions here.
-"#,
+",
     );
 
     std::fs::create_dir_all(&base_path)
@@ -164,12 +164,12 @@ pub async fn move_command(
     if targetScope == "user" {
         let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
         let target_base = PathBuf::from(home).join(".claude/commands");
-        let target_file = target_base.join(format!("{}.md", name));
+        let target_file = target_base.join(format!("{name}.md"));
 
         validate_command_path(&target_file)?;
 
         if target_file.exists() {
-            return Err(format!("Command '{}' already exists in user scope", name));
+            return Err(format!("Command '{name}' already exists in user scope"));
         }
 
         std::fs::create_dir_all(&target_base)
@@ -192,14 +192,13 @@ pub async fn move_command(
         let mut targets: Vec<(PathBuf, PathBuf)> = Vec::new();
         for project in &projects {
             let target_base = PathBuf::from(project).join(".claude/commands");
-            let target_file = target_base.join(format!("{}.md", name));
+            let target_file = target_base.join(format!("{name}.md"));
 
             validate_command_path(&target_file)?;
 
             if target_file.exists() {
                 return Err(format!(
-                    "Command '{}' already exists in project '{}'",
-                    name, project
+                    "Command '{name}' already exists in project '{project}'"
                 ));
             }
 

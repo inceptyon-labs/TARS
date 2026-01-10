@@ -12,9 +12,7 @@ use std::path::{Path, PathBuf};
 
 /// Get the user's home directory
 fn home_dir() -> PathBuf {
-    std::env::var("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/"))
+    std::env::var("HOME").map_or_else(|_| PathBuf::from("/"), PathBuf::from)
 }
 
 /// Scan user-level Claude Code configuration
@@ -77,7 +75,7 @@ fn scan_user_skills(claude_dir: &Path) -> ScanResult<Vec<SkillInfo>> {
 
 /// Scan plugin directories for skills (only installed plugins)
 ///
-/// Reads installed_plugins.json to determine which plugins are installed,
+/// Reads `installed_plugins.json` to determine which plugins are installed,
 /// then scans only those plugin paths for skills.
 fn scan_plugin_skills() -> ScanResult<Vec<SkillInfo>> {
     let plugin_inventory = PluginInventory::scan()?;
@@ -132,12 +130,12 @@ pub fn scan_skills_directory(dir: &Path, scope: Scope) -> ScanResult<Vec<SkillIn
                             Ok(skill) => skills.push(skill),
                             Err(e) => {
                                 // Log warning but continue scanning
-                                eprintln!("Warning: Failed to parse skill at {:?}: {}", path, e);
+                                eprintln!("Warning: Failed to parse skill at {path:?}: {e}");
                             }
                         }
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to read skill file {:?}: {}", skill_file, e);
+                        eprintln!("Warning: Failed to read skill file {skill_file:?}: {e}");
                     }
                 }
             }
@@ -159,16 +157,16 @@ pub fn scan_commands_directory(dir: &Path, scope: Scope) -> ScanResult<Vec<Comma
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "md") {
             match fs::read_to_string(&path) {
                 Ok(content) => match parse_command(&path, &content, scope.clone()) {
                     Ok(cmd) => commands.push(cmd),
                     Err(e) => {
-                        eprintln!("Warning: Failed to parse command at {:?}: {}", path, e);
+                        eprintln!("Warning: Failed to parse command at {path:?}: {e}");
                     }
                 },
                 Err(e) => {
-                    eprintln!("Warning: Failed to read command file {:?}: {}", path, e);
+                    eprintln!("Warning: Failed to read command file {path:?}: {e}");
                 }
             }
         }
@@ -189,16 +187,16 @@ pub fn scan_agents_directory(dir: &Path, scope: Scope) -> ScanResult<Vec<AgentIn
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "md") {
             match fs::read_to_string(&path) {
                 Ok(content) => match parse_agent(&path, &content, scope.clone()) {
                     Ok(agent) => agents.push(agent),
                     Err(e) => {
-                        eprintln!("Warning: Failed to parse agent at {:?}: {}", path, e);
+                        eprintln!("Warning: Failed to parse agent at {path:?}: {e}");
                     }
                 },
                 Err(e) => {
-                    eprintln!("Warning: Failed to read agent file {:?}: {}", path, e);
+                    eprintln!("Warning: Failed to read agent file {path:?}: {e}");
                 }
             }
         }

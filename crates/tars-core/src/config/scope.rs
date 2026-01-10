@@ -25,11 +25,13 @@ pub enum ConfigScope {
 
 impl ConfigScope {
     /// Whether this scope can be modified
+    #[must_use]
     pub fn is_writable(&self) -> bool {
         !matches!(self, Self::Managed)
     }
 
     /// Precedence order (higher = takes priority)
+    #[must_use]
     pub fn precedence(&self) -> u8 {
         match self {
             Self::Managed => 4,
@@ -40,6 +42,7 @@ impl ConfigScope {
     }
 
     /// Get all writable scopes
+    #[must_use]
     pub fn writable_scopes() -> &'static [ConfigScope] {
         &[Self::User, Self::Project, Self::Local]
     }

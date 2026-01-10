@@ -40,7 +40,7 @@ pub struct HostInfo {
 }
 
 impl HostInfo {
-    /// Create HostInfo for the current system
+    /// Create `HostInfo` for the current system
     #[must_use]
     pub fn current() -> Self {
         Self {
@@ -58,7 +58,5 @@ fn whoami_username() -> String {
 }
 
 fn dirs_home_dir() -> PathBuf {
-    std::env::var("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/"))
+    std::env::var("HOME").map_or_else(|_| PathBuf::from("/"), PathBuf::from)
 }

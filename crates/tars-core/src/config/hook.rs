@@ -19,6 +19,7 @@ pub enum HookTrigger {
 
 impl HookTrigger {
     /// Get the JSON key name for this trigger
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::PreToolUse => "PreToolUse",
@@ -35,6 +36,7 @@ impl HookTrigger {
     }
 
     /// All available triggers
+    #[must_use]
     pub fn all() -> &'static [HookTrigger] {
         &[
             Self::PreToolUse,
@@ -66,7 +68,7 @@ impl std::str::FromStr for HookTrigger {
             "Stop" => Ok(Self::Stop),
             "SubagentStop" => Ok(Self::SubagentStop),
             "PreCompact" => Ok(Self::PreCompact),
-            _ => Err(format!("Unknown hook trigger: {}", s)),
+            _ => Err(format!("Unknown hook trigger: {s}")),
         }
     }
 }
@@ -112,11 +114,12 @@ impl HookDefinition {
     }
 
     /// Get a display string
+    #[must_use]
     pub fn display(&self) -> String {
         match self {
-            Self::Command { command } => format!("command: {}", command),
+            Self::Command { command } => format!("command: {command}"),
             Self::Prompt { prompt } => format!("prompt: {}", truncate(prompt, 50)),
-            Self::Agent { agent } => format!("agent: {}", agent),
+            Self::Agent { agent } => format!("agent: {agent}"),
         }
     }
 }
@@ -137,6 +140,7 @@ pub struct HookConfig {
 
 impl HookConfig {
     /// Create a new hook config
+    #[must_use]
     pub fn new(trigger: HookTrigger, definition: HookDefinition) -> Self {
         Self {
             trigger,
@@ -168,6 +172,7 @@ impl HookConfig {
     }
 
     /// Convert to the JSON format used in settings.json
+    #[must_use]
     pub fn to_json_value(&self) -> serde_json::Value {
         let mut obj = serde_json::Map::new();
 

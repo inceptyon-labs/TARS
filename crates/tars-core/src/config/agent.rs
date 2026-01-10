@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Agent configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentConfig {
     /// Agent description
     pub description: String,
@@ -46,6 +46,7 @@ impl AgentConfig {
     }
 
     /// Set allowed tools
+    #[must_use]
     pub fn with_tools(mut self, tools: Vec<String>) -> Self {
         self.tools = tools;
         self
@@ -64,6 +65,7 @@ impl AgentConfig {
     }
 
     /// Set available skills
+    #[must_use]
     pub fn with_skills(mut self, skills: Vec<String>) -> Self {
         self.skills = skills;
         self
@@ -79,13 +81,14 @@ impl AgentConfig {
         }
         if let Some(ref mode) = self.permission_mode {
             if !["ask", "auto", "deny"].contains(&mode.as_str()) {
-                return Err(format!("invalid permission-mode: {}", mode));
+                return Err(format!("invalid permission-mode: {mode}"));
             }
         }
         Ok(())
     }
 
     /// Generate frontmatter YAML
+    #[must_use]
     pub fn to_frontmatter(&self) -> String {
         let mut lines = vec![format!("description: \"{}\"", self.description)];
 
@@ -94,11 +97,11 @@ impl AgentConfig {
         }
 
         if let Some(ref model) = self.model {
-            lines.push(format!("model: {}", model));
+            lines.push(format!("model: {model}"));
         }
 
         if let Some(ref mode) = self.permission_mode {
-            lines.push(format!("permission-mode: {}", mode));
+            lines.push(format!("permission-mode: {mode}"));
         }
 
         if !self.skills.is_empty() {
@@ -109,21 +112,9 @@ impl AgentConfig {
     }
 
     /// Generate full agent .md content
+    #[must_use]
     pub fn to_agent_md(&self) -> String {
         format!("---\n{}\n---\n\n{}", self.to_frontmatter(), self.body)
-    }
-}
-
-impl Default for AgentConfig {
-    fn default() -> Self {
-        Self {
-            description: String::new(),
-            tools: Vec::new(),
-            model: None,
-            permission_mode: None,
-            skills: Vec::new(),
-            body: String::new(),
-        }
     }
 }
 

@@ -101,20 +101,20 @@ pub struct McpAddArgs {
 }
 
 impl McpAddArgs {
-    /// Convert to McpServerConfig
+    /// Convert to `McpServerConfig`
     pub fn to_config(&self) -> Result<McpServerConfig, String> {
         let transport = match self.r#type.as_str() {
             "stdio" => McpTransport::Stdio,
             "http" => McpTransport::Http,
             "sse" => McpTransport::Sse,
-            other => return Err(format!("Invalid transport type: {}", other)),
+            other => return Err(format!("Invalid transport type: {other}")),
         };
 
         let mut env = HashMap::new();
         for e in &self.env {
             let (key, value) = e
                 .split_once('=')
-                .ok_or_else(|| format!("Invalid env format: {} (expected KEY=value)", e))?;
+                .ok_or_else(|| format!("Invalid env format: {e} (expected KEY=value)"))?;
             env.insert(key.to_string(), value.to_string());
         }
 
@@ -132,7 +132,7 @@ impl McpAddArgs {
 
     /// Parse scope
     pub fn parse_scope(&self) -> Result<ConfigScope, String> {
-        self.scope.parse().map_err(|e| format!("{}", e))
+        self.scope.parse().map_err(|e| format!("{e}"))
     }
 }
 
@@ -264,8 +264,8 @@ fn execute_list(
                 .push(item);
         }
 
-        for (scope_name, servers) in by_scope.iter() {
-            println!("\n[{}]", scope_name);
+        for (scope_name, servers) in &by_scope {
+            println!("\n[{scope_name}]");
             for server in servers {
                 if let ConfigItemData::McpServer(config) = &server.config {
                     let transport = format!("{:?}", config.transport).to_lowercase();
@@ -306,27 +306,25 @@ fn execute_add(
             "files_modified": result.files_modified.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
         });
         println!("{}", serde_json::to_string_pretty(&output)?);
-    } else {
-        if args.dry_run {
-            println!(
-                "Dry run: Would add MCP server '{}' to {} scope",
-                args.name, scope
-            );
-            if !result.files_modified.is_empty() {
-                println!("Would modify: {}", result.files_modified[0].display());
-            }
-        } else if result.success {
-            println!("Added MCP server '{}' to {} scope", args.name, scope);
-            if let Some(backup_id) = &result.backup_id {
-                println!("Backup created: {}", backup_id);
-            }
-        } else {
-            eprintln!(
-                "Failed to add MCP server: {}",
-                result.error.unwrap_or_default()
-            );
-            std::process::exit(1);
+    } else if args.dry_run {
+        println!(
+            "Dry run: Would add MCP server '{}' to {} scope",
+            args.name, scope
+        );
+        if !result.files_modified.is_empty() {
+            println!("Would modify: {}", result.files_modified[0].display());
         }
+    } else if result.success {
+        println!("Added MCP server '{}' to {} scope", args.name, scope);
+        if let Some(backup_id) = &result.backup_id {
+            println!("Backup created: {backup_id}");
+        }
+    } else {
+        eprintln!(
+            "Failed to add MCP server: {}",
+            result.error.unwrap_or_default()
+        );
+        std::process::exit(1);
     }
 
     Ok(())
@@ -361,27 +359,25 @@ fn execute_remove(
             "files_modified": result.files_modified.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
         });
         println!("{}", serde_json::to_string_pretty(&output)?);
-    } else {
-        if dry_run {
-            println!(
-                "Dry run: Would remove MCP server '{}' from {} scope",
-                name, result.scope
-            );
-            if !result.files_modified.is_empty() {
-                println!("Would modify: {}", result.files_modified[0].display());
-            }
-        } else if result.success {
-            println!("Removed MCP server '{}' from {} scope", name, result.scope);
-            if let Some(backup_id) = &result.backup_id {
-                println!("Backup created: {}", backup_id);
-            }
-        } else {
-            eprintln!(
-                "Failed to remove MCP server: {}",
-                result.error.unwrap_or_default()
-            );
-            std::process::exit(1);
+    } else if dry_run {
+        println!(
+            "Dry run: Would remove MCP server '{}' from {} scope",
+            name, result.scope
+        );
+        if !result.files_modified.is_empty() {
+            println!("Would modify: {}", result.files_modified[0].display());
         }
+    } else if result.success {
+        println!("Removed MCP server '{}' from {} scope", name, result.scope);
+        if let Some(backup_id) = &result.backup_id {
+            println!("Backup created: {backup_id}");
+        }
+    } else {
+        eprintln!(
+            "Failed to remove MCP server: {}",
+            result.error.unwrap_or_default()
+        );
+        std::process::exit(1);
     }
 
     Ok(())

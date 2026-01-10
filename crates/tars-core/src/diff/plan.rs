@@ -193,6 +193,7 @@ fn plan_agent(
 }
 
 /// Generate a unified diff between two strings
+#[must_use]
 pub fn generate_text_diff(old: &str, new: &str) -> String {
     let diff = TextDiff::from_lines(old, new);
     let mut output = String::new();
@@ -214,6 +215,7 @@ pub fn generate_text_diff(old: &str, new: &str) -> String {
 }
 
 /// Check if applying a profile would cause issues
+#[must_use]
 pub fn check_git_dirty(project_path: &Path) -> Option<Warning> {
     let git_dir = project_path.join(".git");
     if !git_dir.exists() {

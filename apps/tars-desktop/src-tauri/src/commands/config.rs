@@ -29,13 +29,13 @@ pub struct McpServerItem {
     pub file_path: String,
 }
 
-/// Result from mcp_list command
+/// Result from `mcp_list` command
 #[derive(Debug, Serialize)]
 pub struct McpListResult {
     pub servers: Vec<McpServerItem>,
 }
 
-/// Parameters for mcp_add command
+/// Parameters for `mcp_add` command
 #[derive(Debug, Deserialize)]
 pub struct McpAddParams {
     pub name: String,
@@ -49,7 +49,7 @@ pub struct McpAddParams {
     pub dry_run: Option<bool>,
 }
 
-/// Result from mcp_add/remove/update commands
+/// Result from `mcp_add/remove/update` commands
 #[derive(Debug, Serialize)]
 pub struct McpOperationResult {
     pub success: bool,
@@ -108,11 +108,11 @@ pub async fn mcp_add(
         "stdio" => McpTransport::Stdio,
         "http" => McpTransport::Http,
         "sse" => McpTransport::Sse,
-        other => return Err(format!("Invalid transport type: {}", other)),
+        other => return Err(format!("Invalid transport type: {other}")),
     };
 
     // Parse scope
-    let scope: ConfigScope = params.scope.parse().map_err(|e| format!("{}", e))?;
+    let scope: ConfigScope = params.scope.parse().map_err(|e| format!("{e}"))?;
 
     // Build server config
     let config = McpServerConfig {
@@ -124,12 +124,12 @@ pub async fn mcp_add(
     };
 
     // Validate config
-    config.validate().map_err(|e| e.to_string())?;
+    config.validate().map_err(|e| e.clone())?;
 
     // Set up backup directory
     let backup_dir = state.data_dir().join("backups");
     std::fs::create_dir_all(&backup_dir)
-        .map_err(|e| format!("Failed to create backup directory: {}", e))?;
+        .map_err(|e| format!("Failed to create backup directory: {e}"))?;
 
     // Create operations manager
     let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);
@@ -152,7 +152,7 @@ pub async fn mcp_add(
     })
 }
 
-/// Parameters for mcp_remove command
+/// Parameters for `mcp_remove` command
 #[derive(Debug, Deserialize)]
 pub struct McpRemoveParams {
     pub name: String,
@@ -170,7 +170,7 @@ pub async fn mcp_remove(
 ) -> Result<McpOperationResult, String> {
     // Parse scope if provided
     let scope_filter: Option<ConfigScope> = if let Some(s) = &params.scope {
-        Some(s.parse().map_err(|e| format!("{}", e))?)
+        Some(s.parse().map_err(|e| format!("{e}"))?)
     } else {
         None
     };
@@ -178,7 +178,7 @@ pub async fn mcp_remove(
     // Set up backup directory
     let backup_dir = state.data_dir().join("backups");
     std::fs::create_dir_all(&backup_dir)
-        .map_err(|e| format!("Failed to create backup directory: {}", e))?;
+        .map_err(|e| format!("Failed to create backup directory: {e}"))?;
 
     // Create operations manager
     let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);
@@ -201,7 +201,7 @@ pub async fn mcp_remove(
     })
 }
 
-/// Parameters for mcp_update command
+/// Parameters for `mcp_update` command
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct McpUpdateParams {
@@ -222,7 +222,7 @@ pub async fn mcp_update(
     Err("Not yet implemented".into())
 }
 
-/// Parameters for mcp_move command
+/// Parameters for `mcp_move` command
 #[derive(Debug, Deserialize)]
 pub struct McpMoveParams {
     pub name: String,
@@ -236,7 +236,7 @@ pub struct McpMoveParams {
     pub dry_run: Option<bool>,
 }
 
-/// Result from mcp_move command
+/// Result from `mcp_move` command
 #[derive(Debug, Serialize)]
 pub struct McpMoveResult {
     pub success: bool,
@@ -259,9 +259,10 @@ pub async fn mcp_move(
     project_path: Option<String>,
     _state: State<'_, AppState>,
 ) -> Result<McpMoveResult, String> {
-    let backup_dir = std::env::var("HOME")
-        .map(|h| PathBuf::from(h).join(".tars").join("backups"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp/tars/backups"));
+    let backup_dir = std::env::var("HOME").map_or_else(
+        |_| PathBuf::from("/tmp/tars/backups"),
+        |h| PathBuf::from(h).join(".tars").join("backups"),
+    );
 
     let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);
 
@@ -286,9 +287,7 @@ pub async fn mcp_move(
     Ok(McpMoveResult {
         success: result.success,
         backup_id: result.backup_id,
-        removed_from: from_scope
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "auto".to_string()),
+        removed_from: from_scope.map_or_else(|| "auto".to_string(), |s| s.to_string()),
         added_to: to_scope.to_string(),
         diff: None,
         error: result.error,
@@ -299,7 +298,7 @@ pub async fn mcp_move(
 // Rollback Command
 // ============================================================================
 
-/// Parameters for config_rollback command
+/// Parameters for `config_rollback` command
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct RollbackParams {
@@ -309,7 +308,7 @@ pub struct RollbackParams {
     pub project_path: Option<String>,
 }
 
-/// Result from config_rollback command
+/// Result from `config_rollback` command
 #[derive(Debug, Serialize)]
 pub struct RollbackResult {
     pub success: bool,

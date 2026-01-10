@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Skill configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SkillConfig {
     /// Skill description
     pub description: String,
@@ -41,12 +41,14 @@ impl SkillConfig {
     }
 
     /// Set user invocable
+    #[must_use]
     pub fn with_user_invocable(mut self, invocable: bool) -> Self {
         self.user_invocable = invocable;
         self
     }
 
     /// Set allowed tools
+    #[must_use]
     pub fn with_allowed_tools(mut self, tools: Vec<String>) -> Self {
         self.allowed_tools = tools;
         self
@@ -70,6 +72,7 @@ impl SkillConfig {
     }
 
     /// Generate SKILL.md frontmatter YAML
+    #[must_use]
     pub fn to_frontmatter(&self) -> String {
         let mut lines = vec![format!("description: \"{}\"", self.description)];
 
@@ -85,27 +88,16 @@ impl SkillConfig {
         }
 
         if let Some(ref model) = self.model {
-            lines.push(format!("model: {}", model));
+            lines.push(format!("model: {model}"));
         }
 
         lines.join("\n")
     }
 
     /// Generate full SKILL.md content
+    #[must_use]
     pub fn to_skill_md(&self) -> String {
         format!("---\n{}\n---\n\n{}", self.to_frontmatter(), self.body)
-    }
-}
-
-impl Default for SkillConfig {
-    fn default() -> Self {
-        Self {
-            description: String::new(),
-            user_invocable: false,
-            allowed_tools: Vec::new(),
-            model: None,
-            body: String::new(),
-        }
     }
 }
 

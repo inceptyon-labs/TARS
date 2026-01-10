@@ -74,6 +74,7 @@ pub enum ConfigError {
 
 impl ConfigError {
     /// Get the error code for CLI/API responses
+    #[must_use]
     pub fn code(&self) -> &'static str {
         match self {
             Self::ItemExists { .. } => "ITEM_EXISTS",

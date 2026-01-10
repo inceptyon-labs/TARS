@@ -49,7 +49,7 @@ impl Scanner {
             match self.scan_project(path) {
                 Ok(proj) => projects.push(proj),
                 Err(e) => {
-                    eprintln!("Warning: Failed to scan project {:?}: {}", path, e);
+                    eprintln!("Warning: Failed to scan project {path:?}: {e}");
                 }
             }
         }

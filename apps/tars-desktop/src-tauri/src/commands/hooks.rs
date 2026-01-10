@@ -196,5 +196,8 @@ pub async fn save_project_hooks(
 /// Get all available hook event types
 #[tauri::command]
 pub async fn get_hook_event_types() -> Vec<String> {
-    HOOK_EVENTS.iter().map(|s| s.to_string()).collect()
+    HOOK_EVENTS
+        .iter()
+        .map(std::string::ToString::to_string)
+        .collect()
 }

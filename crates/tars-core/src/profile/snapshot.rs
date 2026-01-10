@@ -111,7 +111,7 @@ fn snapshot_commands(commands_dir: &Path) -> Result<Vec<CommandOverlay>, Snapsho
         let entry = entry?;
         let path = entry.path();
 
-        if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "md") {
             let content = fs::read_to_string(&path)?;
             let name = path
                 .file_stem()
@@ -137,7 +137,7 @@ fn snapshot_agents(agents_dir: &Path) -> Result<Vec<AgentOverlay>, SnapshotError
         let entry = entry?;
         let path = entry.path();
 
-        if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "md") {
             let content = fs::read_to_string(&path)?;
             let name = path
                 .file_stem()

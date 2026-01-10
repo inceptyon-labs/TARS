@@ -2,6 +2,19 @@
 //!
 //! Provides `tars scan`, `tars profile`, `tars mcp`, and other commands.
 
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::needless_pass_by_value,
+    clippy::too_many_lines,
+    clippy::manual_let_else,
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::similar_names,
+    clippy::map_unwrap_or,
+    clippy::option_if_let_else,
+    clippy::unnecessary_wraps
+)]
+
 mod commands;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -315,13 +328,12 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
             let prof = find_profile(&profiles, &profile)?;
 
             // Find or create project
-            let proj = match projects.get_by_path(&target_path)? {
-                Some(p) => p,
-                None => {
-                    let p = Project::new(target_path.clone());
-                    projects.create(&p)?;
-                    p
-                }
+            let proj = if let Some(p) = projects.get_by_path(&target_path)? {
+                p
+            } else {
+                let p = Project::new(target_path.clone());
+                projects.create(&p)?;
+                p
             };
 
             // Generate diff plan
@@ -445,7 +457,7 @@ fn run_profile_command(action: ProfileCommands) -> Result<(), Box<dyn std::error
             );
 
             export_as_plugin(&prof, &output_dir, &plugin_name, &version)?;
-            let output_path = output_dir.join(format!("{}-{}", plugin_name, version));
+            let output_path = output_dir.join(format!("{plugin_name}-{version}"));
             println!("Created plugin: {}", output_path.display());
         }
         ProfileCommands::Backups { project } => {

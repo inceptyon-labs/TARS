@@ -4,6 +4,7 @@ use crate::diff::{DiffPlan, FileOperation, WarningSeverity};
 use std::fmt::Write;
 
 /// Format a diff plan for terminal display
+#[must_use]
 pub fn format_plan_terminal(plan: &DiffPlan) -> String {
     let mut output = String::new();
 
@@ -51,6 +52,7 @@ pub fn format_plan_terminal(plan: &DiffPlan) -> String {
 }
 
 /// Format a diff plan as markdown for documentation/export
+#[must_use]
 pub fn format_plan_markdown(plan: &DiffPlan) -> String {
     let mut output = String::new();
 
@@ -117,6 +119,7 @@ pub struct DiffSummary {
 
 impl DiffSummary {
     /// Generate summary from a diff plan
+    #[must_use]
     pub fn from_plan(plan: &DiffPlan) -> Self {
         let mut summary = Self::default();
 
@@ -140,6 +143,7 @@ impl DiffSummary {
     }
 
     /// Format as a one-line summary
+    #[must_use]
     pub fn one_line(&self) -> String {
         format!(
             "{} create(s), {} modify(s), {} delete(s) - {} bytes total",

@@ -24,7 +24,7 @@ impl PluginInventory {
     /// # Errors
     /// Returns an error if reading plugin files fails
     pub fn scan() -> ScanResult<Self> {
-        let home = dirs::home_dir().ok_or_else(|| ScanError::HomeNotFound)?;
+        let home = dirs::home_dir().ok_or(ScanError::HomeNotFound)?;
         let plugins_dir = home.join(".claude").join("plugins");
 
         if !plugins_dir.exists() {
@@ -120,7 +120,7 @@ impl PluginInventory {
             // Plugin key format: "plugin-name@marketplace"
             let parts: Vec<&str> = plugin_key.split('@').collect();
             let plugin_name = parts.first().copied().unwrap_or(plugin_key);
-            let marketplace = parts.get(1).map(|s| s.to_string()).unwrap_or_default();
+            let marketplace = parts.get(1).map(|s| (*s).to_string()).unwrap_or_default();
 
             result
                 .entry(marketplace)
@@ -155,15 +155,13 @@ impl PluginInventory {
 
             let is_installed = installed_plugins
                 .get(marketplace_name)
-                .map(|ids| ids.contains(&plugin_id))
-                .unwrap_or(false);
+                .is_some_and(|ids| ids.contains(&plugin_id));
 
             available.push(AvailablePlugin {
                 id: plugin_id.clone(),
                 name: manifest
                     .as_ref()
-                    .map(|m| m.name.clone())
-                    .unwrap_or_else(|| plugin_id.clone()),
+                    .map_or_else(|| plugin_id.clone(), |m| m.name.clone()),
                 description: manifest
                     .as_ref()
                     .map(|m| m.description.clone())
@@ -214,15 +212,13 @@ impl PluginInventory {
 
                 let is_installed = installed_plugins
                     .get(marketplace_name)
-                    .map(|ids| ids.contains(&plugin_id))
-                    .unwrap_or(false);
+                    .is_some_and(|ids| ids.contains(&plugin_id));
 
                 available.push(AvailablePlugin {
                     id: plugin_id.clone(),
                     name: manifest
                         .as_ref()
-                        .map(|m| m.name.clone())
-                        .unwrap_or_else(|| plugin_id.clone()),
+                        .map_or_else(|| plugin_id.clone(), |m| m.name.clone()),
                     description: manifest
                         .as_ref()
                         .map(|m| m.description.clone())
@@ -258,7 +254,7 @@ impl PluginInventory {
             // Plugin key format: "plugin-name@marketplace"
             let parts: Vec<&str> = plugin_key.split('@').collect();
             let plugin_name = parts.first().copied().unwrap_or(&plugin_key);
-            let marketplace = parts.get(1).map(|s| s.to_string());
+            let marketplace = parts.get(1).map(|s| (*s).to_string());
 
             for install in installs {
                 // Try multiple locations for plugin.json:
@@ -500,7 +496,7 @@ impl PluginInventory {
                 // Extract skill name from path like "./commands/notifications-init.md"
                 let file_name = cmd_path.file_stem()?.to_str()?;
                 let name = file_name.to_string();
-                let invocation = format!("/{}:{}", plugin_id, name);
+                let invocation = format!("/{plugin_id}:{name}");
 
                 // Detect init/settings skills by name patterns
                 let name_lower = name.to_lowercase();
@@ -715,13 +711,13 @@ pub struct CacheCleanupReport {
 impl CacheCleanupReport {
     /// Find all stale cache entries
     ///
-    /// Compares the cache directory contents against installed_plugins.json
+    /// Compares the cache directory contents against `installed_plugins.json`
     /// to identify directories that are not currently installed.
     ///
     /// # Errors
-    /// Returns an error if reading directories or installed_plugins.json fails
+    /// Returns an error if reading directories or `installed_plugins.json` fails
     pub fn scan() -> ScanResult<Self> {
-        let home = dirs::home_dir().ok_or_else(|| ScanError::HomeNotFound)?;
+        let home = dirs::home_dir().ok_or(ScanError::HomeNotFound)?;
         let plugins_dir = home.join(".claude").join("plugins");
         let cache_dir = plugins_dir.join("cache");
 
@@ -815,7 +811,7 @@ impl CacheCleanupReport {
         })
     }
 
-    /// Get the set of installed plugin paths from installed_plugins.json
+    /// Get the set of installed plugin paths from `installed_plugins.json`
     fn get_installed_paths(plugins_dir: &Path) -> ScanResult<std::collections::HashSet<PathBuf>> {
         use std::collections::HashSet;
 
@@ -885,7 +881,7 @@ impl CacheCleanupReport {
     /// # Errors
     /// Returns an error if the cache directory cannot be determined
     pub fn clean(&self) -> ScanResult<CleanupResult> {
-        let home = dirs::home_dir().ok_or_else(|| ScanError::HomeNotFound)?;
+        let home = dirs::home_dir().ok_or(ScanError::HomeNotFound)?;
         let cache_dir = home.join(".claude").join("plugins").join("cache");
 
         // Get canonical path for security validation

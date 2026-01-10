@@ -3,6 +3,8 @@
 //! Tests verifying that backup/restore achieves exact byte-for-byte restoration.
 //! This is a constitution requirement: apply + rollback = original state.
 
+#![allow(clippy::items_after_statements)]
+
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;

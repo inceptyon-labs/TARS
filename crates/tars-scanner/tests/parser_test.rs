@@ -12,13 +12,13 @@ use tars_scanner::types::Scope;
 
 #[test]
 fn test_parse_skill_minimal() {
-    let content = r#"---
+    let content = r"---
 name: minimal-skill
 description: A minimal skill
 ---
 
 Instructions.
-"#;
+";
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_ok());
 
@@ -80,32 +80,32 @@ fn test_parse_skill_missing_frontmatter() {
 
 #[test]
 fn test_parse_skill_missing_required_fields() {
-    let content = r#"---
+    let content = r"---
 description: Missing name field
 ---
 
 Instructions.
-"#;
+";
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_parse_skill_invalid_yaml() {
-    let content = r#"---
+    let content = r"---
 name: test
 description: [invalid: yaml: syntax:
 ---
 
 Instructions.
-"#;
+";
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_parse_skill_preserves_body() {
-    let content = r#"---
+    let content = r"---
 name: body-test
 description: Test body preservation
 ---
@@ -117,7 +117,7 @@ This is the body content.
 ## Section
 
 More content here.
-"#;
+";
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_ok());
     // Note: Skills don't have a body field, but commands do
@@ -125,13 +125,13 @@ More content here.
 
 #[test]
 fn test_parse_skill_sha256_consistency() {
-    let content = r#"---
+    let content = r"---
 name: hash-test
 description: Hash consistency test
 ---
 
 Instructions.
-"#;
+";
     let result1 = parse_skill(&PathBuf::from("test"), content, Scope::User);
     let result2 = parse_skill(&PathBuf::from("test"), content, Scope::User);
 
@@ -141,20 +141,20 @@ Instructions.
 
 #[test]
 fn test_parse_skill_different_content_different_hash() {
-    let content1 = r#"---
+    let content1 = r"---
 name: hash-test
 description: First content
 ---
 
 Instructions.
-"#;
-    let content2 = r#"---
+";
+    let content2 = r"---
 name: hash-test
 description: Second content
 ---
 
 Different instructions.
-"#;
+";
     let result1 = parse_skill(&PathBuf::from("test"), content1, Scope::User);
     let result2 = parse_skill(&PathBuf::from("test"), content2, Scope::User);
 
@@ -168,7 +168,7 @@ Different instructions.
 
 #[test]
 fn test_parse_command_minimal() {
-    let content = r#"Execute $ARGUMENTS"#;
+    let content = r"Execute $ARGUMENTS";
     let result = parse_command(&PathBuf::from("my-cmd.md"), content, Scope::User);
     assert!(result.is_ok());
 
@@ -181,7 +181,7 @@ fn test_parse_command_minimal() {
 
 #[test]
 fn test_parse_command_with_frontmatter() {
-    let content = r#"---
+    let content = r"---
 description: A helpful command
 thinking: true
 ---
@@ -191,7 +191,7 @@ Execute the task: $ARGUMENTS
 With detailed steps:
 1. First step
 2. Second step
-"#;
+";
     let result = parse_command(&PathBuf::from("helpful.md"), content, Scope::Project);
     assert!(result.is_ok());
 
@@ -205,14 +205,14 @@ With detailed steps:
 
 #[test]
 fn test_parse_command_preserves_body() {
-    let content = r#"---
+    let content = r"---
 description: Test
 ---
 
 Line 1
 Line 2
 Line 3
-"#;
+";
     let result = parse_command(&PathBuf::from("test.md"), content, Scope::User);
     assert!(result.is_ok());
 
@@ -235,13 +235,13 @@ fn test_parse_command_name_from_filename() {
 
 #[test]
 fn test_parse_command_handles_variables() {
-    let content = r#"---
+    let content = r"---
 description: Variable test
 ---
 
 Use $1 and $2 as arguments.
 Full args: $ARGUMENTS
-"#;
+";
     let result = parse_command(&PathBuf::from("var-test.md"), content, Scope::User);
     assert!(result.is_ok());
 
@@ -257,13 +257,13 @@ Full args: $ARGUMENTS
 
 #[test]
 fn test_parse_agent_minimal() {
-    let content = r#"---
+    let content = r"---
 name: minimal-agent
 description: A minimal agent
 ---
 
 Agent instructions.
-"#;
+";
     let result = parse_agent(&PathBuf::from("agent.md"), content, Scope::User);
     assert!(result.is_ok());
 
@@ -315,12 +315,12 @@ Full agent instructions.
 
 #[test]
 fn test_parse_agent_missing_required_fields() {
-    let content = r#"---
+    let content = r"---
 description: Missing name
 ---
 
 Instructions.
-"#;
+";
     let result = parse_agent(&PathBuf::from("agent.md"), content, Scope::User);
     assert!(result.is_err());
 }
@@ -331,11 +331,11 @@ Instructions.
 
 #[test]
 fn test_parse_empty_frontmatter() {
-    let content = r#"---
+    let content = r"---
 ---
 
 Just body.
-"#;
+";
     // Skills require name and description, so this should fail
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_err());
@@ -343,13 +343,13 @@ Just body.
 
 #[test]
 fn test_parse_unicode_content() {
-    let content = r#"---
+    let content = r"---
 name: unicode-skill
 description: A skill with unicode
 ---
 
 Instructions with unicode: , ,
-"#;
+";
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_ok());
 
@@ -359,7 +359,7 @@ Instructions with unicode: , ,
 
 #[test]
 fn test_parse_multiline_description() {
-    let content = r#"---
+    let content = r"---
 name: multiline-test
 description: |
   This is a multiline
@@ -368,7 +368,7 @@ description: |
 ---
 
 Instructions.
-"#;
+";
     let result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     assert!(result.is_ok());
 
@@ -379,13 +379,13 @@ Instructions.
 
 #[test]
 fn test_parse_scope_preserved() {
-    let content = r#"---
+    let content = r"---
 name: scope-test
 description: Scope test
 ---
 
 Instructions.
-"#;
+";
 
     let user_result = parse_skill(&PathBuf::from("test"), content, Scope::User);
     let project_result = parse_skill(&PathBuf::from("test"), content, Scope::Project);

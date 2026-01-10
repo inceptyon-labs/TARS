@@ -3,6 +3,7 @@
 use crate::inventory::Inventory;
 
 /// Convert inventory to Markdown report
+#[allow(clippy::format_push_string)]
 #[must_use]
 pub fn to_markdown(inventory: &Inventory) -> String {
     let mut output = String::new();

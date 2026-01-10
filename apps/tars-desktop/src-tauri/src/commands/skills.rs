@@ -130,12 +130,12 @@ pub async fn create_skill(
     validate_skill_path(&skill_file)?;
 
     if skill_file.exists() {
-        return Err(format!("Skill '{}' already exists", name));
+        return Err(format!("Skill '{name}' already exists"));
     }
 
     // Create default skill content
     let content = format!(
-        r#"---
+        r"---
 name: {name}
 description: A new skill
 ---
@@ -143,7 +143,7 @@ description: A new skill
 # {name}
 
 Add your skill instructions here.
-"#,
+",
     );
 
     std::fs::create_dir_all(&skill_dir)
@@ -523,7 +523,7 @@ fn scan_subdirectory(dir: &Path, files: &mut Vec<SupportingFile>, referenced_fil
                     continue;
                 }
 
-                let display_name = format!("{}/{}", dir_name, file_name);
+                let display_name = format!("{dir_name}/{file_name}");
                 let file_type = determine_file_type(&file_name);
                 let is_referenced = is_file_referenced(&display_name, referenced_files)
                     || is_file_referenced(&file_name, referenced_files);
@@ -586,5 +586,5 @@ fn determine_file_type(file_name: &str) -> String {
 fn is_file_referenced(file_name: &str, referenced_files: &[String]) -> bool {
     referenced_files
         .iter()
-        .any(|link| link == file_name || link.ends_with(&format!("/{}", file_name)))
+        .any(|link| link == file_name || link.ends_with(&format!("/{file_name}")))
 }

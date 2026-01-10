@@ -2,6 +2,8 @@
 //!
 //! Tests for profile storage operations.
 
+#![allow(clippy::similar_names)]
+
 use tars_core::profile::{
     Adapters, AgentOverlay, ClaudeMdOverlay, CommandOverlay, McpLocation, OverlayMode, PluginRef,
     PluginSet, Profile, RepoOverlays, SkillOverlay, UserOverlays,

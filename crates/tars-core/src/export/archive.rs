@@ -37,7 +37,7 @@ pub fn create_archive(source_dir: &Path, output_path: &Path) -> Result<(), Archi
         if path.is_file() {
             let relative_path = path
                 .strip_prefix(source_dir)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+                .map_err(std::io::Error::other)?;
 
             let name = relative_path.to_string_lossy();
             zip.start_file(name.to_string(), options)?;
