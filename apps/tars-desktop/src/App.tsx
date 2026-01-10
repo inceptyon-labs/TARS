@@ -11,6 +11,8 @@ import { CommandsPage } from './pages/CommandsPage';
 import { HooksPage } from './pages/HooksPage';
 import { McpPage } from './pages/McpPage';
 import { PluginsPage } from './pages/PluginsPage';
+import { CasePage } from './pages/CasePage';
+import { PromptsPage } from './pages/PromptsPage';
 import { useUIStore } from './stores/ui-store';
 import './App.css';
 
@@ -79,6 +81,9 @@ function App() {
               <Route path="hooks" element={<HooksPage />} />
               <Route path="mcp" element={<McpPage />} />
               <Route path="plugins" element={<PluginsPage />} />
+              <Route path="case" element={<CasePage />} />
+              <Route path="case/:section" element={<CasePage />} />
+              <Route path="prompts" element={<PromptsPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

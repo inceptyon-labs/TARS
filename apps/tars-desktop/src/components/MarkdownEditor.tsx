@@ -1,7 +1,30 @@
-import { useState, useCallback, useEffect } from 'react';
-import Editor from '@monaco-editor/react';
-import { Save, RotateCcw, ArrowRightLeft } from 'lucide-react';
-import { useUIStore } from '../stores/ui-store';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Save, RotateCcw, ArrowRightLeft, Pencil } from 'lucide-react';
+import {
+  MDXEditor,
+  headingsPlugin,
+  listsPlugin,
+  quotePlugin,
+  thematicBreakPlugin,
+  markdownShortcutPlugin,
+  toolbarPlugin,
+  linkPlugin,
+  linkDialogPlugin,
+  tablePlugin,
+  codeBlockPlugin,
+  codeMirrorPlugin,
+  UndoRedo,
+  BoldItalicUnderlineToggles,
+  CodeToggle,
+  ListsToggle,
+  BlockTypeSelect,
+  CreateLink,
+  InsertTable,
+  InsertThematicBreak,
+  Separator,
+  type MDXEditorMethods,
+} from '@mdxeditor/editor';
+import '@mdxeditor/editor/style.css';
 
 export interface EditableItem {
   name: string;
@@ -15,6 +38,8 @@ interface MarkdownEditorProps {
   onSave: (path: string, content: string) => Promise<void>;
   onMove?: (path: string) => void;
   readOnly?: boolean;
+  /** Start in view mode with Edit button to switch to edit mode */
+  defaultViewMode?: boolean;
 }
 
 /** Get display label for scope */
@@ -35,29 +60,113 @@ function getScopeLabel(scope?: string): string {
   }
 }
 
-export function MarkdownEditor({ item, onSave, onMove, readOnly = false }: MarkdownEditorProps) {
+// Editor plugins configuration
+const editorPlugins = [
+  headingsPlugin(),
+  listsPlugin(),
+  quotePlugin(),
+  thematicBreakPlugin(),
+  markdownShortcutPlugin(),
+  linkPlugin(),
+  linkDialogPlugin(),
+  tablePlugin(),
+  codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
+  codeMirrorPlugin({
+    codeBlockLanguages: {
+      js: 'JavaScript',
+      ts: 'TypeScript',
+      tsx: 'TypeScript (React)',
+      jsx: 'JavaScript (React)',
+      css: 'CSS',
+      html: 'HTML',
+      json: 'JSON',
+      python: 'Python',
+      rust: 'Rust',
+      bash: 'Bash',
+      sql: 'SQL',
+      markdown: 'Markdown',
+      '': 'Plain Text',
+    },
+  }),
+  toolbarPlugin({
+    toolbarContents: () => (
+      <>
+        <UndoRedo />
+        <Separator />
+        <BoldItalicUnderlineToggles />
+        <CodeToggle />
+        <Separator />
+        <ListsToggle />
+        <Separator />
+        <BlockTypeSelect />
+        <Separator />
+        <CreateLink />
+        <InsertTable />
+        <InsertThematicBreak />
+      </>
+    ),
+  }),
+];
+
+// Read-only plugins (no toolbar)
+const readOnlyPlugins = [
+  headingsPlugin(),
+  listsPlugin(),
+  quotePlugin(),
+  thematicBreakPlugin(),
+  linkPlugin(),
+  tablePlugin(),
+  codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
+  codeMirrorPlugin({
+    codeBlockLanguages: {
+      js: 'JavaScript',
+      ts: 'TypeScript',
+      tsx: 'TypeScript (React)',
+      jsx: 'JavaScript (React)',
+      css: 'CSS',
+      html: 'HTML',
+      json: 'JSON',
+      python: 'Python',
+      rust: 'Rust',
+      bash: 'Bash',
+      sql: 'SQL',
+      markdown: 'Markdown',
+      '': 'Plain Text',
+    },
+  }),
+];
+
+export function MarkdownEditor({ item, onSave, onMove, readOnly = false, defaultViewMode = false }: MarkdownEditorProps) {
+  const editorRef = useRef<MDXEditorMethods>(null);
   const [content, setContent] = useState(item.content);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const theme = useUIStore((state) => state.theme);
+  const [editorKey, setEditorKey] = useState(0);
+  const [isViewMode, setIsViewMode] = useState(defaultViewMode);
 
   // Sync content when item changes
   useEffect(() => {
     setContent(item.content);
     setError(null);
-  }, [item.path, item.content]);
+    setEditorKey((k) => k + 1); // Force editor remount
+    // Reset to view mode when item changes (if defaultViewMode is enabled)
+    if (defaultViewMode) {
+      setIsViewMode(true);
+    }
+  }, [item.path, item.content, defaultViewMode]);
 
-  const hasChanges = content !== item.content && !readOnly;
+  const hasChanges = content !== item.content && !readOnly && !isViewMode;
 
-  // Determine Monaco theme based on app theme
-  const monacoTheme = theme === 'light' ? 'light' : 'vs-dark';
+  // Determine if we're in an editable state (not read-only and not in view mode)
+  const isEditing = !readOnly && !isViewMode;
 
   const handleSave = useCallback(async () => {
     if (!hasChanges) return;
     setSaving(true);
     setError(null);
     try {
-      await onSave(item.path, content);
+      const currentContent = editorRef.current?.getMarkdown() || content;
+      await onSave(item.path, currentContent);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -68,7 +177,17 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false }: Markd
   const handleReset = useCallback(() => {
     setContent(item.content);
     setError(null);
-  }, [item.content]);
+    setEditorKey((k) => k + 1); // Force editor remount
+    // Return to view mode if defaultViewMode is enabled
+    if (defaultViewMode) {
+      setIsViewMode(true);
+    }
+  }, [item.content, defaultViewMode]);
+
+  const handleEnterEdit = useCallback(() => {
+    setIsViewMode(false);
+    setEditorKey((k) => k + 1); // Force editor remount with edit mode
+  }, []);
 
   // Handle Cmd+S / Ctrl+S
   const handleKeyDown = useCallback(
@@ -102,10 +221,21 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false }: Markd
           <p className="text-xs text-muted-foreground">{item.path}</p>
         </div>
         <div className="flex items-center gap-2">
-          {!readOnly && hasChanges && (
+          {isEditing && hasChanges && (
             <span className="text-xs text-muted-foreground">Unsaved changes</span>
           )}
-          {onMove && !readOnly && (
+          {/* Edit button shown in view mode */}
+          {!readOnly && isViewMode && (
+            <button
+              onClick={handleEnterEdit}
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit
+            </button>
+          )}
+          {/* Move/Reset/Save buttons shown in edit mode */}
+          {onMove && isEditing && (
             <button
               onClick={() => onMove(item.path)}
               disabled={hasChanges}
@@ -115,13 +245,13 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false }: Markd
               <ArrowRightLeft className="h-4 w-4" />
             </button>
           )}
-          {!readOnly && (
+          {isEditing && (
             <>
               <button
                 onClick={handleReset}
-                disabled={!hasChanges}
+                disabled={!hasChanges && !defaultViewMode}
                 className="p-2 rounded-lg hover:bg-muted disabled:opacity-50"
-                title="Reset changes"
+                title={defaultViewMode ? 'Cancel editing' : 'Reset changes'}
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
@@ -146,22 +276,15 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false }: Markd
       )}
 
       {/* Editor */}
-      <div className="flex-1">
-        <Editor
-          height="100%"
-          defaultLanguage="markdown"
-          value={content}
-          onChange={(value) => setContent(value || '')}
-          theme={monacoTheme}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            lineNumbers: 'on',
-            wordWrap: 'on',
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            readOnly,
-          }}
+      <div className="flex-1 mdx-editor-container">
+        <MDXEditor
+          key={`editor-${editorKey}`}
+          ref={isEditing ? editorRef : undefined}
+          markdown={content}
+          onChange={isEditing ? (markdown) => setContent(markdown) : undefined}
+          readOnly={readOnly || isViewMode}
+          plugins={isEditing ? editorPlugins : readOnlyPlugins}
+          contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
         />
       </div>
     </div>

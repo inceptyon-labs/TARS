@@ -97,6 +97,12 @@ pub fn run() {
             // Cache commands
             commands::cache_status,
             commands::cache_clean,
+            // Prompts commands
+            commands::list_prompts,
+            commands::read_prompt,
+            commands::create_prompt,
+            commands::update_prompt,
+            commands::delete_prompt,
             // Utility commands
             commands::directory_exists,
             commands::get_directory_info,

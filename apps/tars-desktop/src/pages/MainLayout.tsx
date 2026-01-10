@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { FolderGit2, Layers, Cpu, Sun, Moon, Monitor, Server, Plug, Bot, Terminal, Webhook } from 'lucide-react';
+import { FolderGit2, Layers, Cpu, Sun, Moon, Monitor, Server, Plug, Bot, Terminal, Webhook, BookOpen, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
 import tarsHero from '../assets/tars-hero.png';
@@ -90,6 +90,46 @@ export function MainLayout() {
             ))}
           </div>
         </nav>
+
+        {/* Segment line */}
+        <div className="tars-segment-line" />
+
+        {/* Knowledge Section */}
+        <div className="p-4">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3 px-3">
+            Knowledge
+          </p>
+          <div className="space-y-1">
+            <NavLink
+              to="/case"
+              className={({ isActive }) =>
+                cn(
+                  'tars-nav-item flex items-center gap-3 px-3 py-2.5 text-sm rounded transition-all',
+                  isActive
+                    ? 'active text-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )
+              }
+            >
+              <BookOpen className="h-4 w-4 shrink-0" />
+              <span>CASE</span>
+            </NavLink>
+            <NavLink
+              to="/prompts"
+              className={({ isActive }) =>
+                cn(
+                  'tars-nav-item flex items-center gap-3 px-3 py-2.5 text-sm rounded transition-all',
+                  isActive
+                    ? 'active text-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )
+              }
+            >
+              <FileText className="h-4 w-4 shrink-0" />
+              <span>Prompts</span>
+            </NavLink>
+          </div>
+        </div>
 
         {/* Segment line */}
         <div className="tars-segment-line" />

@@ -17,6 +17,7 @@ import {
   Power,
   PowerOff,
 } from 'lucide-react';
+import { HelpButton } from '../components/HelpButton';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
@@ -399,6 +400,7 @@ export function PluginsPage() {
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Plugins</h2>
+          <HelpButton section="PLUGINS" />
         </div>
       </header>
 

@@ -16,6 +16,7 @@ import {
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { ConfirmDialog } from '../components/config/ConfirmDialog';
+import { HelpButton } from '../components/HelpButton';
 import type { AgentInfo, AgentDetails } from '../lib/types';
 
 /** Check if an agent is editable (user-created agents only) */
@@ -401,6 +402,7 @@ export function AgentsPage() {
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Agents</h2>
+          <HelpButton section="AGENTS" />
         </div>
         <Button onClick={() => setShowCreateDialog(true)} size="sm">
           <Plus className="h-4 w-4 mr-2" />
@@ -533,6 +535,7 @@ export function AgentsPage() {
               onSave={handleSaveAgent}
               onMove={handleOpenMoveDialog}
               readOnly={selectedAgent.scope !== 'user' && selectedAgent.scope !== 'project'}
+              defaultViewMode
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4">

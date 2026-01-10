@@ -337,3 +337,20 @@ export interface CacheCleanResult {
   deleted_size_formatted: string;
   errors: string[];
 }
+
+// Prompt types (stored in ~/.tars/prompts/, not in Claude config)
+export interface Prompt {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromptSummary {
+  id: string;
+  title: string;
+  preview: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -16,6 +16,7 @@ import {
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { ConfirmDialog } from '../components/config/ConfirmDialog';
+import { HelpButton } from '../components/HelpButton';
 import type { SkillInfo, SkillDetails, SkillScope } from '../lib/types';
 
 /** Get scope category for grouping */
@@ -272,6 +273,7 @@ export function SkillsPage() {
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Skills</h2>
+          <HelpButton section="SKILLS" />
         </div>
         <Button onClick={() => setShowCreateDialog(true)} size="sm">
           <Plus className="h-4 w-4 mr-2" />

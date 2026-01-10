@@ -15,6 +15,7 @@ import {
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { ConfirmDialog } from '../components/config/ConfirmDialog';
+import { HelpButton } from '../components/HelpButton';
 import type { SettingsHookEvent, SettingsHookAction } from '../lib/types';
 
 // Hook event descriptions
@@ -262,6 +263,7 @@ export function HooksPage() {
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Hooks</h2>
+          <HelpButton section="HOOKS" />
         </div>
         <Button onClick={() => setShowAddDialog(true)} size="sm" disabled={availableEvents.length === 0}>
           <Plus className="h-4 w-4 mr-2" />

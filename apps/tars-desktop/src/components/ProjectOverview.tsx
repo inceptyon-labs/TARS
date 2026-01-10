@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -13,15 +13,36 @@ import {
   Save,
   AlertTriangle,
   ExternalLink,
-  Eye,
-  Pencil,
   Gauge,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import {
+  MDXEditor,
+  headingsPlugin,
+  listsPlugin,
+  quotePlugin,
+  thematicBreakPlugin,
+  markdownShortcutPlugin,
+  toolbarPlugin,
+  linkPlugin,
+  linkDialogPlugin,
+  tablePlugin,
+  codeBlockPlugin,
+  codeMirrorPlugin,
+  UndoRedo,
+  BoldItalicUnderlineToggles,
+  CodeToggle,
+  ListsToggle,
+  BlockTypeSelect,
+  CreateLink,
+  InsertTable,
+  InsertThematicBreak,
+  Separator,
+  type MDXEditorMethods,
+} from '@mdxeditor/editor';
+import '@mdxeditor/editor/style.css';
 import type { Inventory, SkillInfo, CommandInfo, AgentInfo, HookInfo, McpServer } from '../lib/types';
-import { readClaudeMd, saveClaudeMd, getContextStats, type ContextStats } from '../lib/ipc';
+import { readClaudeMd, saveClaudeMd, getContextStats } from '../lib/ipc';
 import { Button } from './ui/button';
 
 interface ProjectOverviewProps {
@@ -62,7 +83,8 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
   );
   const [claudeMdContent, setClaudeMdContent] = useState<string>('');
   const [claudeMdDirty, setClaudeMdDirty] = useState(false);
-  const [claudeMdPreview, setClaudeMdPreview] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
+  const editorRef = useRef<MDXEditorMethods>(null);
 
   // Get project data from inventory
   const projectData = inventory.projects.find((p) => p.path === projectPath);
@@ -86,12 +108,16 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
     if (claudeMdInfo?.content !== undefined) {
       setClaudeMdContent(claudeMdInfo.content || '');
       setClaudeMdDirty(false);
+      setEditorKey((k) => k + 1); // Force editor remount
     }
   }, [claudeMdInfo]);
 
   // Save CLAUDE.md mutation
   const saveMutation = useMutation({
-    mutationFn: () => saveClaudeMd(projectPath, claudeMdContent),
+    mutationFn: () => {
+      const content = editorRef.current?.getMarkdown() || claudeMdContent;
+      return saveClaudeMd(projectPath, content);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claude-md', projectPath] });
       setClaudeMdDirty(false);
@@ -492,64 +518,73 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
                         ? 'Project instructions for Claude'
                         : 'No CLAUDE.md file. Create one to add project instructions.'}
                     </p>
-                    <div className="flex items-center gap-2">
-                      {/* Preview/Edit Toggle */}
-                      <div className="flex items-center gap-1 p-1 rounded bg-muted/50">
-                        <button
-                          onClick={() => setClaudeMdPreview(false)}
-                          className={`p-1.5 rounded transition-all ${
-                            !claudeMdPreview
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                          }`}
-                          title="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setClaudeMdPreview(true)}
-                          className={`p-1.5 rounded transition-all ${
-                            claudeMdPreview
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                          }`}
-                          title="Preview"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => saveMutation.mutate()}
-                        disabled={!claudeMdDirty || saveMutation.isPending}
-                      >
-                        <Save className="h-3 w-3 mr-1" />
-                        {saveMutation.isPending ? 'Saving...' : 'Save'}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => saveMutation.mutate()}
+                      disabled={!claudeMdDirty || saveMutation.isPending}
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {saveMutation.isPending ? 'Saving...' : 'Save'}
+                    </Button>
                   </div>
-                  {claudeMdPreview ? (
-                    <div className="tars-input w-full min-h-64 p-4 rounded overflow-auto prose prose-sm dark:prose-invert max-w-none">
-                      {claudeMdContent ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {claudeMdContent}
-                        </ReactMarkdown>
-                      ) : (
-                        <p className="text-muted-foreground italic">No content to preview</p>
-                      )}
-                    </div>
-                  ) : (
-                    <textarea
-                      value={claudeMdContent}
-                      onChange={(e) => {
-                        setClaudeMdContent(e.target.value);
+                  <div className="mdx-editor-container h-80 border border-border rounded overflow-hidden">
+                    <MDXEditor
+                      key={`claude-md-${editorKey}`}
+                      ref={editorRef}
+                      markdown={claudeMdContent}
+                      onChange={(markdown) => {
+                        setClaudeMdContent(markdown);
                         setClaudeMdDirty(true);
                       }}
-                      placeholder="# CLAUDE.md&#10;&#10;Add project-specific instructions for Claude here..."
-                      className="tars-input w-full h-64 p-3 font-mono text-sm rounded resize-y"
-                      spellCheck={false}
+                      plugins={[
+                        headingsPlugin(),
+                        listsPlugin(),
+                        quotePlugin(),
+                        thematicBreakPlugin(),
+                        markdownShortcutPlugin(),
+                        linkPlugin(),
+                        linkDialogPlugin(),
+                        tablePlugin(),
+                        codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
+                        codeMirrorPlugin({
+                          codeBlockLanguages: {
+                            js: 'JavaScript',
+                            ts: 'TypeScript',
+                            tsx: 'TypeScript (React)',
+                            jsx: 'JavaScript (React)',
+                            css: 'CSS',
+                            html: 'HTML',
+                            json: 'JSON',
+                            python: 'Python',
+                            rust: 'Rust',
+                            bash: 'Bash',
+                            sql: 'SQL',
+                            markdown: 'Markdown',
+                            '': 'Plain Text',
+                          },
+                        }),
+                        toolbarPlugin({
+                          toolbarContents: () => (
+                            <>
+                              <UndoRedo />
+                              <Separator />
+                              <BoldItalicUnderlineToggles />
+                              <CodeToggle />
+                              <Separator />
+                              <ListsToggle />
+                              <Separator />
+                              <BlockTypeSelect />
+                              <Separator />
+                              <CreateLink />
+                              <InsertTable />
+                              <InsertThematicBreak />
+                            </>
+                          ),
+                        }),
+                      ]}
+                      contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
                     />
-                  )}
+                  </div>
                 </>
               )}
             </div>

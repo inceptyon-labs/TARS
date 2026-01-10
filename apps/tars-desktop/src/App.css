@@ -1,1 +1,128 @@
 /* App-specific styles - minimal to avoid conflicts with Tailwind */
+
+/* MDXEditor theme customization */
+.mdx-editor-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdx-editor-container .mdxeditor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.mdx-editor-container .mdxeditor [role="toolbar"] {
+  background: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+  border-radius: 0;
+  padding: 0.5rem;
+  flex-shrink: 0;
+}
+
+.mdx-editor-container .mdxeditor [role="toolbar"] button {
+  color: hsl(var(--foreground));
+}
+
+.mdx-editor-container .mdxeditor [role="toolbar"] button:hover {
+  background: hsl(var(--accent));
+}
+
+.mdx-editor-container .mdxeditor [role="toolbar"] button[data-active="true"] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.mdx-editor-container .mdxeditor-root-contenteditable {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Dark mode adjustments */
+.dark .mdx-editor-container .mdxeditor {
+  --accentBase: hsl(var(--primary));
+  --accentBgSubtle: hsl(var(--muted));
+  --accentLine: hsl(var(--border));
+  --accentSolid: hsl(var(--primary));
+  --accentText: hsl(var(--primary));
+  --basePageBg: transparent;
+  --baseBgSubtle: hsl(var(--muted));
+  --baseTextContrast: hsl(var(--foreground));
+  --baseTextHighContrast: hsl(var(--foreground));
+  --baseTextLowContrast: hsl(var(--muted-foreground));
+}
+
+/* Code block styling */
+.mdx-editor-container .cm-editor {
+  background: hsl(var(--muted)) !important;
+  border-radius: 0.375rem;
+}
+
+.dark .mdx-editor-container .cm-editor {
+  background: hsl(220 13% 10%) !important;
+}
+
+.mdx-editor-container .cm-content {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 0.875rem;
+}
+
+/* Table styling */
+.mdx-editor-container table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.mdx-editor-container th,
+.mdx-editor-container td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5rem;
+}
+
+.mdx-editor-container th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+}
+
+/* Dropdown and dialog styling */
+.mdxeditor-popup-container {
+  z-index: 50;
+}
+
+.mdxeditor-popup-container [role="dialog"],
+.mdxeditor-popup-container [role="listbox"] {
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.dark .mdxeditor-popup-container [role="dialog"],
+.dark .mdxeditor-popup-container [role="listbox"] {
+  background: hsl(var(--popover));
+}
+
+.mdxeditor-popup-container [role="option"] {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.mdxeditor-popup-container [role="option"]:hover,
+.mdxeditor-popup-container [role="option"][data-highlighted="true"] {
+  background: hsl(var(--accent));
+}
+
+/* Select/dropdown trigger styling */
+.mdxeditor-select-trigger {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.mdxeditor-select-trigger:hover {
+  background: hsl(var(--accent));
+}

@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { HelpButton } from '../HelpButton';
 import {
   Dialog,
   DialogContent,
@@ -186,7 +187,10 @@ export function McpPanel() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">MCP Servers</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">MCP Servers</h2>
+            <HelpButton section="MCP" />
+          </div>
           <p className="text-sm text-muted-foreground">
             Manage Model Context Protocol servers for Claude Code
           </p>

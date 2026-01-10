@@ -1,8 +1,31 @@
-import { useState, useCallback, useEffect } from 'react';
-import Editor from '@monaco-editor/react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Save, RotateCcw } from 'lucide-react';
+import {
+  MDXEditor,
+  headingsPlugin,
+  listsPlugin,
+  quotePlugin,
+  thematicBreakPlugin,
+  markdownShortcutPlugin,
+  toolbarPlugin,
+  linkPlugin,
+  linkDialogPlugin,
+  tablePlugin,
+  codeBlockPlugin,
+  codeMirrorPlugin,
+  UndoRedo,
+  BoldItalicUnderlineToggles,
+  CodeToggle,
+  ListsToggle,
+  BlockTypeSelect,
+  CreateLink,
+  InsertTable,
+  InsertThematicBreak,
+  Separator,
+  type MDXEditorMethods,
+} from '@mdxeditor/editor';
+import '@mdxeditor/editor/style.css';
 import type { SkillDetails } from '../lib/types';
-import { useUIStore } from '../stores/ui-store';
 
 interface SkillEditorProps {
   skill: SkillDetails;
@@ -10,29 +33,105 @@ interface SkillEditorProps {
   readOnly?: boolean;
 }
 
+// Editor plugins configuration
+const editorPlugins = [
+  headingsPlugin(),
+  listsPlugin(),
+  quotePlugin(),
+  thematicBreakPlugin(),
+  markdownShortcutPlugin(),
+  linkPlugin(),
+  linkDialogPlugin(),
+  tablePlugin(),
+  codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
+  codeMirrorPlugin({
+    codeBlockLanguages: {
+      js: 'JavaScript',
+      ts: 'TypeScript',
+      tsx: 'TypeScript (React)',
+      jsx: 'JavaScript (React)',
+      css: 'CSS',
+      html: 'HTML',
+      json: 'JSON',
+      python: 'Python',
+      rust: 'Rust',
+      bash: 'Bash',
+      sql: 'SQL',
+      markdown: 'Markdown',
+      '': 'Plain Text',
+    },
+  }),
+  toolbarPlugin({
+    toolbarContents: () => (
+      <>
+        <UndoRedo />
+        <Separator />
+        <BoldItalicUnderlineToggles />
+        <CodeToggle />
+        <Separator />
+        <ListsToggle />
+        <Separator />
+        <BlockTypeSelect />
+        <Separator />
+        <CreateLink />
+        <InsertTable />
+        <InsertThematicBreak />
+      </>
+    ),
+  }),
+];
+
+// Read-only plugins (no toolbar)
+const readOnlyPlugins = [
+  headingsPlugin(),
+  listsPlugin(),
+  quotePlugin(),
+  thematicBreakPlugin(),
+  linkPlugin(),
+  tablePlugin(),
+  codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
+  codeMirrorPlugin({
+    codeBlockLanguages: {
+      js: 'JavaScript',
+      ts: 'TypeScript',
+      tsx: 'TypeScript (React)',
+      jsx: 'JavaScript (React)',
+      css: 'CSS',
+      html: 'HTML',
+      json: 'JSON',
+      python: 'Python',
+      rust: 'Rust',
+      bash: 'Bash',
+      sql: 'SQL',
+      markdown: 'Markdown',
+      '': 'Plain Text',
+    },
+  }),
+];
+
 export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProps) {
+  const editorRef = useRef<MDXEditorMethods>(null);
   const [content, setContent] = useState(skill.content);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const theme = useUIStore((state) => state.theme);
+  const [editorKey, setEditorKey] = useState(0);
 
   // Sync content when skill changes (e.g., user selects a different skill)
   useEffect(() => {
     setContent(skill.content);
     setError(null);
+    setEditorKey((k) => k + 1); // Force editor remount
   }, [skill.path, skill.content]);
 
   const hasChanges = content !== skill.content && !readOnly;
-
-  // Determine Monaco theme based on app theme
-  const monacoTheme = theme === 'light' ? 'light' : 'vs-dark';
 
   const handleSave = useCallback(async () => {
     if (!hasChanges) return;
     setSaving(true);
     setError(null);
     try {
-      await onSave(skill.path, content);
+      const currentContent = editorRef.current?.getMarkdown() || content;
+      await onSave(skill.path, currentContent);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -43,6 +142,7 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
   const handleReset = useCallback(() => {
     setContent(skill.content);
     setError(null);
+    setEditorKey((k) => k + 1); // Force editor remount
   }, [skill.content]);
 
   // Handle Cmd+S / Ctrl+S
@@ -104,22 +204,15 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
       )}
 
       {/* Editor */}
-      <div className="flex-1">
-        <Editor
-          height="100%"
-          defaultLanguage="markdown"
-          value={content}
-          onChange={(value) => setContent(value || '')}
-          theme={monacoTheme}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            lineNumbers: 'on',
-            wordWrap: 'on',
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            readOnly,
-          }}
+      <div className="flex-1 mdx-editor-container">
+        <MDXEditor
+          key={`skill-${editorKey}`}
+          ref={readOnly ? undefined : editorRef}
+          markdown={content}
+          onChange={readOnly ? undefined : (markdown) => setContent(markdown)}
+          readOnly={readOnly}
+          plugins={readOnly ? readOnlyPlugins : editorPlugins}
+          contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
         />
       </div>
     </div>

@@ -345,3 +345,26 @@ export async function saveProjectHooks(
 export async function getHookEventTypes(): Promise<string[]> {
   return invoke('get_hook_event_types');
 }
+
+// Prompt commands (stored in ~/.tars/prompts/, not in Claude config)
+import type { Prompt, PromptSummary } from '../types';
+
+export async function listPrompts(): Promise<PromptSummary[]> {
+  return invoke('list_prompts');
+}
+
+export async function readPrompt(id: string): Promise<Prompt> {
+  return invoke('read_prompt', { id });
+}
+
+export async function createPrompt(title: string, content: string): Promise<Prompt> {
+  return invoke('create_prompt', { title, content });
+}
+
+export async function updatePrompt(id: string, title: string, content: string): Promise<Prompt> {
+  return invoke('update_prompt', { id, title, content });
+}
+
+export async function deletePrompt(id: string): Promise<void> {
+  return invoke('delete_prompt', { id });
+}
