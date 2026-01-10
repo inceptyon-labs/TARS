@@ -194,3 +194,29 @@ jobs:
 
       - name: Build (macOS check)
         run: cargo build --release
+
+  # Build check for Windows
+  build-windows:
+    needs: [test-rust, test-frontend]
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-windows-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build (Windows check)
+        run: cargo build --release
