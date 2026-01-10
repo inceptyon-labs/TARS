@@ -4,6 +4,7 @@
 //! and TARS app updates.
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::process::Command;
 use tars_scanner::plugins::PluginInventory;
 use tauri::AppHandle;
@@ -35,11 +36,11 @@ pub struct ChangelogResponse {
 /// Get the installed Claude Code version
 #[tauri::command]
 pub async fn get_installed_claude_version() -> Result<Option<String>, String> {
-    // Try to run `claude --version`
-    let output = Command::new("claude").arg("--version").output();
+    // GUI apps don't inherit shell PATH, so we check common installation locations
+    let claude_paths = get_claude_binary_paths();
 
-    match output {
-        Ok(output) => {
+    for path in claude_paths {
+        if let Ok(output) = Command::new(&path).arg("--version").output() {
             if output.status.success() {
                 let version_str = String::from_utf8_lossy(&output.stdout);
                 // Parse "2.1.3 (Claude Code)" -> "2.1.3"
@@ -47,13 +48,190 @@ pub async fn get_installed_claude_version() -> Result<Option<String>, String> {
                     .split_whitespace()
                     .next()
                     .map(std::string::ToString::to_string);
-                Ok(version)
-            } else {
-                Ok(None)
+                return Ok(version);
             }
         }
-        Err(_) => Ok(None), // Claude not installed or not in PATH
     }
+
+    Ok(None) // Claude not installed or not found
+}
+
+/// Get possible paths where the claude binary might be installed
+fn get_claude_binary_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    // Platform-specific paths
+    #[cfg(target_os = "windows")]
+    {
+        add_windows_paths(&mut paths);
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        add_unix_paths(&mut paths);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        add_macos_paths(&mut paths);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        add_linux_paths(&mut paths);
+    }
+
+    // Always try bare "claude" in case PATH is available
+    #[cfg(target_os = "windows")]
+    {
+        paths.push(PathBuf::from("claude.cmd"));
+        paths.push(PathBuf::from("claude.exe"));
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        paths.push(PathBuf::from("claude"));
+    }
+
+    paths
+}
+
+/// Add Windows-specific paths
+#[cfg(target_os = "windows")]
+fn add_windows_paths(paths: &mut Vec<PathBuf>) {
+    // USERPROFILE (Windows home directory)
+    if let Ok(userprofile) = std::env::var("USERPROFILE") {
+        let home = PathBuf::from(&userprofile);
+        // Scoop
+        paths.push(home.join("scoop").join("shims").join("claude.exe"));
+    }
+
+    // APPDATA (npm global)
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        let appdata = PathBuf::from(&appdata);
+        paths.push(appdata.join("npm").join("claude.cmd"));
+    }
+
+    // LOCALAPPDATA (Volta, per-user installs)
+    if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
+        let local = PathBuf::from(&localappdata);
+        // Volta
+        paths.push(local.join("Volta").join("bin").join("claude.exe"));
+        // Per-user installer locations
+        paths.push(local.join("Programs").join("Claude").join("claude.exe"));
+        paths.push(
+            local
+                .join("Programs")
+                .join("Claude Code")
+                .join("claude.exe"),
+        );
+    }
+
+    // Chocolatey
+    if let Ok(programdata) = std::env::var("ProgramData") {
+        paths.push(
+            PathBuf::from(programdata)
+                .join("chocolatey")
+                .join("bin")
+                .join("claude.exe"),
+        );
+    }
+
+    // Program Files (machine-wide installs)
+    if let Ok(programfiles) = std::env::var("ProgramFiles") {
+        paths.push(
+            PathBuf::from(&programfiles)
+                .join("Claude")
+                .join("claude.exe"),
+        );
+    }
+    if let Ok(programfiles86) = std::env::var("ProgramFiles(x86)") {
+        paths.push(
+            PathBuf::from(&programfiles86)
+                .join("Claude")
+                .join("claude.exe"),
+        );
+    }
+}
+
+/// Add Unix-specific paths (macOS and Linux)
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn add_unix_paths(paths: &mut Vec<PathBuf>) {
+    if let Ok(home) = std::env::var("HOME") {
+        let home = PathBuf::from(&home);
+
+        // npm global install locations
+        paths.push(home.join(".local").join("bin").join("claude"));
+        paths.push(home.join(".npm-global").join("bin").join("claude"));
+
+        // Volta
+        paths.push(home.join(".volta").join("bin").join("claude"));
+
+        // pnpm
+        paths.push(
+            home.join(".local")
+                .join("share")
+                .join("pnpm")
+                .join("claude"),
+        );
+
+        // Yarn
+        paths.push(home.join(".yarn").join("bin").join("claude"));
+        paths.push(
+            home.join(".config")
+                .join("yarn")
+                .join("global")
+                .join("node_modules")
+                .join(".bin")
+                .join("claude"),
+        );
+
+        // asdf
+        paths.push(home.join(".asdf").join("shims").join("claude"));
+
+        // mise
+        paths.push(
+            home.join(".local")
+                .join("share")
+                .join("mise")
+                .join("shims")
+                .join("claude"),
+        );
+    }
+
+    // System paths
+    paths.push(PathBuf::from("/usr/local/bin/claude"));
+    paths.push(PathBuf::from("/usr/bin/claude"));
+}
+
+/// Add macOS-specific paths
+#[cfg(target_os = "macos")]
+fn add_macos_paths(paths: &mut Vec<PathBuf>) {
+    // Homebrew on Apple Silicon
+    paths.push(PathBuf::from("/opt/homebrew/bin/claude"));
+}
+
+/// Add Linux-specific paths
+#[cfg(target_os = "linux")]
+fn add_linux_paths(paths: &mut Vec<PathBuf>) {
+    // Linuxbrew
+    paths.push(PathBuf::from("/home/linuxbrew/.linuxbrew/bin/claude"));
+
+    // Snap
+    paths.push(PathBuf::from("/snap/bin/claude"));
+
+    // Flatpak
+    if let Ok(home) = std::env::var("HOME") {
+        paths.push(
+            PathBuf::from(&home)
+                .join(".local")
+                .join("share")
+                .join("flatpak")
+                .join("exports")
+                .join("bin")
+                .join("claude"),
+        );
+    }
+    paths.push(PathBuf::from("/var/lib/flatpak/exports/bin/claude"));
 }
 
 /// Fetch and parse the Claude Code changelog from GitHub
