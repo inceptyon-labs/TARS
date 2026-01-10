@@ -49,20 +49,25 @@ jobs:
           body: |
             ## TARS v${{ steps.get_version.outputs.VERSION }}
 
+            ### Downloads
+
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | **macOS (Apple Silicon)** | `TARS_*_aarch64.dmg` | M1/M2/M3/M4 Macs |
+            | **macOS (Intel)** | `TARS_*_x64.dmg` | Intel-based Macs |
+            | **Windows** | `TARS_*_x64-setup.exe` | Windows 10/11 (64-bit) |
+            | **Windows (MSI)** | `TARS_*_x64_en-US.msi` | Alternative installer |
+            | **Linux (Debian/Ubuntu)** | `TARS_*_amd64.deb` | `sudo dpkg -i <file>` |
+            | **Linux (Universal)** | `TARS_*_amd64.AppImage` | Make executable, then run |
+            | **Linux (Fedora/RHEL)** | `TARS_*_x86_64.rpm` | `sudo rpm -i <file>` |
+
             ### Installation
 
-            **macOS**
-            - Download the `.dmg` file and drag TARS to your Applications folder
-            - Or download the `.app.tar.gz` and extract it
+            **macOS**: Download the `.dmg`, open it, and drag TARS to Applications.
 
-            **Windows**
-            - Download and run the `.msi` installer
-            - Or download the `.exe` (NSIS) installer
+            **Windows**: Run the `.exe` installer and follow the prompts.
 
-            **Linux**
-            - `.deb` for Debian/Ubuntu
-            - `.AppImage` for universal Linux
-            - `.rpm` for Fedora/RHEL
+            **Linux**: Use your package manager or run the AppImage directly.
 
             ### Changes
 
