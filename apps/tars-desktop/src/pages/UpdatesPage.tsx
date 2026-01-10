@@ -83,11 +83,7 @@ export function UpdatesPage() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        refetchVersion(),
-        refetchChangelog(),
-        refetchPlugins(),
-      ]);
+      await Promise.all([refetchVersion(), refetchChangelog(), refetchPlugins()]);
       toast.success('Updates checked', {
         description: 'All update sources have been refreshed',
       });
@@ -140,12 +136,7 @@ export function UpdatesPage() {
               Last checked: {formatLastChecked(versionUpdatedAt)}
             </span>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             {isRefreshing ? 'Checking...' : 'Check Now'}
           </Button>
@@ -163,7 +154,9 @@ export function UpdatesPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold">Claude Code</h3>
-                <p className="text-sm text-muted-foreground">CLI tool for AI-assisted development</p>
+                <p className="text-sm text-muted-foreground">
+                  CLI tool for AI-assisted development
+                </p>
               </div>
             </div>
 
@@ -191,11 +184,11 @@ export function UpdatesPage() {
               </div>
 
               {/* Latest Version */}
-              <div className={`p-4 rounded-lg border bg-card ${
-                versionInfo?.update_available
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border'
-              }`}>
+              <div
+                className={`p-4 rounded-lg border bg-card ${
+                  versionInfo?.update_available ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">Latest</span>
                   {versionInfo?.update_available && (
@@ -302,7 +295,9 @@ export function UpdatesPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold">TARS Desktop</h3>
-                <p className="text-sm text-muted-foreground">Coming soon - app update notifications</p>
+                <p className="text-sm text-muted-foreground">
+                  Coming soon - app update notifications
+                </p>
               </div>
             </div>
           </section>
@@ -337,7 +332,10 @@ export function UpdatesPage() {
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="divide-y divide-border">
                   {pluginUpdates.updates.map((plugin) => (
-                    <PluginUpdateItem key={`${plugin.plugin_id}@${plugin.marketplace}`} plugin={plugin} />
+                    <PluginUpdateItem
+                      key={`${plugin.plugin_id}@${plugin.marketplace}`}
+                      plugin={plugin}
+                    />
                   ))}
                 </div>
               </div>
@@ -370,7 +368,13 @@ interface ChangelogEntryItemProps {
   isCurrent: boolean;
 }
 
-function ChangelogEntryItem({ entry, isExpanded, onToggle, isNewer, isCurrent }: ChangelogEntryItemProps) {
+function ChangelogEntryItem({
+  entry,
+  isExpanded,
+  onToggle,
+  isNewer,
+  isCurrent,
+}: ChangelogEntryItemProps) {
   return (
     <div className={isNewer ? 'bg-primary/5' : ''}>
       <button
@@ -448,9 +452,7 @@ function PluginUpdateItem({ plugin }: { plugin: PluginUpdateInfo }) {
                 </span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">
-              from {plugin.marketplace}
-            </div>
+            <div className="text-xs text-muted-foreground">from {plugin.marketplace}</div>
           </div>
         </div>
         <div className="text-right">
@@ -476,8 +478,7 @@ function PluginUpdateItem({ plugin }: { plugin: PluginUpdateInfo }) {
 
 /** Compare semantic versions. Returns positive if a > b, negative if a < b, 0 if equal */
 function compareVersions(a: string, b: string): number {
-  const parseVersion = (s: string): number[] =>
-    s.split('.').map((part) => parseInt(part, 10) || 0);
+  const parseVersion = (s: string): number[] => s.split('.').map((part) => parseInt(part, 10) || 0);
 
   const va = parseVersion(a);
   const vb = parseVersion(b);

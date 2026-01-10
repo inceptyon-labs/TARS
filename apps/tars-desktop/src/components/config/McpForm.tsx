@@ -18,13 +18,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { Scope, McpTransport, OperationResult } from './types';
 
 interface McpFormProps {
@@ -66,7 +60,7 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
   // Update default scope based on project context
   useEffect(() => {
     if (open) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         scope: projectPath ? 'project' : 'user',
       }));

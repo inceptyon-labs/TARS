@@ -94,9 +94,7 @@ export function AddProjectDialog({
               </div>
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="tars-segment-line" />
 

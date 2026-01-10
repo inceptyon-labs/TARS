@@ -2,7 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { Bot, Plus, RefreshCw, Search, Trash2, FolderOpen, Power, PowerOff } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { scanUserScope, scanProjects, readAgent, saveAgent, createAgent, deleteAgent, moveAgent, listProjects, disableAgent, enableAgent, listDisabledAgents } from '../lib/ipc';
+import {
+  scanUserScope,
+  scanProjects,
+  readAgent,
+  saveAgent,
+  createAgent,
+  deleteAgent,
+  moveAgent,
+  listProjects,
+  disableAgent,
+  enableAgent,
+  listDisabledAgents,
+} from '../lib/ipc';
 import { MarkdownEditor } from '../components/MarkdownEditor';
 import { Button } from '../components/ui/button';
 import {
@@ -66,15 +78,24 @@ export function AgentsPage() {
   });
 
   // Scan user scope
-  const { data: inventory, isLoading: isLoadingUserScope, refetch: refetchUserScope } = useQuery({
+  const {
+    data: inventory,
+    isLoading: isLoadingUserScope,
+    refetch: refetchUserScope,
+  } = useQuery({
     queryKey: ['user-scope'],
     queryFn: scanUserScope,
   });
 
   // Scan all configured projects
-  const { data: projectsInventory, isLoading: isLoadingProjects, refetch: refetchProjects } = useQuery({
-    queryKey: ['projects-scan', projects.map(p => p.path)],
-    queryFn: () => projects.length > 0 ? scanProjects(projects.map(p => p.path)) : Promise.resolve(null),
+  const {
+    data: projectsInventory,
+    isLoading: isLoadingProjects,
+    refetch: refetchProjects,
+  } = useQuery({
+    queryKey: ['projects-scan', projects.map((p) => p.path)],
+    queryFn: () =>
+      projects.length > 0 ? scanProjects(projects.map((p) => p.path)) : Promise.resolve(null),
     enabled: projects.length > 0,
   });
 
@@ -183,9 +204,12 @@ export function AgentsPage() {
       const details = await createAgent(
         newAgentName.trim(),
         createScope,
-        createScope === 'project' ? selectedProject ?? undefined : undefined
+        createScope === 'project' ? (selectedProject ?? undefined) : undefined
       );
-      const scopeDesc = createScope === 'user' ? 'user scope' : `project "${projects.find(p => p.path === selectedProject)?.name}"`;
+      const scopeDesc =
+        createScope === 'user'
+          ? 'user scope'
+          : `project "${projects.find((p) => p.path === selectedProject)?.name}"`;
       toast.success(`Created agent "${newAgentName}"`, {
         description: `Added to ${scopeDesc}`,
       });
@@ -246,10 +270,8 @@ export function AgentsPage() {
   }
 
   function toggleProjectSelection(projectPath: string) {
-    setMoveTargetProjects(prev =>
-      prev.includes(projectPath)
-        ? prev.filter(p => p !== projectPath)
-        : [...prev, projectPath]
+    setMoveTargetProjects((prev) =>
+      prev.includes(projectPath) ? prev.filter((p) => p !== projectPath) : [...prev, projectPath]
     );
   }
 
@@ -272,7 +294,7 @@ export function AgentsPage() {
       if (moveTargetScope === 'user') {
         scopeDesc = 'user scope';
       } else if (moveTargetProjects.length === 1) {
-        const projectName = projects.find(p => p.path === moveTargetProjects[0])?.name;
+        const projectName = projects.find((p) => p.path === moveTargetProjects[0])?.name;
         scopeDesc = `project "${projectName}"`;
       } else {
         scopeDesc = `${moveTargetProjects.length} projects`;
@@ -358,9 +380,7 @@ export function AgentsPage() {
                   <span className="font-medium flex-1 truncate">{agent.name}</span>
                 </div>
                 {agent.description && (
-                  <div className="text-xs opacity-60 truncate mt-0.5">
-                    {agent.description}
-                  </div>
+                  <div className="text-xs opacity-60 truncate mt-0.5">{agent.description}</div>
                 )}
               </button>
               {showActions && isAgentEditable(agent.scope) && (
@@ -542,9 +562,7 @@ export function AgentsPage() {
                 <Bot className="h-10 w-10 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Select an agent to edit
-                </p>
+                <p className="text-sm text-muted-foreground">Select an agent to edit</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Agents are specialized task handlers
                 </p>
@@ -559,9 +577,7 @@ export function AgentsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Agent</DialogTitle>
-            <DialogDescription>
-              Create a new agent in your user or project scope.
-            </DialogDescription>
+            <DialogDescription>Create a new agent in your user or project scope.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
@@ -573,7 +589,11 @@ export function AgentsPage() {
                 placeholder="my-agent"
                 className="mt-2"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newAgentName.trim() && (createScope === 'user' || selectedProject)) {
+                  if (
+                    e.key === 'Enter' &&
+                    newAgentName.trim() &&
+                    (createScope === 'user' || selectedProject)
+                  ) {
                     handleCreateAgent();
                   }
                 }}
@@ -640,7 +660,9 @@ export function AgentsPage() {
                         <FolderOpen className="h-4 w-4 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{project.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{project.path}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {project.path}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -659,7 +681,9 @@ export function AgentsPage() {
             </Button>
             <Button
               onClick={handleCreateAgent}
-              disabled={creating || !newAgentName.trim() || (createScope === 'project' && !selectedProject)}
+              disabled={
+                creating || !newAgentName.trim() || (createScope === 'project' && !selectedProject)
+              }
             >
               {creating ? 'Creating...' : 'Create Agent'}
             </Button>
@@ -720,7 +744,10 @@ export function AgentsPage() {
 
             {moveTargetScope === 'project' && (
               <div>
-                <Label>Select Projects {moveTargetProjects.length > 0 && `(${moveTargetProjects.length} selected)`}</Label>
+                <Label>
+                  Select Projects{' '}
+                  {moveTargetProjects.length > 0 && `(${moveTargetProjects.length} selected)`}
+                </Label>
                 {projects.length === 0 ? (
                   <p className="text-sm text-muted-foreground mt-2">
                     No projects configured. Add a project first.
@@ -745,7 +772,9 @@ export function AgentsPage() {
                         <FolderOpen className="h-4 w-4 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{project.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{project.path}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {project.path}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -755,16 +784,14 @@ export function AgentsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowMoveDialog(false)}
-              disabled={moving}
-            >
+            <Button variant="outline" onClick={() => setShowMoveDialog(false)} disabled={moving}>
               Cancel
             </Button>
             <Button
               onClick={handleMoveAgent}
-              disabled={moving || (moveTargetScope === 'project' && moveTargetProjects.length === 0)}
+              disabled={
+                moving || (moveTargetScope === 'project' && moveTargetProjects.length === 0)
+              }
             >
               {moving ? 'Moving...' : 'Move Agent'}
             </Button>

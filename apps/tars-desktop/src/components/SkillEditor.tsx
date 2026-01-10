@@ -1,5 +1,18 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Save, RotateCcw, ChevronDown, ChevronRight, FileText, FileCode, FileJson, File, Link2, Plus, Trash2, AlertCircle } from 'lucide-react';
+import {
+  Save,
+  RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  FileCode,
+  FileJson,
+  File,
+  Link2,
+  Plus,
+  Trash2,
+  AlertCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import yaml from 'js-yaml';
 import {
@@ -205,10 +218,7 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
   const [body, setBody] = useState(originalBody);
 
   // Validate YAML frontmatter in real-time
-  const yamlError = useMemo(
-    () => (frontmatter ? validateYaml(frontmatter) : null),
-    [frontmatter]
-  );
+  const yamlError = useMemo(() => (frontmatter ? validateYaml(frontmatter) : null), [frontmatter]);
 
   // Sync content when skill changes
   useEffect(() => {
@@ -229,30 +239,33 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
   }, [skill.path, skill.content, skill.supporting_files]);
 
   // Load supporting file content when expanded
-  const handleExpandFile = useCallback(async (file: SupportingFile) => {
-    if (expandedFile === file.path) {
-      setExpandedFile(null);
-      return;
-    }
+  const handleExpandFile = useCallback(
+    async (file: SupportingFile) => {
+      if (expandedFile === file.path) {
+        setExpandedFile(null);
+        return;
+      }
 
-    setExpandedFile(file.path);
+      setExpandedFile(file.path);
 
-    // Check if we already have the content cached
-    if (fileContents[file.path]) {
-      return;
-    }
+      // Check if we already have the content cached
+      if (fileContents[file.path]) {
+        return;
+      }
 
-    setLoadingFile(file.path);
-    try {
-      const content = await readSupportingFile(file.path);
-      setFileContents((prev) => ({ ...prev, [file.path]: content }));
-    } catch (err) {
-      console.error('Failed to load supporting file:', err);
-      setFileContents((prev) => ({ ...prev, [file.path]: `Error loading file: ${err}` }));
-    } finally {
-      setLoadingFile(null);
-    }
-  }, [expandedFile, fileContents]);
+      setLoadingFile(file.path);
+      try {
+        const content = await readSupportingFile(file.path);
+        setFileContents((prev) => ({ ...prev, [file.path]: content }));
+      } catch (err) {
+        console.error('Failed to load supporting file:', err);
+        setFileContents((prev) => ({ ...prev, [file.path]: `Error loading file: ${err}` }));
+      } finally {
+        setLoadingFile(null);
+      }
+    },
+    [expandedFile, fileContents]
+  );
 
   // Create a new supporting file
   const handleCreateFile = useCallback(async () => {
@@ -278,30 +291,33 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
   }, [skill.path, newFileName, newFileContent]);
 
   // Delete a supporting file
-  const handleDeleteFile = useCallback(async (file: SupportingFile) => {
-    setDeletingFile(file.path);
-    try {
-      await deleteSupportingFile(file.path);
-      setLocalSupportingFiles((prev) => prev.filter((f) => f.path !== file.path));
-      if (expandedFile === file.path) {
-        setExpandedFile(null);
+  const handleDeleteFile = useCallback(
+    async (file: SupportingFile) => {
+      setDeletingFile(file.path);
+      try {
+        await deleteSupportingFile(file.path);
+        setLocalSupportingFiles((prev) => prev.filter((f) => f.path !== file.path));
+        if (expandedFile === file.path) {
+          setExpandedFile(null);
+        }
+        // Remove from cache
+        setFileContents((prev) => {
+          const copy = { ...prev };
+          delete copy[file.path];
+          return copy;
+        });
+        toast.success(`Deleted "${file.name}"`);
+      } catch (err) {
+        console.error('Failed to delete file:', err);
+        toast.error('Failed to delete file', {
+          description: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        setDeletingFile(null);
       }
-      // Remove from cache
-      setFileContents((prev) => {
-        const copy = { ...prev };
-        delete copy[file.path];
-        return copy;
-      });
-      toast.success(`Deleted "${file.name}"`);
-    } catch (err) {
-      console.error('Failed to delete file:', err);
-      toast.error('Failed to delete file', {
-        description: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setDeletingFile(null);
-    }
-  }, [expandedFile]);
+    },
+    [expandedFile]
+  );
 
   // Check if content has changed
   const currentContent = combineFrontmatter(frontmatter, body);
@@ -364,9 +380,7 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
         </div>
         {!readOnly && (
           <div className="flex items-center gap-2">
-            {hasChanges && (
-              <span className="text-xs text-muted-foreground">Unsaved changes</span>
-            )}
+            {hasChanges && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
             <button
               onClick={handleReset}
               disabled={!hasChanges}
@@ -390,9 +404,7 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
 
       {/* Error message */}
       {error && (
-        <div className="px-3 py-2 bg-destructive/10 text-destructive text-sm shrink-0">
-          {error}
-        </div>
+        <div className="px-3 py-2 bg-destructive/10 text-destructive text-sm shrink-0">{error}</div>
       )}
 
       {/* Frontmatter panel */}
@@ -420,13 +432,17 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
                   }
                 }}
                 value={frontmatter}
-                onChange={!readOnly ? (e) => {
-                  setFrontmatter(e.target.value);
-                  // Auto-resize on change
-                  const el = e.target;
-                  el.style.height = 'auto';
-                  el.style.height = `${el.scrollHeight + 4}px`;
-                } : undefined}
+                onChange={
+                  !readOnly
+                    ? (e) => {
+                        setFrontmatter(e.target.value);
+                        // Auto-resize on change
+                        const el = e.target;
+                        el.style.height = 'auto';
+                        el.style.height = `${el.scrollHeight + 4}px`;
+                      }
+                    : undefined
+                }
                 readOnly={readOnly}
                 className={`w-full bg-secondary text-secondary-foreground font-mono text-sm p-3 rounded-lg border focus:outline-none focus:ring-2 overflow-hidden ${
                   yamlError
@@ -473,7 +489,10 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
                   const content = fileContents[file.path];
 
                   return (
-                    <div key={file.path} className="border border-border rounded-lg overflow-hidden">
+                    <div
+                      key={file.path}
+                      className="border border-border rounded-lg overflow-hidden"
+                    >
                       <div className="flex items-center">
                         <button
                           onClick={() => handleExpandFile(file)}
@@ -594,7 +613,12 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
           onChange={readOnly ? undefined : (markdown) => setBody(markdown)}
           readOnly={readOnly}
           plugins={readOnly ? readOnlyPlugins : editorPlugins}
-          className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
+          className={
+            theme === 'dark' ||
+            (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+              ? 'dark'
+              : ''
+          }
           contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
         />
       </div>

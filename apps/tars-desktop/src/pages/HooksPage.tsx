@@ -1,8 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Webhook, Plus, RefreshCw, Trash2, ChevronDown, ChevronRight, Play, MessageSquare } from 'lucide-react';
+import {
+  Webhook,
+  Plus,
+  RefreshCw,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Play,
+  MessageSquare,
+} from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { getUserHooks, saveUserHooks, getProjectHooks, saveProjectHooks, getHookEventTypes, listProjects } from '../lib/ipc';
+import {
+  getUserHooks,
+  saveUserHooks,
+  getProjectHooks,
+  saveProjectHooks,
+  getHookEventTypes,
+  listProjects,
+} from '../lib/ipc';
 import { Button } from '../components/ui/button';
 import {
   Dialog,
@@ -41,7 +57,11 @@ export function HooksPage() {
   const [showAddHookDialog, setShowAddHookDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedMatcherIndex, setSelectedMatcherIndex] = useState<number | null>(null);
-  const [hookToDelete, setHookToDelete] = useState<{ event: string; matcherIndex: number; hookIndex?: number } | null>(null);
+  const [hookToDelete, setHookToDelete] = useState<{
+    event: string;
+    matcherIndex: number;
+    hookIndex?: number;
+  } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // New hook form state
@@ -265,7 +285,11 @@ export function HooksPage() {
           <h2 className="text-lg font-semibold tracking-wide">Hooks</h2>
           <HelpButton section="HOOKS" />
         </div>
-        <Button onClick={() => setShowAddDialog(true)} size="sm" disabled={availableEvents.length === 0}>
+        <Button
+          onClick={() => setShowAddDialog(true)}
+          size="sm"
+          disabled={availableEvents.length === 0}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Event
         </Button>
@@ -391,9 +415,7 @@ export function HooksPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() =>
-                                setHookToDelete({ event: event.event, matcherIndex })
-                              }
+                              onClick={() => setHookToDelete({ event: event.event, matcherIndex })}
                               className="text-muted-foreground hover:text-destructive"
                             >
                               <Trash2 className="h-3 w-3" />
@@ -481,9 +503,7 @@ export function HooksPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Hook Event</DialogTitle>
-            <DialogDescription>
-              Select an event type to add hooks for.
-            </DialogDescription>
+            <DialogDescription>Select an event type to add hooks for.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="event-type">Event Type</Label>

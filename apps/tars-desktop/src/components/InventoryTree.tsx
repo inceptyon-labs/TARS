@@ -35,7 +35,14 @@ interface TreeNodeProps {
   level?: number;
 }
 
-function TreeNode({ label, icon: Icon, count, children, defaultOpen = false, level = 0 }: TreeNodeProps) {
+function TreeNode({
+  label,
+  icon: Icon,
+  count,
+  children,
+  defaultOpen = false,
+  level = 0,
+}: TreeNodeProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const hasChildren = Boolean(children);
 
@@ -99,7 +106,7 @@ function ScopeSection({
   icon: Icon,
   scope,
   level = 0,
-  onSelect
+  onSelect,
 }: {
   title: string;
   icon: React.ElementType;
@@ -125,7 +132,13 @@ function ScopeSection({
               label={skill.name}
               icon={FileText}
               level={level + 2}
-              onClick={() => onSelect?.('skill', { name: skill.name, path: skill.path, description: skill.description })}
+              onClick={() =>
+                onSelect?.('skill', {
+                  name: skill.name,
+                  path: skill.path,
+                  description: skill.description,
+                })
+              }
             />
           ))}
         </TreeNode>
@@ -139,7 +152,13 @@ function ScopeSection({
               label={`/${cmd.name}`}
               icon={FileText}
               level={level + 2}
-              onClick={() => onSelect?.('command', { name: cmd.name, path: cmd.path, description: cmd.description })}
+              onClick={() =>
+                onSelect?.('command', {
+                  name: cmd.name,
+                  path: cmd.path,
+                  description: cmd.description,
+                })
+              }
             />
           ))}
         </TreeNode>
@@ -153,14 +172,25 @@ function ScopeSection({
               label={agent.name}
               icon={FileText}
               level={level + 2}
-              onClick={() => onSelect?.('agent', { name: agent.name, path: agent.path, description: agent.description })}
+              onClick={() =>
+                onSelect?.('agent', {
+                  name: agent.name,
+                  path: agent.path,
+                  description: agent.description,
+                })
+              }
             />
           ))}
         </TreeNode>
       )}
 
       {scope.mcp && scope.mcp.servers.length > 0 && (
-        <TreeNode label="MCP Servers" icon={Globe} count={scope.mcp.servers.length} level={level + 1}>
+        <TreeNode
+          label="MCP Servers"
+          icon={Globe}
+          count={scope.mcp.servers.length}
+          level={level + 1}
+        >
           {scope.mcp.servers.map((server) => (
             <LeafNode
               key={server.name}
@@ -183,20 +213,13 @@ export function InventoryTree({ inventory, onSelect }: InventoryTreeProps) {
     inventory.user_scope.agents.length > 0 ||
     inventory.user_scope.mcp?.servers.length;
 
-  const hasManagedContent =
-    inventory.managed_scope?.settings ||
-    inventory.managed_scope?.mcp;
+  const hasManagedContent = inventory.managed_scope?.settings || inventory.managed_scope?.mcp;
 
   return (
     <div className="py-2 overflow-auto h-full">
       {/* User Scope */}
       {hasUserContent && (
-        <ScopeSection
-          title="User"
-          icon={User}
-          scope={inventory.user_scope}
-          onSelect={onSelect}
-        />
+        <ScopeSection title="User" icon={User} scope={inventory.user_scope} onSelect={onSelect} />
       )}
 
       {/* Managed Scope */}
@@ -210,12 +233,7 @@ export function InventoryTree({ inventory, onSelect }: InventoryTreeProps) {
               level={1}
             >
               {inventory.managed_scope.mcp.servers.map((server) => (
-                <LeafNode
-                  key={server.name}
-                  label={server.name}
-                  icon={Settings}
-                  level={2}
-                />
+                <LeafNode key={server.name} label={server.name} icon={Settings} level={2} />
               ))}
             </TreeNode>
           )}
@@ -232,12 +250,7 @@ export function InventoryTree({ inventory, onSelect }: InventoryTreeProps) {
           level={0}
         >
           {inventory.projects.map((project) => (
-            <TreeNode
-              key={project.path}
-              label={project.name}
-              icon={FolderOpen}
-              level={1}
-            >
+            <TreeNode key={project.path} label={project.name} icon={FolderOpen} level={1}>
               <ScopeSection
                 title="Configuration"
                 icon={Settings}
@@ -254,11 +267,13 @@ export function InventoryTree({ inventory, onSelect }: InventoryTreeProps) {
                       label={`${hook.trigger}${hook.matcher ? `: ${hook.matcher}` : ''}`}
                       icon={FileText}
                       level={3}
-                      onClick={() => onSelect?.('hook', {
-                        name: hook.trigger,
-                        path: hook.source,
-                        description: hook.matcher
-                      })}
+                      onClick={() =>
+                        onSelect?.('hook', {
+                          name: hook.trigger,
+                          path: hook.source,
+                          description: hook.matcher,
+                        })
+                      }
                     />
                   ))}
                 </TreeNode>

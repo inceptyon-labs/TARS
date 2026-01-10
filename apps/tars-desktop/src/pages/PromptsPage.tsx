@@ -6,15 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ChevronRight,
-  FileText,
-  Plus,
-  RefreshCw,
-  Save,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { ChevronRight, FileText, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import {
@@ -280,9 +272,7 @@ export function PromptsPage() {
             <div className="p-6 text-center text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="text-sm">No prompts yet</p>
-              <p className="text-xs mt-1">
-                Click "New Prompt" to create one
-              </p>
+              <p className="text-xs mt-1">Click "New Prompt" to create one</p>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -353,30 +343,17 @@ export function PromptsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {!isEditing && !isCreating && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleStartEditing}
-                    >
+                    <Button variant="outline" size="sm" onClick={handleStartEditing}>
                       Edit
                     </Button>
                   )}
                   {isEditing && (
                     <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleCancel}
-                        disabled={isSaving}
-                      >
+                      <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSaving}>
                         <X className="h-4 w-4 mr-1" />
                         Cancel
                       </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                      >
+                      <Button size="sm" onClick={handleSave} disabled={isSaving}>
                         {isSaving ? (
                           <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
                         ) : (
@@ -403,7 +380,13 @@ export function PromptsPage() {
                       markdown={editContent}
                       onChange={(markdown) => setEditContent(markdown)}
                       plugins={editorPlugins}
-                      className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
+                      className={
+                        theme === 'dark' ||
+                        (theme === 'system' &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches)
+                          ? 'dark'
+                          : ''
+                      }
                       contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
                     />
                   </div>
@@ -439,7 +422,13 @@ export function PromptsPage() {
                           },
                         }),
                       ]}
-                      className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
+                      className={
+                        theme === 'dark' ||
+                        (theme === 'system' &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches)
+                          ? 'dark'
+                          : ''
+                      }
                       contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full"
                     />
                   </div>

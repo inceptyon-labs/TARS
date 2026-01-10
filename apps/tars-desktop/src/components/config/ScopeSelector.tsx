@@ -40,14 +40,8 @@ export function ScopeSelector({
 }: ScopeSelectorProps) {
   return (
     <div className="flex flex-col gap-2">
-      {showLabel && (
-        <Label htmlFor="scope-select">Scope</Label>
-      )}
-      <Select
-        value={value}
-        onValueChange={(v) => onChange(v as Scope)}
-        disabled={disabled}
-      >
+      {showLabel && <Label htmlFor="scope-select">Scope</Label>}
+      <Select value={value} onValueChange={(v) => onChange(v as Scope)} disabled={disabled}>
         <SelectTrigger id="scope-select" className="w-full">
           <SelectValue placeholder="Select scope" />
         </SelectTrigger>
@@ -56,9 +50,7 @@ export function ScopeSelector({
             <SelectItem key={scope} value={scope}>
               <div className="flex flex-col">
                 <span>{scopeLabels[scope]}</span>
-                <span className="text-xs text-muted-foreground">
-                  {scopeDescriptions[scope]}
-                </span>
+                <span className="text-xs text-muted-foreground">{scopeDescriptions[scope]}</span>
               </div>
             </SelectItem>
           ))}

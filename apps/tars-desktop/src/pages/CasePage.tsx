@@ -11,14 +11,23 @@ import {
   ExternalLink,
   ChevronRight,
   Search,
-  Keyboard
+  Keyboard,
 } from 'lucide-react';
 
 // Detect if user is on macOS
-const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+const isMac =
+  typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
 // Keyboard shortcut component that shows OS-specific keys
-function KeyboardShortcut({ mac, other, description }: { mac: string; other: string; description: string }) {
+function KeyboardShortcut({
+  mac,
+  other,
+  description,
+}: {
+  mac: string;
+  other: string;
+  description: string;
+}) {
   const keys = isMac ? mac : other;
   return (
     <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
@@ -46,9 +55,10 @@ const sections: KnowledgeSection[] = [
     content: (
       <div className="space-y-4">
         <p>
-          Skills are markdown files with YAML frontmatter that define reusable prompts.
-          They live in <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude/skills/</code> (user)
-          or <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.claude/skills/</code> (project).
+          Skills are markdown files with YAML frontmatter that define reusable prompts. They live in{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude/skills/</code> (user)
+          or <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.claude/skills/</code>{' '}
+          (project).
         </p>
 
         <h4 className="font-semibold mt-6">Structure</h4>
@@ -69,11 +79,21 @@ Use $ARGUMENTS to reference user input.`}</pre>
 
         <h4 className="font-semibold mt-6">Key Properties</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-          <li><strong>name</strong> - Unique identifier, used as /name to invoke</li>
-          <li><strong>description</strong> - Shown in skill listings and help</li>
-          <li><strong>user_invocable</strong> - If true, users can call with /name</li>
-          <li><strong>allowed_tools</strong> - Restrict which tools the skill can use</li>
-          <li><strong>model</strong> - Override the default model (e.g., "haiku" for fast tasks)</li>
+          <li>
+            <strong>name</strong> - Unique identifier, used as /name to invoke
+          </li>
+          <li>
+            <strong>description</strong> - Shown in skill listings and help
+          </li>
+          <li>
+            <strong>user_invocable</strong> - If true, users can call with /name
+          </li>
+          <li>
+            <strong>allowed_tools</strong> - Restrict which tools the skill can use
+          </li>
+          <li>
+            <strong>model</strong> - Override the default model (e.g., "haiku" for fast tasks)
+          </li>
         </ul>
 
         <h4 className="font-semibold mt-6">Scope Precedence</h4>
@@ -85,7 +105,10 @@ Use $ARGUMENTS to reference user input.`}</pre>
       </div>
     ),
     docs: [
-      { label: 'Claude Code Skills Documentation', url: 'https://docs.anthropic.com/en/docs/claude-code/skills' },
+      {
+        label: 'Claude Code Skills Documentation',
+        url: 'https://docs.anthropic.com/en/docs/claude-code/skills',
+      },
     ],
   },
   {
@@ -96,9 +119,10 @@ Use $ARGUMENTS to reference user input.`}</pre>
     content: (
       <div className="space-y-4">
         <p>
-          Agents are autonomous task handlers that can be spawned via the Task tool.
-          They have their own set of allowed tools and can work independently.
-          Located in <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude/agents/</code> or <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.claude/agents/</code>.
+          Agents are autonomous task handlers that can be spawned via the Task tool. They have their
+          own set of allowed tools and can work independently. Located in{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude/agents/</code> or{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.claude/agents/</code>.
         </p>
 
         <h4 className="font-semibold mt-6">Structure</h4>
@@ -123,22 +147,36 @@ You are an expert code reviewer. When given code to review:
 
         <h4 className="font-semibold mt-6">Key Properties</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-          <li><strong>name</strong> - Identifier used when spawning the agent</li>
-          <li><strong>description</strong> - Explains what the agent does</li>
-          <li><strong>tools</strong> - List of tools the agent can use</li>
-          <li><strong>model</strong> - Which model to use (sonnet, opus, haiku)</li>
-          <li><strong>skills</strong> - Skills the agent can invoke</li>
+          <li>
+            <strong>name</strong> - Identifier used when spawning the agent
+          </li>
+          <li>
+            <strong>description</strong> - Explains what the agent does
+          </li>
+          <li>
+            <strong>tools</strong> - List of tools the agent can use
+          </li>
+          <li>
+            <strong>model</strong> - Which model to use (sonnet, opus, haiku)
+          </li>
+          <li>
+            <strong>skills</strong> - Skills the agent can invoke
+          </li>
         </ul>
 
         <h4 className="font-semibold mt-6">Spawning Agents</h4>
         <p className="text-muted-foreground">
-          Agents are spawned using the Task tool with <code className="px-1.5 py-0.5 bg-muted rounded text-sm">subagent_type</code>
+          Agents are spawned using the Task tool with{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">subagent_type</code>
           matching the agent name. They run autonomously and return results when complete.
         </p>
       </div>
     ),
     docs: [
-      { label: 'Claude Code Agents Documentation', url: 'https://docs.anthropic.com/en/docs/claude-code/agents' },
+      {
+        label: 'Claude Code Agents Documentation',
+        url: 'https://docs.anthropic.com/en/docs/claude-code/agents',
+      },
     ],
   },
   {
@@ -149,9 +187,10 @@ You are an expert code reviewer. When given code to review:
     content: (
       <div className="space-y-4">
         <p>
-          Commands are custom slash commands you can create. Unlike skills, commands
-          are simpler and don't have the full frontmatter options.
-          Located in <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude/commands/</code> or <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.claude/commands/</code>.
+          Commands are custom slash commands you can create. Unlike skills, commands are simpler and
+          don't have the full frontmatter options. Located in{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude/commands/</code> or{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.claude/commands/</code>.
         </p>
 
         <h4 className="font-semibold mt-6">Structure</h4>
@@ -192,7 +231,10 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
       </div>
     ),
     docs: [
-      { label: 'Claude Code Commands Documentation', url: 'https://docs.anthropic.com/en/docs/claude-code/commands' },
+      {
+        label: 'Claude Code Commands Documentation',
+        url: 'https://docs.anthropic.com/en/docs/claude-code/commands',
+      },
     ],
   },
   {
@@ -204,16 +246,28 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
       <div className="space-y-4">
         <p>
           Hooks let you run shell commands or inject prompts in response to Claude Code events.
-          Configured in <code className="px-1.5 py-0.5 bg-muted rounded text-sm">settings.json</code> under the <code className="px-1.5 py-0.5 bg-muted rounded text-sm">hooks</code> key.
+          Configured in{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">settings.json</code> under the{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">hooks</code> key.
         </p>
 
         <h4 className="font-semibold mt-6">Hook Events</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-          <li><strong>PreToolUse</strong> - Before a tool is executed</li>
-          <li><strong>PostToolUse</strong> - After a tool completes</li>
-          <li><strong>Notification</strong> - When Claude sends a notification</li>
-          <li><strong>Stop</strong> - When Claude stops processing</li>
-          <li><strong>SubagentStop</strong> - When a subagent finishes</li>
+          <li>
+            <strong>PreToolUse</strong> - Before a tool is executed
+          </li>
+          <li>
+            <strong>PostToolUse</strong> - After a tool completes
+          </li>
+          <li>
+            <strong>Notification</strong> - When Claude sends a notification
+          </li>
+          <li>
+            <strong>Stop</strong> - When Claude stops processing
+          </li>
+          <li>
+            <strong>SubagentStop</strong> - When a subagent finishes
+          </li>
         </ul>
 
         <h4 className="font-semibold mt-6">Configuration Example</h4>
@@ -246,33 +300,47 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
 
         <h4 className="font-semibold mt-6">Hook Types</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-          <li><strong>command</strong> - Run a shell command</li>
-          <li><strong>prompt</strong> - Inject a prompt into the conversation</li>
+          <li>
+            <strong>command</strong> - Run a shell command
+          </li>
+          <li>
+            <strong>prompt</strong> - Inject a prompt into the conversation
+          </li>
         </ul>
       </div>
     ),
     docs: [
-      { label: 'Claude Code Hooks Documentation', url: 'https://docs.anthropic.com/en/docs/claude-code/hooks' },
+      {
+        label: 'Claude Code Hooks Documentation',
+        url: 'https://docs.anthropic.com/en/docs/claude-code/hooks',
+      },
     ],
   },
   {
     id: 'mcp',
     title: 'MCP Servers',
     icon: <Server className="h-5 w-5" />,
-    description: 'Model Context Protocol servers that extend Claude\'s capabilities',
+    description: "Model Context Protocol servers that extend Claude's capabilities",
     content: (
       <div className="space-y-4">
         <p>
           MCP (Model Context Protocol) servers provide additional tools and resources to Claude.
-          Configured in <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude.json</code> (user)
-          or <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.mcp.json</code> (project).
+          Configured in{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude.json</code> (user) or{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">.mcp.json</code> (project).
         </p>
 
         <h4 className="font-semibold mt-6">Server Types</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-          <li><strong>stdio</strong> - Local process communication via stdin/stdout</li>
-          <li><strong>sse</strong> - Server-Sent Events over HTTP</li>
-          <li><strong>http</strong> - HTTP-based communication</li>
+          <li>
+            <strong>stdio</strong> - Local process communication via stdin/stdout
+          </li>
+          <li>
+            <strong>sse</strong> - Server-Sent Events over HTTP
+          </li>
+          <li>
+            <strong>http</strong> - HTTP-based communication
+          </li>
         </ul>
 
         <h4 className="font-semibold mt-6">Configuration Example</h4>
@@ -297,16 +365,152 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
 
         <h4 className="font-semibold mt-6">Popular MCP Servers</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-          <li><strong>filesystem</strong> - Extended file operations</li>
-          <li><strong>github</strong> - GitHub API integration</li>
-          <li><strong>postgres</strong> - Database queries</li>
-          <li><strong>puppeteer</strong> - Browser automation</li>
+          <li>
+            <strong>filesystem</strong> - Extended file operations
+          </li>
+          <li>
+            <strong>github</strong> - GitHub API integration
+          </li>
+          <li>
+            <strong>postgres</strong> - Database queries
+          </li>
+          <li>
+            <strong>puppeteer</strong> - Browser automation
+          </li>
         </ul>
       </div>
     ),
     docs: [
       { label: 'Model Context Protocol', url: 'https://modelcontextprotocol.io/' },
       { label: 'MCP Servers Registry', url: 'https://github.com/modelcontextprotocol/servers' },
+    ],
+  },
+  {
+    id: 'shortcuts',
+    title: 'Keyboard Shortcuts',
+    icon: <Keyboard className="h-5 w-5" />,
+    description: 'Essential keyboard shortcuts for Claude Code interactive mode',
+    content: (
+      <div className="space-y-6">
+        <p>
+          Claude Code supports various keyboard shortcuts to help you work more efficiently.
+          {isMac ? ' Showing macOS shortcuts.' : ' Showing Windows/Linux shortcuts.'}
+        </p>
+
+        <div>
+          <h4 className="font-semibold mb-3">Session Control</h4>
+          <div className="bg-secondary/50 rounded-lg p-4">
+            <KeyboardShortcut mac="Ctrl+C" other="Ctrl+C" description="Cancel current generation" />
+            <KeyboardShortcut
+              mac="Ctrl+C Ctrl+C"
+              other="Ctrl+C Ctrl+C"
+              description="Force quit (double tap)"
+            />
+            <KeyboardShortcut mac="Ctrl+D" other="Ctrl+D" description="Exit Claude Code" />
+            <KeyboardShortcut
+              mac="Ctrl+L"
+              other="Ctrl+L"
+              description="Clear screen (keeps history)"
+            />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-3">Input & History</h4>
+          <div className="bg-secondary/50 rounded-lg p-4">
+            <KeyboardShortcut
+              mac="↑ / ↓"
+              other="↑ / ↓"
+              description="Cycle through command history"
+            />
+            <KeyboardShortcut
+              mac="Esc Esc"
+              other="Esc Esc"
+              description="Edit last prompt / Clear input"
+            />
+            <KeyboardShortcut
+              mac="Shift+Tab"
+              other="Shift+Tab"
+              description="Cycle permission modes"
+            />
+            <KeyboardShortcut mac="⌘+Esc" other="Ctrl+Esc" description="Quick open" />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-3">Multi-line Input</h4>
+          <div className="bg-secondary/50 rounded-lg p-4">
+            <KeyboardShortcut
+              mac="\\ + Enter"
+              other="\\ + Enter"
+              description="Multi-line input (works everywhere)"
+            />
+            <KeyboardShortcut
+              mac="Shift+Enter"
+              other="Shift+Enter"
+              description="Multi-line (after /terminal-setup)"
+            />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-3">Text Editing (Bash-style)</h4>
+          <div className="bg-secondary/50 rounded-lg p-4">
+            <KeyboardShortcut mac="Ctrl+A" other="Ctrl+A" description="Move to start of line" />
+            <KeyboardShortcut mac="Ctrl+E" other="Ctrl+E" description="Move to end of line" />
+            <KeyboardShortcut mac="Option+F" other="Alt+F" description="Move forward one word" />
+            <KeyboardShortcut mac="Option+B" other="Alt+B" description="Move back one word" />
+            <KeyboardShortcut mac="Ctrl+W" other="Ctrl+W" description="Delete previous word" />
+            <KeyboardShortcut mac="Ctrl+U" other="Ctrl+U" description="Delete to start of line" />
+            <KeyboardShortcut mac="Ctrl+K" other="Ctrl+K" description="Delete to end of line" />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-3">Permission Modes</h4>
+          <p className="text-muted-foreground mb-3">
+            Use <kbd className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">Shift+Tab</kbd> to
+            cycle through:
+          </p>
+          <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+            <li>
+              <strong>Edit mode</strong> (default) - Requires approval before file changes
+            </li>
+            <li>
+              <strong>Auto-accept mode</strong> - Writes files without asking permission
+            </li>
+            <li>
+              <strong>Plan mode</strong> - Creates plans without making code changes
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-3">Conversation History</h4>
+          <p className="text-muted-foreground">
+            Double-tap{' '}
+            <kbd className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">Escape</kbd> on an
+            empty input to browse history and restore to an earlier point. This rewinds the
+            conversation but doesn't undo file changes.
+          </p>
+        </div>
+
+        {isMac && (
+          <div className="mt-6 p-4 bg-primary/10 rounded-lg">
+            <h4 className="font-semibold mb-2 text-primary">macOS Note</h4>
+            <p className="text-sm text-muted-foreground">
+              Option/Alt key shortcuts (Option+B, Option+F) require configuring Option as Meta in
+              your terminal settings.
+            </p>
+          </div>
+        )}
+      </div>
+    ),
+    docs: [
+      {
+        label: 'Interactive Mode Documentation',
+        url: 'https://code.claude.com/docs/en/interactive-mode',
+      },
     ],
   },
   {
@@ -317,8 +521,8 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
     content: (
       <div className="space-y-4">
         <p>
-          Plugins bundle skills, agents, commands, hooks, and MCP servers into distributable packages.
-          They can be installed from marketplaces or local directories.
+          Plugins bundle skills, agents, commands, hooks, and MCP servers into distributable
+          packages. They can be installed from marketplaces or local directories.
         </p>
 
         <h4 className="font-semibold mt-6">Plugin Structure</h4>
@@ -348,20 +552,33 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
 
         <h4 className="font-semibold mt-6">Installation Scopes</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-          <li><strong>User</strong> - Available in all projects (~/.claude/plugins/)</li>
-          <li><strong>Project</strong> - Only in specific project (.claude/plugins/)</li>
-          <li><strong>Managed</strong> - System-wide, admin-controlled</li>
+          <li>
+            <strong>User</strong> - Available in all projects (~/.claude/plugins/)
+          </li>
+          <li>
+            <strong>Project</strong> - Only in specific project (.claude/plugins/)
+          </li>
+          <li>
+            <strong>Managed</strong> - System-wide, admin-controlled
+          </li>
         </ul>
 
         <h4 className="font-semibold mt-6">Marketplaces</h4>
         <p className="text-muted-foreground">
-          Plugins can be installed from GitHub repositories or local directories.
-          Marketplaces are configured in <code className="px-1.5 py-0.5 bg-muted rounded text-sm">~/.claude/plugins/known_marketplaces.json</code>.
+          Plugins can be installed from GitHub repositories or local directories. Marketplaces are
+          configured in{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">
+            ~/.claude/plugins/known_marketplaces.json
+          </code>
+          .
         </p>
       </div>
     ),
     docs: [
-      { label: 'Claude Code Plugins Documentation', url: 'https://docs.anthropic.com/en/docs/claude-code/plugins' },
+      {
+        label: 'Claude Code Plugins Documentation',
+        url: 'https://docs.anthropic.com/en/docs/claude-code/plugins',
+      },
     ],
   },
 ];
@@ -374,7 +591,7 @@ export function CasePage() {
 
   // Sync URL param with selected section
   useEffect(() => {
-    if (section && sections.find(s => s.id === section)) {
+    if (section && sections.find((s) => s.id === section)) {
       setSelectedSection(section);
     }
   }, [section]);
@@ -471,9 +688,7 @@ export function CasePage() {
               </div>
               <p className="text-muted-foreground mb-8">{currentSection.description}</p>
 
-              <div className="prose dark:prose-invert max-w-none">
-                {currentSection.content}
-              </div>
+              <div className="prose dark:prose-invert max-w-none">{currentSection.content}</div>
 
               {currentSection.docs && currentSection.docs.length > 0 && (
                 <div className="mt-8 pt-6 border-t border-border">
@@ -505,9 +720,7 @@ export function CasePage() {
                 <BookOpen className="h-10 w-10 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Select a topic to learn more
-                </p>
+                <p className="text-sm text-muted-foreground">Select a topic to learn more</p>
               </div>
             </div>
           )}
@@ -524,5 +737,6 @@ export const CASE_SECTIONS = {
   COMMANDS: 'commands',
   HOOKS: 'hooks',
   MCP: 'mcp',
+  SHORTCUTS: 'shortcuts',
   PLUGINS: 'plugins',
 } as const;

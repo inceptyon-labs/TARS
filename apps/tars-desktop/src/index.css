@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -14,7 +14,8 @@
 
 @font-face {
   font-family: 'Geist Mono';
-  src: url('https://cdn.jsdelivr.net/npm/geist@1.2.0/dist/fonts/geist-mono/GeistMono-Medium.woff2') format('woff2');
+  src: url('https://cdn.jsdelivr.net/npm/geist@1.2.0/dist/fonts/geist-mono/GeistMono-Medium.woff2')
+    format('woff2');
   font-weight: 500;
   font-style: normal;
 }
@@ -155,7 +156,12 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family:
+      'SF Pro Display',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      sans-serif;
   }
 }
 
@@ -423,8 +429,9 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  font-family: 'Trade Gothic Std Bold Extended', 'Trade Gothic Bold Extended', 'Trade Gothic', 'Franklin Gothic Medium',
-    'Arial Narrow', 'Oswald', sans-serif;
+  font-family:
+    'Trade Gothic Std Bold Extended', 'Trade Gothic Bold Extended', 'Trade Gothic',
+    'Franklin Gothic Medium', 'Arial Narrow', 'Oswald', sans-serif;
   font-weight: 800;
   font-stretch: expanded;
   text-transform: uppercase;
@@ -432,7 +439,9 @@
   letter-spacing: 0.25em;
   font-size: 28px;
   line-height: 1;
-  text-shadow: 0.35px 0 0 currentColor, -0.35px 0 0 currentColor;
+  text-shadow:
+    0.35px 0 0 currentColor,
+    -0.35px 0 0 currentColor;
 }
 
 /* Smaller wordmark variant */
@@ -447,8 +456,9 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  font-family: 'Trade Gothic Std Bold Extended', 'Trade Gothic Bold Extended', 'Trade Gothic', 'Franklin Gothic Medium',
-    'Arial Narrow', 'Oswald', sans-serif;
+  font-family:
+    'Trade Gothic Std Bold Extended', 'Trade Gothic Bold Extended', 'Trade Gothic',
+    'Franklin Gothic Medium', 'Arial Narrow', 'Oswald', sans-serif;
   font-weight: 800;
   font-stretch: expanded;
   text-transform: uppercase;
@@ -456,7 +466,9 @@
   letter-spacing: 0.2em;
   font-size: 20px;
   line-height: 1;
-  text-shadow: 0.25px 0 0 currentColor, -0.25px 0 0 currentColor;
+  text-shadow:
+    0.25px 0 0 currentColor,
+    -0.25px 0 0 currentColor;
 }
 
 .tars-wordmark-collapsed {
@@ -535,12 +547,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle at 30% 30%,
-    #fcd34d 0%,
-    var(--tars-glow) 50%,
-    #b45309 100%
-  );
+  background: radial-gradient(circle at 30% 30%, #fcd34d 0%, var(--tars-glow) 50%, #b45309 100%);
   box-shadow:
     0 0 8px var(--tars-glow),
     0 0 16px var(--tars-glow-soft),
@@ -549,7 +556,8 @@
 }
 
 @keyframes tars-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     box-shadow:
       0 0 8px var(--tars-glow),
@@ -580,11 +588,7 @@
 }
 
 .tars-nav-item.active {
-  background: linear-gradient(
-    90deg,
-    var(--tars-glow-soft) 0%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, var(--tars-glow-soft) 0%, transparent 100%);
 }
 
 /* Active indicator bar */
@@ -1046,24 +1050,24 @@ svg {
 }
 
 /* MDXEditor toolbar */
-.mdx-editor-container [class*="_toolbarRoot_"] {
+.mdx-editor-container [class*='_toolbarRoot_'] {
   background: var(--secondary) !important;
   border-bottom: 1px solid var(--border) !important;
 }
 
-.mdx-editor-container [class*="_toolbarRoot_"] button {
+.mdx-editor-container [class*='_toolbarRoot_'] button {
   color: var(--foreground) !important;
 }
 
-.mdx-editor-container [class*="_toolbarRoot_"] button:hover {
+.mdx-editor-container [class*='_toolbarRoot_'] button:hover {
   background: var(--muted) !important;
 }
 
 /* MDXEditor select/dropdown triggers - the problematic dropdowns */
 .mdx-editor-container select,
-.mdx-editor-container [class*="_selectTrigger_"],
-.mdx-editor-container [class*="_select_"] > button,
-.mdx-editor-container [role="combobox"] {
+.mdx-editor-container [class*='_selectTrigger_'],
+.mdx-editor-container [class*='_select_'] > button,
+.mdx-editor-container [role='combobox'] {
   background: var(--secondary) !important;
   border: 1px solid var(--border) !important;
   color: var(--foreground) !important;
@@ -1074,16 +1078,16 @@ svg {
 }
 
 .mdx-editor-container select:hover,
-.mdx-editor-container [class*="_selectTrigger_"]:hover,
-.mdx-editor-container [class*="_select_"] > button:hover,
-.mdx-editor-container [role="combobox"]:hover {
+.mdx-editor-container [class*='_selectTrigger_']:hover,
+.mdx-editor-container [class*='_select_'] > button:hover,
+.mdx-editor-container [role='combobox']:hover {
   background: color-mix(in srgb, var(--secondary) 100%, white 5%) !important;
 }
 
 .mdx-editor-container select:focus,
-.mdx-editor-container [class*="_selectTrigger_"]:focus,
-.mdx-editor-container [class*="_select_"] > button:focus,
-.mdx-editor-container [role="combobox"]:focus {
+.mdx-editor-container [class*='_selectTrigger_']:focus,
+.mdx-editor-container [class*='_select_'] > button:focus,
+.mdx-editor-container [role='combobox']:focus {
   outline: none !important;
   border-color: var(--primary) !important;
   box-shadow:
@@ -1092,9 +1096,9 @@ svg {
 }
 
 /* MDXEditor dropdown content/popover */
-.mdx-editor-container [class*="_selectContent_"],
-.mdx-editor-container [role="listbox"],
-[data-radix-popper-content-wrapper] [class*="_selectContent_"] {
+.mdx-editor-container [class*='_selectContent_'],
+.mdx-editor-container [role='listbox'],
+[data-radix-popper-content-wrapper] [class*='_selectContent_'] {
   background: var(--popover) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius) !important;
@@ -1103,24 +1107,24 @@ svg {
 }
 
 /* MDXEditor dropdown items */
-.mdx-editor-container [class*="_selectItem_"],
-.mdx-editor-container [role="option"],
-[data-radix-popper-content-wrapper] [class*="_selectItem_"] {
+.mdx-editor-container [class*='_selectItem_'],
+.mdx-editor-container [role='option'],
+[data-radix-popper-content-wrapper] [class*='_selectItem_'] {
   color: var(--foreground) !important;
 }
 
-.mdx-editor-container [class*="_selectItem_"]:hover,
-.mdx-editor-container [role="option"]:hover,
-.mdx-editor-container [class*="_selectItem_"][data-highlighted],
-.mdx-editor-container [role="option"][data-highlighted],
-[data-radix-popper-content-wrapper] [class*="_selectItem_"]:hover {
+.mdx-editor-container [class*='_selectItem_']:hover,
+.mdx-editor-container [role='option']:hover,
+.mdx-editor-container [class*='_selectItem_'][data-highlighted],
+.mdx-editor-container [role='option'][data-highlighted],
+[data-radix-popper-content-wrapper] [class*='_selectItem_']:hover {
   background: var(--accent) !important;
   color: var(--accent-foreground) !important;
 }
 
 /* Code block language selector in MDXEditor - more specific targeting */
-.mdx-editor-container [class*="_codeBlockEditorWrapper_"] select,
-.mdx-editor-container [class*="cm-editor"] + div select,
+.mdx-editor-container [class*='_codeBlockEditorWrapper_'] select,
+.mdx-editor-container [class*='cm-editor'] + div select,
 .mdx-editor-container .cm-scroller + div select {
   background: var(--secondary) !important;
   border: 1px solid var(--border) !important;
@@ -1179,7 +1183,7 @@ svg {
 
 /* MDXEditor inline code - fix white background in dark mode */
 .mdx-editor-container .prose code:not(pre code),
-.mdx-editor-container [class*="contentEditable"] code:not(pre code),
+.mdx-editor-container [class*='contentEditable'] code:not(pre code),
 .dark .mdx-editor-container code:not(pre code),
 .dark .prose code:not(pre code) {
   background: var(--secondary) !important;

@@ -22,8 +22,15 @@ export function ProfilesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: ({ name, sourcePath, description }: { name: string; sourcePath: string; description?: string }) =>
-      createProfile(name, sourcePath, description),
+    mutationFn: ({
+      name,
+      sourcePath,
+      description,
+    }: {
+      name: string;
+      sourcePath: string;
+      description?: string;
+    }) => createProfile(name, sourcePath, description),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setDialogOpen(false);
@@ -134,9 +141,7 @@ export function ProfilesPage() {
                 <Layers className="h-10 w-10 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Select a profile to view details
-                </p>
+                <p className="text-sm text-muted-foreground">Select a profile to view details</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Apply configurations to projects
                 </p>

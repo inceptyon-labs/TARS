@@ -8,12 +8,7 @@ interface ProfileListProps {
   onDelete: (id: string) => void;
 }
 
-export function ProfileList({
-  profiles,
-  selectedId,
-  onSelect,
-  onDelete,
-}: ProfileListProps) {
+export function ProfileList({ profiles, selectedId, onSelect, onDelete }: ProfileListProps) {
   return (
     <ul className="space-y-1">
       {profiles.map((profile) => (

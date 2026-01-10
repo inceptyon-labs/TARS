@@ -77,13 +77,13 @@ export interface ContextItem {
 
 export interface McpComplexity {
   name: string;
-  server_type: string;     // "stdio", "http", "sse", "unknown"
+  server_type: string; // "stdio", "http", "sse", "unknown"
   uses_wrapper: boolean;
   env_var_count: number;
   is_plugin: boolean;
   tool_count: number;
   complexity_score: number;
-  status: string;          // "connected", "disabled", "unknown"
+  status: string; // "connected", "disabled", "unknown"
 }
 
 export interface ContextStats {
@@ -150,20 +150,14 @@ export async function exportProfileAsPlugin(
 }
 
 // Apply commands
-export async function previewApply(
-  profileId: string,
-  projectPath: string
-): Promise<DiffPreview> {
+export async function previewApply(profileId: string, projectPath: string): Promise<DiffPreview> {
   return invoke('preview_apply', {
     profile_id: profileId,
     project_path: projectPath,
   });
 }
 
-export async function applyProfile(
-  profileId: string,
-  projectPath: string
-): Promise<BackupInfo> {
+export async function applyProfile(profileId: string, projectPath: string): Promise<BackupInfo> {
   return invoke('apply_profile', {
     profile_id: profileId,
     project_path: projectPath,
@@ -174,10 +168,7 @@ export async function listBackups(projectId: string): Promise<BackupInfo[]> {
   return invoke('list_backups', { project_id: projectId });
 }
 
-export async function rollback(
-  backupId: string,
-  projectPath: string
-): Promise<number> {
+export async function rollback(backupId: string, projectPath: string): Promise<number> {
   return invoke('rollback', {
     backup_id: backupId,
     project_path: projectPath,
@@ -334,9 +325,7 @@ export async function getHomeDir(): Promise<string> {
   return invoke('get_home_dir');
 }
 
-export async function listSubdirectories(
-  path: string
-): Promise<DirectoryInfo[]> {
+export async function listSubdirectories(path: string): Promise<DirectoryInfo[]> {
   return invoke('list_subdirectories', { path });
 }
 

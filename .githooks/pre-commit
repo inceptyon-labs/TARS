@@ -1,15 +1,27 @@
 #!/bin/bash
 
+set -e
+
 # Format Rust code
-echo "Running cargo fmt..."
-cargo fmt --all -- --check
-if [ $? -ne 0 ]; then
-    echo ""
-    echo "❌ Rust formatting check failed. Running cargo fmt..."
+echo "Checking Rust formatting..."
+if ! cargo fmt --all -- --check 2>/dev/null; then
+    echo "Formatting Rust code..."
     cargo fmt --all
-    echo ""
-    echo "Files have been formatted. Please review and re-stage the changes."
+    echo "❌ Rust files were reformatted. Please re-stage and commit again."
     exit 1
 fi
+echo "✓ Rust formatting OK"
 
+# Format TypeScript/React code
+echo "Checking frontend formatting..."
+cd apps/tars-desktop
+if ! bun run prettier --check "src/**/*.{ts,tsx,js,jsx,json,css}" 2>/dev/null; then
+    echo "Formatting frontend code..."
+    bun run prettier --write "src/**/*.{ts,tsx,js,jsx,json,css}"
+    echo "❌ Frontend files were reformatted. Please re-stage and commit again."
+    exit 1
+fi
+echo "✓ Frontend formatting OK"
+
+echo ""
 echo "✓ All checks passed"

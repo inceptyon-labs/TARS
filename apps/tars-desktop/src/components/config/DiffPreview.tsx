@@ -56,18 +56,11 @@ export function DiffPreview({ diff, title, className }: DiffPreviewProps) {
 
   return (
     <div className={cn('rounded-md border overflow-hidden', className)}>
-      {title && (
-        <div className="border-b bg-muted/50 px-4 py-2 font-medium">
-          {title}
-        </div>
-      )}
+      {title && <div className="border-b bg-muted/50 px-4 py-2 font-medium">{title}</div>}
       <div className="overflow-x-auto">
         <pre className="p-4 text-sm font-mono leading-relaxed">
           {lines.map((line, i) => (
-            <div
-              key={i}
-              className={cn('px-2 -mx-2', lineStyles[line.type])}
-            >
+            <div key={i} className={cn('px-2 -mx-2', lineStyles[line.type])}>
               {line.content || ' '}
             </div>
           ))}
@@ -88,9 +81,7 @@ interface InlineDiffProps {
 
 export function InlineDiff({ before, after, label }: InlineDiffProps) {
   if (before === after) {
-    return (
-      <span className="text-muted-foreground">{before}</span>
-    );
+    return <span className="text-muted-foreground">{before}</span>;
   }
 
   return (

@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Save, RotateCcw, ArrowRightLeft, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
+import {
+  Save,
+  RotateCcw,
+  ArrowRightLeft,
+  ChevronDown,
+  ChevronRight,
+  AlertCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import yaml from 'js-yaml';
 import {
@@ -188,7 +195,13 @@ const readOnlyPlugins = [
   }),
 ];
 
-export function MarkdownEditor({ item, onSave, onMove, readOnly = false, defaultViewMode = false }: MarkdownEditorProps) {
+export function MarkdownEditor({
+  item,
+  onSave,
+  onMove,
+  readOnly = false,
+  defaultViewMode = false,
+}: MarkdownEditorProps) {
   const editorRef = useRef<MDXEditorMethods>(null);
   const theme = useUIStore((state) => state.theme);
   const [saving, setSaving] = useState(false);
@@ -208,10 +221,7 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
   const [body, setBody] = useState(originalBody);
 
   // Validate YAML frontmatter in real-time
-  const yamlError = useMemo(
-    () => (frontmatter ? validateYaml(frontmatter) : null),
-    [frontmatter]
-  );
+  const yamlError = useMemo(() => (frontmatter ? validateYaml(frontmatter) : null), [frontmatter]);
 
   // Sync content when item changes
   useEffect(() => {
@@ -338,11 +348,7 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
       </div>
 
       {/* Error message */}
-      {error && (
-        <div className="px-3 py-2 bg-destructive/10 text-destructive text-sm">
-          {error}
-        </div>
-      )}
+      {error && <div className="px-3 py-2 bg-destructive/10 text-destructive text-sm">{error}</div>}
 
       {/* Frontmatter panel */}
       {frontmatter && (
@@ -369,13 +375,17 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
                   }
                 }}
                 value={frontmatter}
-                onChange={isEditing ? (e) => {
-                  setFrontmatter(e.target.value);
-                  // Auto-resize on change
-                  const el = e.target;
-                  el.style.height = 'auto';
-                  el.style.height = `${el.scrollHeight + 4}px`;
-                } : undefined}
+                onChange={
+                  isEditing
+                    ? (e) => {
+                        setFrontmatter(e.target.value);
+                        // Auto-resize on change
+                        const el = e.target;
+                        el.style.height = 'auto';
+                        el.style.height = `${el.scrollHeight + 4}px`;
+                      }
+                    : undefined
+                }
                 readOnly={!isEditing}
                 className={`w-full bg-secondary text-secondary-foreground font-mono text-sm p-3 rounded-lg border focus:outline-none focus:ring-2 overflow-hidden ${
                   yamlError
@@ -404,7 +414,12 @@ export function MarkdownEditor({ item, onSave, onMove, readOnly = false, default
           onChange={isEditing ? (markdown) => setBody(markdown) : undefined}
           readOnly={readOnly || isViewMode}
           plugins={isEditing ? editorPlugins : readOnlyPlugins}
-          className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
+          className={
+            theme === 'dark' ||
+            (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+              ? 'dark'
+              : ''
+          }
           contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
         />
       </div>

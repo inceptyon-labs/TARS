@@ -14,7 +14,7 @@
   background: transparent;
 }
 
-.mdx-editor-container .mdxeditor [role="toolbar"] {
+.mdx-editor-container .mdxeditor [role='toolbar'] {
   background: var(--secondary);
   border-bottom: 1px solid var(--border);
   border-radius: 0;
@@ -22,15 +22,15 @@
   flex-shrink: 0;
 }
 
-.mdx-editor-container .mdxeditor [role="toolbar"] button {
+.mdx-editor-container .mdxeditor [role='toolbar'] button {
   color: var(--foreground);
 }
 
-.mdx-editor-container .mdxeditor [role="toolbar"] button:hover {
+.mdx-editor-container .mdxeditor [role='toolbar'] button:hover {
   background: var(--muted);
 }
 
-.mdx-editor-container .mdxeditor [role="toolbar"] button[data-active="true"] {
+.mdx-editor-container .mdxeditor [role='toolbar'] button[data-active='true'] {
   background: var(--primary);
   color: var(--primary-foreground);
 }
@@ -79,7 +79,14 @@
 }
 
 .mdx-editor-container .cm-content {
-  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    SF Mono,
+    Menlo,
+    Consolas,
+    Liberation Mono,
+    monospace;
   font-size: 0.875rem;
   color: var(--foreground);
 }
@@ -106,28 +113,30 @@
   z-index: 50;
 }
 
-.mdxeditor-popup-container [role="dialog"],
-.mdxeditor-popup-container [role="listbox"] {
+.mdxeditor-popup-container [role='dialog'],
+.mdxeditor-popup-container [role='listbox'] {
   background: var(--popover);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
   color: var(--foreground);
 }
 
-.dark .mdxeditor-popup-container [role="dialog"],
-.dark .mdxeditor-popup-container [role="listbox"] {
+.dark .mdxeditor-popup-container [role='dialog'],
+.dark .mdxeditor-popup-container [role='listbox'] {
   background: var(--popover);
 }
 
-.mdxeditor-popup-container [role="option"] {
+.mdxeditor-popup-container [role='option'] {
   padding: 0.5rem 0.75rem;
   cursor: pointer;
   color: var(--foreground);
 }
 
-.mdxeditor-popup-container [role="option"]:hover,
-.mdxeditor-popup-container [role="option"][data-highlighted="true"] {
+.mdxeditor-popup-container [role='option']:hover,
+.mdxeditor-popup-container [role='option'][data-highlighted='true'] {
   background: var(--accent);
   color: var(--accent-foreground);
 }
@@ -135,7 +144,7 @@
 /* Select/dropdown trigger styling - TARS metallic theme */
 .mdx-editor-container select,
 .mdxeditor-select-trigger,
-[class*="_selectTrigger_"] {
+[class*='_selectTrigger_'] {
   background: var(--secondary) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius) !important;
@@ -150,13 +159,13 @@
 
 .mdx-editor-container select:hover,
 .mdxeditor-select-trigger:hover,
-[class*="_selectTrigger_"]:hover {
+[class*='_selectTrigger_']:hover {
   background: color-mix(in srgb, var(--secondary) 100%, white 5%) !important;
 }
 
 .mdx-editor-container select:focus,
 .mdxeditor-select-trigger:focus,
-[class*="_selectTrigger_"]:focus {
+[class*='_selectTrigger_']:focus {
   outline: none;
   border-color: var(--primary) !important;
   box-shadow:
@@ -165,8 +174,8 @@
 }
 
 /* Code block language selector */
-.mdx-editor-container [class*="_nestedEditor_"] select,
-.mdx-editor-container [class*="_codeBlockEditor_"] select {
+.mdx-editor-container [class*='_nestedEditor_'] select,
+.mdx-editor-container [class*='_codeBlockEditor_'] select {
   background: var(--secondary) !important;
   border: 1px solid var(--border) !important;
   color: var(--foreground) !important;

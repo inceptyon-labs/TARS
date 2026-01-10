@@ -8,12 +8,7 @@ interface ProjectListProps {
   onRemove: (id: string) => void;
 }
 
-export function ProjectList({
-  projects,
-  selectedPath,
-  onSelect,
-  onRemove,
-}: ProjectListProps) {
+export function ProjectList({ projects, selectedPath, onSelect, onRemove }: ProjectListProps) {
   return (
     <ul className="space-y-1">
       {projects.map((project) => (

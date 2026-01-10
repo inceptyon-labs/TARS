@@ -42,7 +42,14 @@ import {
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
 import { useUIStore } from '../stores/ui-store';
-import type { Inventory, SkillInfo, CommandInfo, AgentInfo, HookInfo, McpServer } from '../lib/types';
+import type {
+  Inventory,
+  SkillInfo,
+  CommandInfo,
+  AgentInfo,
+  HookInfo,
+  McpServer,
+} from '../lib/types';
 import { readClaudeMd, saveClaudeMd, getContextStats } from '../lib/ipc';
 import { Button } from './ui/button';
 
@@ -51,7 +58,15 @@ interface ProjectOverviewProps {
   projectPath: string;
 }
 
-type SectionId = 'context' | 'claude-md' | 'skills' | 'commands' | 'agents' | 'hooks' | 'mcp' | 'collisions';
+type SectionId =
+  | 'context'
+  | 'claude-md'
+  | 'skills'
+  | 'commands'
+  | 'agents'
+  | 'hooks'
+  | 'mcp'
+  | 'collisions';
 
 interface ScopeGroup<T> {
   scope: string;
@@ -94,7 +109,11 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
   const collisions = inventory.collisions;
 
   // Load CLAUDE.md content
-  const { data: claudeMdInfo, isLoading: loadingClaudeMd, error: claudeMdError } = useQuery({
+  const {
+    data: claudeMdInfo,
+    isLoading: loadingClaudeMd,
+    error: claudeMdError,
+  } = useQuery({
     queryKey: ['claude-md', projectPath],
     queryFn: () => readClaudeMd(projectPath),
   });
@@ -151,22 +170,14 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
     ),
   ];
 
-  const allCommands: CommandInfo[] = [
-    ...userScope.commands,
-    ...(projectData?.commands || []),
-  ];
+  const allCommands: CommandInfo[] = [...userScope.commands, ...(projectData?.commands || [])];
 
-  const allAgents: AgentInfo[] = [
-    ...userScope.agents,
-    ...(projectData?.agents || []),
-  ];
+  const allAgents: AgentInfo[] = [...userScope.agents, ...(projectData?.agents || [])];
 
   const allHooks: HookInfo[] = projectData?.hooks || [];
 
   const allMcpServers: { scope: string; servers: McpServer[] }[] = [
-    ...(userScope.mcp?.servers.length
-      ? [{ scope: 'User', servers: userScope.mcp.servers }]
-      : []),
+    ...(userScope.mcp?.servers.length ? [{ scope: 'User', servers: userScope.mcp.servers }] : []),
     ...(projectData?.mcp?.servers.length
       ? [{ scope: 'Project', servers: projectData.mcp.servers }]
       : []),
@@ -305,8 +316,8 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
                     contextUsagePercent > 75
                       ? 'bg-destructive'
                       : contextUsagePercent > 50
-                      ? 'bg-amber-500'
-                      : 'bg-primary'
+                        ? 'bg-amber-500'
+                        : 'bg-primary'
                   }`}
                   style={{ width: `${Math.max(contextUsagePercent, 0.5)}%` }}
                 />
@@ -315,187 +326,214 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
               {/* Breakdown with expandable details */}
               {contextStats && (
                 <div className="space-y-2">
-              {/* CLAUDE.md - not expandable */}
-              <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                <span className="text-sm">CLAUDE.md</span>
-                <span className="text-sm font-mono">
-                  {formatNumber(contextStats.claude_md_tokens)} tokens
-                  <span className="text-muted-foreground ml-2">({formatSize(contextStats.claude_md_chars)})</span>
-                </span>
-              </div>
-
-              {/* Agents - expandable */}
-              <details className="group">
-                <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
-                  <span className="text-sm flex items-center gap-2">
-                    <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
-                    Agents ({contextStats.agents_count})
-                    {contextStats.agents_tokens > 20000 && (
-                      <span className="text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">HIGH</span>
-                    )}
-                  </span>
-                  <span className="text-sm font-mono">
-                    {formatNumber(contextStats.agents_tokens)} tokens
-                    <span className="text-muted-foreground ml-2">({formatSize(contextStats.agents_chars)})</span>
-                  </span>
-                </summary>
-                {contextStats.agents_items.length > 0 && (
-                  <div className="mt-1 ml-5 space-y-1 text-xs">
-                    {contextStats.agents_items.slice(0, 10).map((item) => (
-                      <div key={item.path} className="flex justify-between py-1 px-2 bg-muted/20 rounded">
-                        <span className="truncate flex-1">
-                          {item.name}
-                          <span className="text-muted-foreground ml-1">({item.scope})</span>
-                        </span>
-                        <span className="font-mono text-muted-foreground ml-2">
-                          {formatNumber(item.tokens)} tok
-                        </span>
-                      </div>
-                    ))}
-                    {contextStats.agents_items.length > 10 && (
-                      <div className="text-muted-foreground py-1">
-                        +{contextStats.agents_items.length - 10} more...
-                      </div>
-                    )}
+                  {/* CLAUDE.md - not expandable */}
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm">CLAUDE.md</span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(contextStats.claude_md_tokens)} tokens
+                      <span className="text-muted-foreground ml-2">
+                        ({formatSize(contextStats.claude_md_chars)})
+                      </span>
+                    </span>
                   </div>
-                )}
-              </details>
 
-              {/* Commands - expandable */}
-              <details className="group">
-                <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
-                  <span className="text-sm flex items-center gap-2">
-                    <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
-                    Commands ({contextStats.commands_count})
-                  </span>
-                  <span className="text-sm font-mono">
-                    {formatNumber(contextStats.commands_tokens)} tokens
-                    <span className="text-muted-foreground ml-2">({formatSize(contextStats.commands_chars)})</span>
-                  </span>
-                </summary>
-                {contextStats.commands_items.length > 0 && (
-                  <div className="mt-1 ml-5 space-y-1 text-xs">
-                    {contextStats.commands_items.slice(0, 10).map((item) => (
-                      <div key={item.path} className="flex justify-between py-1 px-2 bg-muted/20 rounded">
-                        <span className="truncate flex-1">
-                          /{item.name}
-                          <span className="text-muted-foreground ml-1">({item.scope})</span>
-                        </span>
-                        <span className="font-mono text-muted-foreground ml-2">
-                          {formatNumber(item.tokens)} tok
-                        </span>
-                      </div>
-                    ))}
-                    {contextStats.commands_items.length > 10 && (
-                      <div className="text-muted-foreground py-1">
-                        +{contextStats.commands_items.length - 10} more...
-                      </div>
-                    )}
-                  </div>
-                )}
-              </details>
-
-              {/* Skills - expandable */}
-              <details className="group">
-                <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
-                  <span className="text-sm flex items-center gap-2">
-                    <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
-                    Skills ({contextStats.skills_count})
-                    <span className="text-[10px] text-muted-foreground">(on-demand)</span>
-                  </span>
-                  <span className="text-sm font-mono">
-                    {formatNumber(contextStats.skills_tokens)} tokens
-                    <span className="text-muted-foreground ml-2">({formatSize(contextStats.skills_chars)})</span>
-                  </span>
-                </summary>
-                {contextStats.skills_items.length > 0 ? (
-                  <div className="mt-1 ml-5 space-y-1 text-xs">
-                    {contextStats.skills_items.map((item) => (
-                      <div key={item.path} className="flex justify-between py-1 px-2 bg-muted/20 rounded">
-                        <span className="truncate flex-1">
-                          {item.name}
-                          <span className="text-muted-foreground ml-1">({item.scope})</span>
-                        </span>
-                        <span className="font-mono text-muted-foreground ml-2">
-                          {formatNumber(item.tokens)} tok
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-1 ml-5 text-xs text-muted-foreground py-1">
-                    Plugin skills loaded on-demand when invoked
-                  </div>
-                )}
-              </details>
-
-              {/* Settings - not expandable */}
-              <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                <span className="text-sm">Settings</span>
-                <span className="text-sm font-mono">
-                  {formatNumber(contextStats.settings_tokens)} tokens
-                  <span className="text-muted-foreground ml-2">({formatSize(contextStats.settings_chars)})</span>
-                </span>
-              </div>
-
-              {/* MCP Servers - expandable with complexity */}
-              <details className="group">
-                <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
-                  <span className="text-sm flex items-center gap-2">
-                    <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
-                    MCP Servers ({contextStats.mcp_servers.length})
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    complexity scores
-                  </span>
-                </summary>
-                {contextStats.mcp_servers.length > 0 ? (
-                  <div className="mt-1 ml-5 space-y-1 text-xs">
-                    {contextStats.mcp_servers.map((server) => (
-                      <div key={server.name} className="flex justify-between items-center py-1.5 px-2 bg-muted/20 rounded">
-                        <span className="truncate flex-1 flex items-center gap-2">
-                          {server.name}
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                            server.server_type === 'http' || server.server_type === 'sse'
-                              ? 'bg-blue-500/20 text-blue-600'
-                              : 'bg-muted text-muted-foreground'
-                          }`}>
-                            {server.server_type}
+                  {/* Agents - expandable */}
+                  <details className="group">
+                    <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
+                      <span className="text-sm flex items-center gap-2">
+                        <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
+                        Agents ({contextStats.agents_count})
+                        {contextStats.agents_tokens > 20000 && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">
+                            HIGH
                           </span>
-                          {server.is_plugin && (
-                            <span className="text-[10px] bg-purple-500/20 text-purple-600 px-1.5 py-0.5 rounded">
-                              plugin
-                            </span>
-                          )}
-                          {server.uses_wrapper && (
-                            <span className="text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">
-                              wrapper
-                            </span>
-                          )}
+                        )}
+                      </span>
+                      <span className="text-sm font-mono">
+                        {formatNumber(contextStats.agents_tokens)} tokens
+                        <span className="text-muted-foreground ml-2">
+                          ({formatSize(contextStats.agents_chars)})
                         </span>
-                        <span className={`font-mono ml-2 px-2 py-0.5 rounded ${
-                          server.complexity_score >= 6
-                            ? 'bg-red-500/20 text-red-600'
-                            : server.complexity_score >= 4
-                            ? 'bg-amber-500/20 text-amber-600'
-                            : 'bg-green-500/20 text-green-600'
-                        }`}>
-                          {server.complexity_score}
-                        </span>
+                      </span>
+                    </summary>
+                    {contextStats.agents_items.length > 0 && (
+                      <div className="mt-1 ml-5 space-y-1 text-xs">
+                        {contextStats.agents_items.slice(0, 10).map((item) => (
+                          <div
+                            key={item.path}
+                            className="flex justify-between py-1 px-2 bg-muted/20 rounded"
+                          >
+                            <span className="truncate flex-1">
+                              {item.name}
+                              <span className="text-muted-foreground ml-1">({item.scope})</span>
+                            </span>
+                            <span className="font-mono text-muted-foreground ml-2">
+                              {formatNumber(item.tokens)} tok
+                            </span>
+                          </div>
+                        ))}
+                        {contextStats.agents_items.length > 10 && (
+                          <div className="text-muted-foreground py-1">
+                            +{contextStats.agents_items.length - 10} more...
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
+                  </details>
+
+                  {/* Commands - expandable */}
+                  <details className="group">
+                    <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
+                      <span className="text-sm flex items-center gap-2">
+                        <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
+                        Commands ({contextStats.commands_count})
+                      </span>
+                      <span className="text-sm font-mono">
+                        {formatNumber(contextStats.commands_tokens)} tokens
+                        <span className="text-muted-foreground ml-2">
+                          ({formatSize(contextStats.commands_chars)})
+                        </span>
+                      </span>
+                    </summary>
+                    {contextStats.commands_items.length > 0 && (
+                      <div className="mt-1 ml-5 space-y-1 text-xs">
+                        {contextStats.commands_items.slice(0, 10).map((item) => (
+                          <div
+                            key={item.path}
+                            className="flex justify-between py-1 px-2 bg-muted/20 rounded"
+                          >
+                            <span className="truncate flex-1">
+                              /{item.name}
+                              <span className="text-muted-foreground ml-1">({item.scope})</span>
+                            </span>
+                            <span className="font-mono text-muted-foreground ml-2">
+                              {formatNumber(item.tokens)} tok
+                            </span>
+                          </div>
+                        ))}
+                        {contextStats.commands_items.length > 10 && (
+                          <div className="text-muted-foreground py-1">
+                            +{contextStats.commands_items.length - 10} more...
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </details>
+
+                  {/* Skills - expandable */}
+                  <details className="group">
+                    <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
+                      <span className="text-sm flex items-center gap-2">
+                        <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
+                        Skills ({contextStats.skills_count})
+                        <span className="text-[10px] text-muted-foreground">(on-demand)</span>
+                      </span>
+                      <span className="text-sm font-mono">
+                        {formatNumber(contextStats.skills_tokens)} tokens
+                        <span className="text-muted-foreground ml-2">
+                          ({formatSize(contextStats.skills_chars)})
+                        </span>
+                      </span>
+                    </summary>
+                    {contextStats.skills_items.length > 0 ? (
+                      <div className="mt-1 ml-5 space-y-1 text-xs">
+                        {contextStats.skills_items.map((item) => (
+                          <div
+                            key={item.path}
+                            className="flex justify-between py-1 px-2 bg-muted/20 rounded"
+                          >
+                            <span className="truncate flex-1">
+                              {item.name}
+                              <span className="text-muted-foreground ml-1">({item.scope})</span>
+                            </span>
+                            <span className="font-mono text-muted-foreground ml-2">
+                              {formatNumber(item.tokens)} tok
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-1 ml-5 text-xs text-muted-foreground py-1">
+                        Plugin skills loaded on-demand when invoked
+                      </div>
+                    )}
+                  </details>
+
+                  {/* Settings - not expandable */}
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm">Settings</span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(contextStats.settings_tokens)} tokens
+                      <span className="text-muted-foreground ml-2">
+                        ({formatSize(contextStats.settings_chars)})
+                      </span>
+                    </span>
                   </div>
-                ) : (
-                  <div className="mt-1 ml-5 text-xs text-muted-foreground py-1">
-                    No MCP servers configured
-                  </div>
-                )}
-                </details>
+
+                  {/* MCP Servers - expandable with complexity */}
+                  <details className="group">
+                    <summary className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50">
+                      <span className="text-sm flex items-center gap-2">
+                        <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
+                        MCP Servers ({contextStats.mcp_servers.length})
+                      </span>
+                      <span className="text-sm text-muted-foreground">complexity scores</span>
+                    </summary>
+                    {contextStats.mcp_servers.length > 0 ? (
+                      <div className="mt-1 ml-5 space-y-1 text-xs">
+                        {contextStats.mcp_servers.map((server) => (
+                          <div
+                            key={server.name}
+                            className="flex justify-between items-center py-1.5 px-2 bg-muted/20 rounded"
+                          >
+                            <span className="truncate flex-1 flex items-center gap-2">
+                              {server.name}
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                  server.server_type === 'http' || server.server_type === 'sse'
+                                    ? 'bg-blue-500/20 text-blue-600'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {server.server_type}
+                              </span>
+                              {server.is_plugin && (
+                                <span className="text-[10px] bg-purple-500/20 text-purple-600 px-1.5 py-0.5 rounded">
+                                  plugin
+                                </span>
+                              )}
+                              {server.uses_wrapper && (
+                                <span className="text-[10px] bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">
+                                  wrapper
+                                </span>
+                              )}
+                            </span>
+                            <span
+                              className={`font-mono ml-2 px-2 py-0.5 rounded ${
+                                server.complexity_score >= 6
+                                  ? 'bg-red-500/20 text-red-600'
+                                  : server.complexity_score >= 4
+                                    ? 'bg-amber-500/20 text-amber-600'
+                                    : 'bg-green-500/20 text-green-600'
+                              }`}
+                            >
+                              {server.complexity_score}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-1 ml-5 text-xs text-muted-foreground py-1">
+                        No MCP servers configured
+                      </div>
+                    )}
+                  </details>
                 </div>
               )}
 
               <p className="text-xs text-muted-foreground mt-3 text-center">
-                Token estimates based on actual file sizes (~3.5 chars/token). MCP complexity: 1-3 low, 4-5 medium, 6+ high.
+                Token estimates based on actual file sizes (~3.5 chars/token). MCP complexity: 1-3
+                low, 4-5 medium, 6+ high.
               </p>
             </div>
           )}
@@ -510,7 +548,8 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
                 <p className="text-sm text-muted-foreground">Loading...</p>
               ) : claudeMdError ? (
                 <div className="text-sm text-destructive">
-                  Error loading CLAUDE.md: {claudeMdError instanceof Error ? claudeMdError.message : String(claudeMdError)}
+                  Error loading CLAUDE.md:{' '}
+                  {claudeMdError instanceof Error ? claudeMdError.message : String(claudeMdError)}
                 </div>
               ) : (
                 <>
@@ -584,7 +623,13 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
                           ),
                         }),
                       ]}
-                      className={theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : ''}
+                      className={
+                        theme === 'dark' ||
+                        (theme === 'system' &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches)
+                          ? 'dark'
+                          : ''
+                      }
                       contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
                     />
                   </div>
@@ -690,7 +735,9 @@ export function ProjectOverview({ inventory, projectPath }: ProjectOverviewProps
           {expandedSections.has('hooks') && (
             <div>
               {allHooks.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-4">No hooks configured for this project</p>
+                <p className="text-sm text-muted-foreground p-4">
+                  No hooks configured for this project
+                </p>
               ) : (
                 <div className="divide-y divide-border">
                   {allHooks.map((hook, i) => (

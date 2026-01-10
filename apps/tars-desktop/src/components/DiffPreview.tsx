@@ -1,6 +1,14 @@
 import { useState, useMemo } from 'react';
 import Editor, { DiffEditor } from '@monaco-editor/react';
-import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Pencil,
+  Trash2,
+  AlertTriangle,
+  FileText,
+} from 'lucide-react';
 import type { DiffPreview as DiffPreviewType, OperationPreview } from '../lib/types';
 
 interface DiffPreviewProps {
@@ -152,7 +160,7 @@ export function DiffPreviewComponent({ preview, onCancel, onConfirm }: DiffPrevi
   };
 
   const expandAll = () => {
-    setExpandedItems(new Set(preview.operations.filter(op => op.diff).map(op => op.path)));
+    setExpandedItems(new Set(preview.operations.filter((op) => op.diff).map((op) => op.path)));
   };
 
   const collapseAll = () => {

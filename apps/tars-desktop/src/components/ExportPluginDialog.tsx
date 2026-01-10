@@ -12,13 +12,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import {
-  Package,
-  CheckCircle,
-  Loader2,
-  AlertTriangle,
-  FolderOpen,
-} from 'lucide-react';
+import { Package, CheckCircle, Loader2, AlertTriangle, FolderOpen } from 'lucide-react';
 import type { ProfileInfo } from '../lib/types';
 
 interface ExportPluginDialogProps {
@@ -37,9 +31,7 @@ export function ExportPluginDialog({
   onExportSuccess,
 }: ExportPluginDialogProps) {
   const [step, setStep] = useState<ExportStep>('form');
-  const [pluginName, setPluginName] = useState(
-    profile.name.toLowerCase().replace(/\s+/g, '-')
-  );
+  const [pluginName, setPluginName] = useState(profile.name.toLowerCase().replace(/\s+/g, '-'));
   const [version, setVersion] = useState('1.0.0');
   const [outputPath, setOutputPath] = useState<string>('');
   const [exportedPath, setExportedPath] = useState<string>('');
@@ -160,7 +152,8 @@ export function ExportPluginDialog({
                 />
                 {pluginName && !isValidName(pluginName) && (
                   <p className="text-xs text-red-500">
-                    Name must be lowercase, start with a letter or @, and contain only alphanumeric characters, hyphens, or slashes
+                    Name must be lowercase, start with a letter or @, and contain only alphanumeric
+                    characters, hyphens, or slashes
                   </p>
                 )}
               </div>
@@ -196,9 +189,7 @@ export function ExportPluginDialog({
                 </div>
               </div>
 
-              {error && (
-                <p className="text-sm text-red-500">{error}</p>
-              )}
+              {error && <p className="text-sm text-red-500">{error}</p>}
             </div>
           )}
 
@@ -206,9 +197,7 @@ export function ExportPluginDialog({
           {step === 'exporting' && (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">
-                Creating plugin archive...
-              </p>
+              <p className="text-sm text-muted-foreground">Creating plugin archive...</p>
             </div>
           )}
 
@@ -218,11 +207,12 @@ export function ExportPluginDialog({
               <CheckCircle className="h-12 w-12 text-green-500" />
               <div className="text-center space-y-2">
                 <p className="font-medium">Plugin exported successfully!</p>
-                <p className="text-sm text-muted-foreground break-all">
-                  {exportedPath}
-                </p>
+                <p className="text-sm text-muted-foreground break-all">{exportedPath}</p>
                 <p className="text-xs text-muted-foreground mt-4">
-                  Install with: <code className="bg-muted px-1 py-0.5 rounded">claude plugin install {exportedPath}</code>
+                  Install with:{' '}
+                  <code className="bg-muted px-1 py-0.5 rounded">
+                    claude plugin install {exportedPath}
+                  </code>
                 </p>
               </div>
             </div>
@@ -262,9 +252,7 @@ export function ExportPluginDialog({
             </>
           )}
 
-          {step === 'success' && (
-            <Button onClick={handleClose}>Done</Button>
-          )}
+          {step === 'success' && <Button onClick={handleClose}>Done</Button>}
 
           {step === 'error' && (
             <>

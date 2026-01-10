@@ -16,44 +16,16 @@ export function TarsLogo({ className = '', size = 32 }: TarsLogoProps) {
     >
       {/* Four articulated segments like TARS robot */}
       {/* Segment 1 - leftmost */}
-      <rect
-        x="8"
-        y="6"
-        width="10"
-        height="52"
-        rx="1.5"
-        fill="url(#segment-gradient-1)"
-      />
+      <rect x="8" y="6" width="10" height="52" rx="1.5" fill="url(#segment-gradient-1)" />
 
       {/* Segment 2 */}
-      <rect
-        x="20"
-        y="4"
-        width="10"
-        height="56"
-        rx="1.5"
-        fill="url(#segment-gradient-2)"
-      />
+      <rect x="20" y="4" width="10" height="56" rx="1.5" fill="url(#segment-gradient-2)" />
 
       {/* Segment 3 */}
-      <rect
-        x="32"
-        y="4"
-        width="10"
-        height="56"
-        rx="1.5"
-        fill="url(#segment-gradient-2)"
-      />
+      <rect x="32" y="4" width="10" height="56" rx="1.5" fill="url(#segment-gradient-2)" />
 
       {/* Segment 4 - rightmost */}
-      <rect
-        x="44"
-        y="6"
-        width="10"
-        height="52"
-        rx="1.5"
-        fill="url(#segment-gradient-1)"
-      />
+      <rect x="44" y="6" width="10" height="52" rx="1.5" fill="url(#segment-gradient-1)" />
 
       {/* Braille-like dots on segment 2 - matching TARS pattern */}
       {/* Top group */}
@@ -76,15 +48,7 @@ export function TarsLogo({ className = '', size = 32 }: TarsLogoProps) {
       <circle cx="37" cy="46" r="1.8" fill="#d4a574" />
 
       {/* Display screen area on center segments */}
-      <rect
-        x="22"
-        y="10"
-        width="18"
-        height="4"
-        rx="0.5"
-        fill="#0a0a0a"
-        opacity="0.6"
-      />
+      <rect x="22" y="10" width="18" height="4" rx="0.5" fill="#0a0a0a" opacity="0.6" />
 
       {/* Subtle highlights on segments */}
       <rect x="8" y="6" width="2" height="52" rx="0.5" fill="url(#highlight)" opacity="0.2" />

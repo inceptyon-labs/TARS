@@ -23,7 +23,13 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
 import { scanUserScope, listProjects } from '../lib/ipc';
-import type { AvailablePlugin, CacheStatusResponse, Marketplace, PluginInventory, PluginSkillInfo } from '../lib/types';
+import type {
+  AvailablePlugin,
+  CacheStatusResponse,
+  Marketplace,
+  PluginInventory,
+  PluginSkillInfo,
+} from '../lib/types';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import {
@@ -60,7 +66,10 @@ export function PluginsPage() {
 
   // Install dialog state
   const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [pendingInstall, setPendingInstall] = useState<{ pluginId: string; marketplace: string } | null>(null);
+  const [pendingInstall, setPendingInstall] = useState<{
+    pluginId: string;
+    marketplace: string;
+  } | null>(null);
   const [installScope, setInstallScope] = useState<'user' | 'project' | 'local'>('user');
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
 
@@ -90,10 +99,7 @@ export function PluginsPage() {
   });
 
   // Get cache status
-  const {
-    data: cacheStatus,
-    refetch: refetchCache,
-  } = useQuery({
+  const { data: cacheStatus, refetch: refetchCache } = useQuery({
     queryKey: ['cache-status'],
     queryFn: () => invoke<CacheStatusResponse>('cache_status'),
   });
@@ -188,7 +194,11 @@ export function PluginsPage() {
     }
   }
 
-  async function handleTogglePlugin(pluginId: string, marketplace: string | null, enabled: boolean) {
+  async function handleTogglePlugin(
+    pluginId: string,
+    marketplace: string | null,
+    enabled: boolean
+  ) {
     // Use full plugin key: plugin@marketplace
     const pluginKey = marketplace ? `${pluginId}@${marketplace}` : pluginId;
     try {
@@ -300,16 +310,18 @@ export function PluginsPage() {
 
   function toggleProjectSelection(projectPath: string) {
     setSelectedProjects((prev) =>
-      prev.includes(projectPath)
-        ? prev.filter((p) => p !== projectPath)
-        : [...prev, projectPath]
+      prev.includes(projectPath) ? prev.filter((p) => p !== projectPath) : [...prev, projectPath]
     );
   }
 
   async function handleCleanCache() {
     setCleaningCache(true);
     try {
-      const result = await invoke<{ deleted_count: number; deleted_size_formatted: string; errors: string[] }>('cache_clean');
+      const result = await invoke<{
+        deleted_count: number;
+        deleted_size_formatted: string;
+        errors: string[];
+      }>('cache_clean');
       if (result.deleted_count > 0) {
         toast.success('Cache cleaned', {
           description: `Removed ${result.deleted_count} entries, freed ${result.deleted_size_formatted}`,
@@ -465,9 +477,7 @@ export function PluginsPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <Store className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No marketplaces configured</p>
-                <p className="text-xs mt-1">
-                  Add a marketplace to discover and install plugins
-                </p>
+                <p className="text-xs mt-1">Add a marketplace to discover and install plugins</p>
               </div>
             ) : (
               <Table>
@@ -506,7 +516,9 @@ export function PluginsPage() {
                       <TableCell>
                         <button
                           type="button"
-                          onClick={() => handleToggleAutoUpdate(marketplace.name, marketplace.auto_update)}
+                          onClick={() =>
+                            handleToggleAutoUpdate(marketplace.name, marketplace.auto_update)
+                          }
                           className="text-xs px-2 py-1 rounded hover:bg-muted transition-colors"
                           title={`Click to ${marketplace.auto_update ? 'disable' : 'enable'} auto-update`}
                         >
@@ -554,9 +566,7 @@ export function PluginsPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <Box className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No plugins installed</p>
-                <p className="text-xs mt-1">
-                  Browse available plugins below to install
-                </p>
+                <p className="text-xs mt-1">Browse available plugins below to install</p>
               </div>
             ) : (
               <Table>
@@ -576,7 +586,10 @@ export function PluginsPage() {
                     const skills = plugin.manifest.parsed_skills || [];
 
                     return (
-                      <TableRow key={`${plugin.id}-${plugin.marketplace}`} className={!plugin.enabled ? 'opacity-60' : ''}>
+                      <TableRow
+                        key={`${plugin.id}-${plugin.marketplace}`}
+                        className={!plugin.enabled ? 'opacity-60' : ''}
+                      >
                         <TableCell>
                           <div>
                             <span className="font-medium">{plugin.id}</span>
@@ -594,8 +607,8 @@ export function PluginsPage() {
                                       skill.is_init
                                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                                         : skill.is_settings
-                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                                          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                                     }`}
                                     title={`Click to copy ${skill.invocation}`}
                                     onClick={() => handleCopySkill(skill)}
@@ -624,13 +637,15 @@ export function PluginsPage() {
                         <TableCell>
                           <span
                             className="text-xs px-2 py-0.5 bg-muted rounded"
-                            title={plugin.scope.type === 'User'
-                              ? 'User scope - available everywhere'
-                              : plugin.scope.type === 'Project'
-                              ? 'Project scope - specific to a project'
-                              : plugin.scope.type === 'Local'
-                              ? 'Local scope - project-specific, not tracked by git'
-                              : 'Managed scope - controlled by system admin'}
+                            title={
+                              plugin.scope.type === 'User'
+                                ? 'User scope - available everywhere'
+                                : plugin.scope.type === 'Project'
+                                  ? 'Project scope - specific to a project'
+                                  : plugin.scope.type === 'Local'
+                                    ? 'Local scope - project-specific, not tracked by git'
+                                    : 'Managed scope - controlled by system admin'
+                            }
                           >
                             {plugin.scope.type.toLowerCase()}
                           </span>
@@ -661,7 +676,9 @@ export function PluginsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleTogglePlugin(plugin.id, plugin.marketplace, plugin.enabled)}
+                              onClick={() =>
+                                handleTogglePlugin(plugin.id, plugin.marketplace, plugin.enabled)
+                              }
                               title={plugin.enabled ? 'Disable' : 'Enable'}
                             >
                               {plugin.enabled ? (
@@ -674,7 +691,9 @@ export function PluginsPage() {
                               variant="ghost"
                               size="sm"
                               className="text-destructive hover:text-destructive"
-                              onClick={() => handleUninstallPlugin(plugin.id, plugin.scope.type.toLowerCase())}
+                              onClick={() =>
+                                handleUninstallPlugin(plugin.id, plugin.scope.type.toLowerCase())
+                              }
                               title="Uninstall"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -719,7 +738,8 @@ export function PluginsPage() {
                 </Button>
               </div>
               <CardDescription>
-                {cacheStatus.stale_entries.length} stale plugin cache{cacheStatus.stale_entries.length !== 1 ? 's' : ''} from old versions
+                {cacheStatus.stale_entries.length} stale plugin cache
+                {cacheStatus.stale_entries.length !== 1 ? 's' : ''} from old versions
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -746,9 +766,7 @@ export function PluginsPage() {
                         {entry.plugin_name}@{entry.marketplace}{' '}
                         <span className="font-mono">v{entry.version}</span>
                       </span>
-                      <span className="text-muted-foreground">
-                        {formatBytes(entry.size_bytes)}
-                      </span>
+                      <span className="text-muted-foreground">{formatBytes(entry.size_bytes)}</span>
                     </div>
                   ))}
                 </div>
@@ -781,7 +799,9 @@ export function PluginsPage() {
               </button>
               {availablePluginsExpanded && (
                 <>
-                  <CardDescription className="mt-2">Browse and install plugins from your marketplaces</CardDescription>
+                  <CardDescription className="mt-2">
+                    Browse and install plugins from your marketplaces
+                  </CardDescription>
                   <div className="flex gap-2 mt-3">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -860,7 +880,10 @@ export function PluginsPage() {
                           <Button
                             size="sm"
                             variant={plugin.installed ? 'outline' : 'default'}
-                            disabled={plugin.installed || installingPlugin === `${plugin.id}@${plugin.marketplace}`}
+                            disabled={
+                              plugin.installed ||
+                              installingPlugin === `${plugin.id}@${plugin.marketplace}`
+                            }
                             onClick={() => handleInstallClick(plugin.id, plugin.marketplace)}
                           >
                             {installingPlugin === `${plugin.id}@${plugin.marketplace}` ? (
@@ -886,7 +909,6 @@ export function PluginsPage() {
             )}
           </Card>
         )}
-
       </div>
 
       {/* Add Marketplace Dialog */}
@@ -944,12 +966,15 @@ export function PluginsPage() {
       />
 
       {/* Install Plugin Dialog */}
-      <Dialog open={showInstallDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowInstallDialog(false);
-          setPendingInstall(null);
-        }
-      }}>
+      <Dialog
+        open={showInstallDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowInstallDialog(false);
+            setPendingInstall(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Install Plugin</DialogTitle>
@@ -1027,9 +1052,7 @@ export function PluginsPage() {
                     <div className="text-center py-6 text-muted-foreground">
                       <FolderOpen className="h-6 w-6 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No projects configured</p>
-                      <p className="text-xs mt-1">
-                        Add projects in the Projects tab first
-                      </p>
+                      <p className="text-xs mt-1">Add projects in the Projects tab first</p>
                     </div>
                   ) : (
                     <div className="divide-y">
@@ -1058,10 +1081,13 @@ export function PluginsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowInstallDialog(false);
-              setPendingInstall(null);
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowInstallDialog(false);
+                setPendingInstall(null);
+              }}
+            >
               Cancel
             </Button>
             <Button
@@ -1069,7 +1095,8 @@ export function PluginsPage() {
               disabled={installScope !== 'user' && selectedProjects.length === 0}
             >
               <Download className="h-4 w-4 mr-2" />
-              Install{installScope !== 'user' && selectedProjects.length > 0
+              Install
+              {installScope !== 'user' && selectedProjects.length > 0
                 ? ` to ${selectedProjects.length} project${selectedProjects.length > 1 ? 's' : ''}`
                 : ''}
             </Button>
@@ -1078,7 +1105,10 @@ export function PluginsPage() {
       </Dialog>
 
       {/* Skills Dialog */}
-      <Dialog open={!!skillsDialogPlugin} onOpenChange={(open) => !open && setSkillsDialogPlugin(null)}>
+      <Dialog
+        open={!!skillsDialogPlugin}
+        onOpenChange={(open) => !open && setSkillsDialogPlugin(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1110,11 +1140,7 @@ export function PluginsPage() {
                     )}
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopySkill(skill)}
-                >
+                <Button variant="outline" size="sm" onClick={() => handleCopySkill(skill)}>
                   Copy
                 </Button>
               </div>

@@ -17,18 +17,13 @@ export function ProfileDetail({ profile }: ProfileDetailProps) {
       {/* Header */}
       <div>
         <h3 className="text-xl font-bold">{profile.name}</h3>
-        {profile.description && (
-          <p className="text-muted-foreground mt-1">{profile.description}</p>
-        )}
+        {profile.description && <p className="text-muted-foreground mt-1">{profile.description}</p>}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="border rounded-lg p-4 text-center"
-          >
+          <div key={stat.label} className="border rounded-lg p-4 text-center">
             <stat.icon className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
             <div className="text-2xl font-bold">{stat.value}</div>
             <div className="text-xs text-muted-foreground">{stat.label}</div>

@@ -2,7 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Cpu, Plus, RefreshCw, Search, Trash2, FolderOpen } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { scanUserScope, scanProjects, readSkill, saveSkill, createSkill, deleteSkill, listProjects } from '../lib/ipc';
+import {
+  scanUserScope,
+  scanProjects,
+  readSkill,
+  saveSkill,
+  createSkill,
+  deleteSkill,
+  listProjects,
+} from '../lib/ipc';
 import { SkillEditor } from '../components/SkillEditor';
 import { Button } from '../components/ui/button';
 import {
@@ -63,15 +71,24 @@ export function SkillsPage() {
   });
 
   // Scan user scope
-  const { data: inventory, isLoading: isLoadingUserScope, refetch: refetchUserScope } = useQuery({
+  const {
+    data: inventory,
+    isLoading: isLoadingUserScope,
+    refetch: refetchUserScope,
+  } = useQuery({
     queryKey: ['user-scope'],
     queryFn: scanUserScope,
   });
 
   // Scan all configured projects
-  const { data: projectsInventory, isLoading: isLoadingProjects, refetch: refetchProjects } = useQuery({
-    queryKey: ['projects-scan', projects.map(p => p.path)],
-    queryFn: () => projects.length > 0 ? scanProjects(projects.map(p => p.path)) : Promise.resolve(null),
+  const {
+    data: projectsInventory,
+    isLoading: isLoadingProjects,
+    refetch: refetchProjects,
+  } = useQuery({
+    queryKey: ['projects-scan', projects.map((p) => p.path)],
+    queryFn: () =>
+      projects.length > 0 ? scanProjects(projects.map((p) => p.path)) : Promise.resolve(null),
     enabled: projects.length > 0,
   });
 
@@ -170,9 +187,12 @@ export function SkillsPage() {
       const details = await createSkill(
         newSkillName.trim(),
         createScope,
-        createScope === 'project' ? selectedProject ?? undefined : undefined
+        createScope === 'project' ? (selectedProject ?? undefined) : undefined
       );
-      const scopeDesc = createScope === 'user' ? 'user scope' : `project "${projects.find(p => p.path === selectedProject)?.name}"`;
+      const scopeDesc =
+        createScope === 'user'
+          ? 'user scope'
+          : `project "${projects.find((p) => p.path === selectedProject)?.name}"`;
       toast.success(`Created skill "${newSkillName}"`, {
         description: `Added to ${scopeDesc}`,
       });
@@ -247,9 +267,7 @@ export function SkillsPage() {
                   )}
                 </div>
                 {skill.description && (
-                  <div className="text-xs opacity-60 truncate mt-0.5">
-                    {skill.description}
-                  </div>
+                  <div className="text-xs opacity-60 truncate mt-0.5">{skill.description}</div>
                 )}
               </button>
               {showActions && isSkillEditable(skill.scope) && (
@@ -368,9 +386,7 @@ export function SkillsPage() {
                 <Cpu className="h-10 w-10 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Select a skill to edit
-                </p>
+                <p className="text-sm text-muted-foreground">Select a skill to edit</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Customize Claude Code capabilities
                 </p>
@@ -385,9 +401,7 @@ export function SkillsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Skill</DialogTitle>
-            <DialogDescription>
-              Create a new skill in your user or project scope.
-            </DialogDescription>
+            <DialogDescription>Create a new skill in your user or project scope.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
@@ -399,7 +413,11 @@ export function SkillsPage() {
                 placeholder="my-skill"
                 className="mt-2"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newSkillName.trim() && (createScope === 'user' || selectedProject)) {
+                  if (
+                    e.key === 'Enter' &&
+                    newSkillName.trim() &&
+                    (createScope === 'user' || selectedProject)
+                  ) {
                     handleCreateSkill();
                   }
                 }}
@@ -466,7 +484,9 @@ export function SkillsPage() {
                         <FolderOpen className="h-4 w-4 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{project.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{project.path}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {project.path}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -485,7 +505,9 @@ export function SkillsPage() {
             </Button>
             <Button
               onClick={handleCreateSkill}
-              disabled={creating || !newSkillName.trim() || (createScope === 'project' && !selectedProject)}
+              disabled={
+                creating || !newSkillName.trim() || (createScope === 'project' && !selectedProject)
+              }
             >
               {creating ? 'Creating...' : 'Create Skill'}
             </Button>

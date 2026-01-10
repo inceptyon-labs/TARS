@@ -154,7 +154,9 @@ export function McpPanel() {
   const openMoveDialog = (server: McpServer) => {
     setServerToMove(server);
     // Pre-select a different scope than current
-    const otherScopes: Scope[] = ['user', 'project', 'local'].filter(s => s !== server.scope) as Scope[];
+    const otherScopes: Scope[] = ['user', 'project', 'local'].filter(
+      (s) => s !== server.scope
+    ) as Scope[];
     setMoveTargetScope(otherScopes[0] || 'user');
   };
 
@@ -212,21 +214,14 @@ export function McpPanel() {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => setShowAddForm(true)}>
-            Add Server
-          </Button>
+          <Button onClick={() => setShowAddForm(true)}>Add Server</Button>
         </div>
       </div>
 
       {error && (
         <div className="p-4 bg-destructive/10 text-destructive rounded-md">
           {error}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-2"
-            onClick={() => setError(null)}
-          >
+          <Button variant="ghost" size="sm" className="ml-2" onClick={() => setError(null)}>
             Dismiss
           </Button>
         </div>

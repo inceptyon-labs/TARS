@@ -77,9 +77,7 @@ export function CreateProfileDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">
-                Profile Name
-              </label>
+              <label className="block text-sm font-medium mb-1.5">Profile Name</label>
               <input
                 type="text"
                 value={name}
@@ -90,9 +88,7 @@ export function CreateProfileDialog({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">
-                Source Project
-              </label>
+              <label className="block text-sm font-medium mb-1.5">Source Project</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -101,12 +97,7 @@ export function CreateProfileDialog({
                   placeholder="/path/to/project"
                   className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleBrowse}
-                >
+                <Button type="button" variant="outline" size="icon" onClick={handleBrowse}>
                   <FolderOpen className="h-4 w-4" />
                 </Button>
               </div>
@@ -116,9 +107,7 @@ export function CreateProfileDialog({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">
-                Description (optional)
-              </label>
+              <label className="block text-sm font-medium mb-1.5">Description (optional)</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -131,17 +120,10 @@ export function CreateProfileDialog({
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-              >
+              <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={!name.trim() || !sourcePath.trim() || isLoading}
-              >
+              <Button type="submit" disabled={!name.trim() || !sourcePath.trim() || isLoading}>
                 {isLoading ? 'Creating...' : 'Create Profile'}
               </Button>
             </div>

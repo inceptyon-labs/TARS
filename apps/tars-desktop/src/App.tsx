@@ -36,8 +36,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.remove('light', 'dark');
 
       if (theme === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-          .matches
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
           ? 'dark'
           : 'light';
         root.classList.add(systemTheme);
@@ -89,11 +88,7 @@ function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-        <Toaster
-          theme={theme === 'system' ? 'system' : theme}
-          position="bottom-right"
-          richColors
-        />
+        <Toaster theme={theme === 'system' ? 'system' : theme} position="bottom-right" richColors />
       </ThemeProvider>
     </QueryClientProvider>
   );

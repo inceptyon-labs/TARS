@@ -2,7 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { Terminal, Plus, RefreshCw, Search, Trash2, FolderOpen } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { scanUserScope, scanProjects, readCommand, saveCommand, createCommand, deleteCommand, moveCommand, listProjects } from '../lib/ipc';
+import {
+  scanUserScope,
+  scanProjects,
+  readCommand,
+  saveCommand,
+  createCommand,
+  deleteCommand,
+  moveCommand,
+  listProjects,
+} from '../lib/ipc';
 import { MarkdownEditor } from '../components/MarkdownEditor';
 import { Button } from '../components/ui/button';
 import {
@@ -64,15 +73,24 @@ export function CommandsPage() {
   });
 
   // Scan user scope
-  const { data: inventory, isLoading: isLoadingUserScope, refetch: refetchUserScope } = useQuery({
+  const {
+    data: inventory,
+    isLoading: isLoadingUserScope,
+    refetch: refetchUserScope,
+  } = useQuery({
     queryKey: ['user-scope'],
     queryFn: scanUserScope,
   });
 
   // Scan all configured projects
-  const { data: projectsInventory, isLoading: isLoadingProjects, refetch: refetchProjects } = useQuery({
-    queryKey: ['projects-scan', projects.map(p => p.path)],
-    queryFn: () => projects.length > 0 ? scanProjects(projects.map(p => p.path)) : Promise.resolve(null),
+  const {
+    data: projectsInventory,
+    isLoading: isLoadingProjects,
+    refetch: refetchProjects,
+  } = useQuery({
+    queryKey: ['projects-scan', projects.map((p) => p.path)],
+    queryFn: () =>
+      projects.length > 0 ? scanProjects(projects.map((p) => p.path)) : Promise.resolve(null),
     enabled: projects.length > 0,
   });
 
@@ -171,9 +189,12 @@ export function CommandsPage() {
       const details = await createCommand(
         newCommandName.trim(),
         createScope,
-        createScope === 'project' ? selectedProject ?? undefined : undefined
+        createScope === 'project' ? (selectedProject ?? undefined) : undefined
       );
-      const scopeDesc = createScope === 'user' ? 'user scope' : `project "${projects.find(p => p.path === selectedProject)?.name}"`;
+      const scopeDesc =
+        createScope === 'user'
+          ? 'user scope'
+          : `project "${projects.find((p) => p.path === selectedProject)?.name}"`;
       toast.success(`Created command "${newCommandName}"`, {
         description: `Added to ${scopeDesc}`,
       });
@@ -234,10 +255,8 @@ export function CommandsPage() {
   }
 
   function toggleProjectSelection(projectPath: string) {
-    setMoveTargetProjects(prev =>
-      prev.includes(projectPath)
-        ? prev.filter(p => p !== projectPath)
-        : [...prev, projectPath]
+    setMoveTargetProjects((prev) =>
+      prev.includes(projectPath) ? prev.filter((p) => p !== projectPath) : [...prev, projectPath]
     );
   }
 
@@ -260,7 +279,7 @@ export function CommandsPage() {
       if (moveTargetScope === 'user') {
         scopeDesc = 'user scope';
       } else if (moveTargetProjects.length === 1) {
-        const projectName = projects.find(p => p.path === moveTargetProjects[0])?.name;
+        const projectName = projects.find((p) => p.path === moveTargetProjects[0])?.name;
         scopeDesc = `project "${projectName}"`;
       } else {
         scopeDesc = `${moveTargetProjects.length} projects`;
@@ -307,9 +326,7 @@ export function CommandsPage() {
                   <span className="font-medium flex-1 truncate">/{command.name}</span>
                 </div>
                 {command.description && (
-                  <div className="text-xs opacity-60 truncate mt-0.5">
-                    {command.description}
-                  </div>
+                  <div className="text-xs opacity-60 truncate mt-0.5">{command.description}</div>
                 )}
               </button>
               {showActions && isCommandEditable(command.scope) && (
@@ -429,9 +446,7 @@ export function CommandsPage() {
                 <Terminal className="h-10 w-10 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Select a command to edit
-                </p>
+                <p className="text-sm text-muted-foreground">Select a command to edit</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Slash commands for quick actions
                 </p>
@@ -460,13 +475,18 @@ export function CommandsPage() {
                 placeholder="my-command"
                 className="mt-2"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newCommandName.trim() && (createScope === 'user' || selectedProject)) {
+                  if (
+                    e.key === 'Enter' &&
+                    newCommandName.trim() &&
+                    (createScope === 'user' || selectedProject)
+                  ) {
                     handleCreateCommand();
                   }
                 }}
               />
               <p className="text-xs text-muted-foreground mt-2">
-                Use lowercase letters, numbers, and hyphens. Will be invoked as /{newCommandName || 'my-command'}.
+                Use lowercase letters, numbers, and hyphens. Will be invoked as /
+                {newCommandName || 'my-command'}.
               </p>
             </div>
 
@@ -527,7 +547,9 @@ export function CommandsPage() {
                         <FolderOpen className="h-4 w-4 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{project.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{project.path}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {project.path}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -546,7 +568,11 @@ export function CommandsPage() {
             </Button>
             <Button
               onClick={handleCreateCommand}
-              disabled={creating || !newCommandName.trim() || (createScope === 'project' && !selectedProject)}
+              disabled={
+                creating ||
+                !newCommandName.trim() ||
+                (createScope === 'project' && !selectedProject)
+              }
             >
               {creating ? 'Creating...' : 'Create Command'}
             </Button>
@@ -607,7 +633,10 @@ export function CommandsPage() {
 
             {moveTargetScope === 'project' && (
               <div>
-                <Label>Select Projects {moveTargetProjects.length > 0 && `(${moveTargetProjects.length} selected)`}</Label>
+                <Label>
+                  Select Projects{' '}
+                  {moveTargetProjects.length > 0 && `(${moveTargetProjects.length} selected)`}
+                </Label>
                 {projects.length === 0 ? (
                   <p className="text-sm text-muted-foreground mt-2">
                     No projects configured. Add a project first.
@@ -632,7 +661,9 @@ export function CommandsPage() {
                         <FolderOpen className="h-4 w-4 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{project.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{project.path}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {project.path}
+                          </div>
                         </div>
                       </label>
                     ))}
@@ -642,16 +673,14 @@ export function CommandsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowMoveDialog(false)}
-              disabled={moving}
-            >
+            <Button variant="outline" onClick={() => setShowMoveDialog(false)} disabled={moving}>
               Cancel
             </Button>
             <Button
               onClick={handleMoveCommand}
-              disabled={moving || (moveTargetScope === 'project' && moveTargetProjects.length === 0)}
+              disabled={
+                moving || (moveTargetScope === 'project' && moveTargetProjects.length === 0)
+              }
             >
               {moving ? 'Moving...' : 'Move Command'}
             </Button>

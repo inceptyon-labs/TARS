@@ -14,4 +14,13 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { DiffPreview, InlineDiff } from './DiffPreview';
 
 // Types
-export type { McpServer, Scope, Skill, Hook, Command, Agent, OperationResult, MoveResult } from './types';
+export type {
+  McpServer,
+  Scope,
+  Skill,
+  Hook,
+  Command,
+  Agent,
+  OperationResult,
+  MoveResult,
+} from './types';

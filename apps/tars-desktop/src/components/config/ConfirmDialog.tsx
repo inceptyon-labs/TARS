@@ -54,18 +54,10 @@ export function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             {cancelLabel}
           </Button>
-          <Button
-            variant={confirmVariant}
-            onClick={handleConfirm}
-            disabled={loading}
-          >
+          <Button variant={confirmVariant} onClick={handleConfirm} disabled={loading}>
             {loading ? 'Processing...' : confirmLabel}
           </Button>
         </DialogFooter>

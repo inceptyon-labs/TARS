@@ -10,15 +10,13 @@ import {
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { DiffPreview } from './DiffPreview';
-import {
-  AlertTriangle,
-  CheckCircle,
-  Loader2,
-  RotateCcw,
-  Play,
-  Eye,
-} from 'lucide-react';
-import type { DiffPreview as DiffPreviewType, ProfileInfo, ProjectInfo, BackupInfo } from '../lib/types';
+import { AlertTriangle, CheckCircle, Loader2, RotateCcw, Play, Eye } from 'lucide-react';
+import type {
+  DiffPreview as DiffPreviewType,
+  ProfileInfo,
+  ProjectInfo,
+  BackupInfo,
+} from '../lib/types';
 
 interface ApplyDialogProps {
   open: boolean;
@@ -141,7 +139,8 @@ export function ApplyDialog({
           <DialogDescription>
             {step === 'preview' && `Review changes that will be applied to ${project.name}`}
             {step === 'applying' && 'Please wait while the profile is being applied...'}
-            {step === 'success' && 'The profile has been applied successfully. A backup was created.'}
+            {step === 'success' &&
+              'The profile has been applied successfully. A backup was created.'}
             {step === 'error' && 'An error occurred while applying the profile.'}
           </DialogDescription>
         </DialogHeader>

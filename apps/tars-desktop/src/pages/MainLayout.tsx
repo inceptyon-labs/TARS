@@ -156,12 +156,19 @@ export function MainLayout() {
             )}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </button>
 
           <div className={cn('flex flex-col items-center', sidebarCollapsed && 'mt-8')}>
             {/* TARS Mark - Robot design: 2 legs + body with braille dots */}
-            <div className={cn('tars-mark-sm mb-2', sidebarCollapsed && 'tars-mark-collapsed')} aria-hidden="true">
+            <div
+              className={cn('tars-mark-sm mb-2', sidebarCollapsed && 'tars-mark-collapsed')}
+              aria-hidden="true"
+            >
               <span />
               <span />
               <span />
@@ -170,9 +177,7 @@ export function MainLayout() {
             {/* TARS Wordmark - Interstellar-inspired */}
             {!sidebarCollapsed && (
               <div className="tars-wordmark-sm mb-2" aria-hidden="true">
-                <div className="tars-wordmark-text-sm">
-                  TARS
-                </div>
+                <div className="tars-wordmark-text-sm">TARS</div>
               </div>
             )}
 
@@ -202,7 +207,12 @@ export function MainLayout() {
                 className="tars-section-header w-full flex items-center justify-between mb-2 px-3 py-1 rounded hover:bg-muted/30 transition-colors"
               >
                 <span className="tars-section-title">Modules</span>
-                <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', !modulesExpanded && '-rotate-90')} />
+                <ChevronDown
+                  className={cn(
+                    'h-3 w-3 text-muted-foreground transition-transform',
+                    !modulesExpanded && '-rotate-90'
+                  )}
+                />
               </button>
             )}
             {(modulesExpanded || sidebarCollapsed) && (
@@ -242,7 +252,12 @@ export function MainLayout() {
                 className="tars-section-header w-full flex items-center justify-between mb-2 px-3 py-1 rounded hover:bg-muted/30 transition-colors"
               >
                 <span className="tars-section-title">Knowledge</span>
-                <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', !knowledgeExpanded && '-rotate-90')} />
+                <ChevronDown
+                  className={cn(
+                    'h-3 w-3 text-muted-foreground transition-transform',
+                    !knowledgeExpanded && '-rotate-90'
+                  )}
+                />
               </button>
             )}
             {(knowledgeExpanded || sidebarCollapsed) && (
@@ -295,7 +310,12 @@ export function MainLayout() {
                 className="tars-section-header w-full flex items-center justify-between mb-2 px-3 py-1 rounded hover:bg-muted/30 transition-colors"
               >
                 <span className="tars-section-title">System</span>
-                <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', !systemExpanded && '-rotate-90')} />
+                <ChevronDown
+                  className={cn(
+                    'h-3 w-3 text-muted-foreground transition-transform',
+                    !systemExpanded && '-rotate-90'
+                  )}
+                />
               </button>
             )}
 
@@ -336,14 +356,16 @@ export function MainLayout() {
                 </div>
 
                 {/* Theme Switcher */}
-                <div className={cn('flex items-center justify-between px-3', sidebarCollapsed && 'flex-col gap-2 px-2')}>
-                  {!sidebarCollapsed && <span className="text-sm text-muted-foreground">Theme</span>}
-                  <div
-                    className={cn(
-                      'flex items-center gap-1',
-                      sidebarCollapsed && 'flex-col'
-                    )}
-                  >
+                <div
+                  className={cn(
+                    'flex items-center justify-between px-3',
+                    sidebarCollapsed && 'flex-col gap-2 px-2'
+                  )}
+                >
+                  {!sidebarCollapsed && (
+                    <span className="text-sm text-muted-foreground">Theme</span>
+                  )}
+                  <div className={cn('flex items-center gap-1', sidebarCollapsed && 'flex-col')}>
                     {(['system', 'light', 'dark'] as Theme[]).map((t) => (
                       <button
                         key={t}

@@ -105,9 +105,7 @@ export function ProjectsPage() {
                   <FolderGit2 className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <p className="text-sm font-medium text-foreground">No projects</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Add a project to get started
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">Add a project to get started</p>
               </div>
             ) : (
               <ProjectList
@@ -151,9 +149,7 @@ export function ProjectsPage() {
                 <FolderOpen className="h-10 w-10 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Select a project to scan
-                </p>
+                <p className="text-sm text-muted-foreground">Select a project to scan</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   View skills, commands, agents, and more
                 </p>
