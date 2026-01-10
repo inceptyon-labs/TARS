@@ -21,6 +21,7 @@
         { "path": "$HOME/.claude/**/*" }
       ]
     },
-    "shell:default"
+    "shell:default",
+    "updater:default"
   ]
 }

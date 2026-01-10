@@ -20,7 +20,13 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { getClaudeVersionInfo, fetchClaudeChangelog, checkPluginUpdates } from '../lib/ipc';
+import {
+  getClaudeVersionInfo,
+  fetchClaudeChangelog,
+  checkPluginUpdates,
+  checkTarsUpdate,
+  installTarsUpdate,
+} from '../lib/ipc';
 import type { ChangelogEntry, PluginUpdateInfo } from '../lib/types';
 import { Button } from '../components/ui/button';
 
@@ -68,6 +74,36 @@ export function UpdatesPage() {
     staleTime: POLL_INTERVAL - 60000,
   });
 
+  // Fetch TARS app update info with polling
+  const {
+    data: tarsUpdate,
+    isLoading: loadingTars,
+    refetch: refetchTars,
+  } = useQuery({
+    queryKey: ['tars-update'],
+    queryFn: checkTarsUpdate,
+    refetchInterval: POLL_INTERVAL,
+    staleTime: POLL_INTERVAL - 60000,
+  });
+
+  const [isInstalling, setIsInstalling] = useState(false);
+
+  const handleInstallTarsUpdate = async () => {
+    setIsInstalling(true);
+    try {
+      await installTarsUpdate();
+      toast.success('Update installed!', {
+        description: 'TARS will restart to apply the update.',
+      });
+    } catch (err) {
+      toast.error('Failed to install update', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
   const toggleVersion = (version: string) => {
     setExpandedVersions((prev) => {
       const next = new Set(prev);
@@ -83,7 +119,7 @@ export function UpdatesPage() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refetchVersion(), refetchChangelog(), refetchPlugins()]);
+      await Promise.all([refetchVersion(), refetchChangelog(), refetchPlugins(), refetchTars()]);
       toast.success('Updates checked', {
         description: 'All update sources have been refreshed',
       });
@@ -287,19 +323,98 @@ export function UpdatesPage() {
             </div>
           </section>
 
-          {/* Future: TARS App Section */}
-          <section className="opacity-50">
+          {/* TARS App Section */}
+          <section>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-muted text-muted-foreground">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
                 <Package className="h-5 w-5" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold">TARS Desktop</h3>
-                <p className="text-sm text-muted-foreground">
-                  Coming soon - app update notifications
-                </p>
+                <p className="text-sm text-muted-foreground">Configuration manager app</p>
               </div>
             </div>
+
+            {/* Version Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Current Version */}
+              <div className="p-4 rounded-lg border border-border bg-card">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Installed</span>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                </div>
+                <div className="text-2xl font-mono font-bold">
+                  {loadingTars ? (
+                    <span className="text-muted-foreground">Loading...</span>
+                  ) : (
+                    `v${tarsUpdate?.current_version || '0.0.0'}`
+                  )}
+                </div>
+              </div>
+
+              {/* Latest Version */}
+              <div
+                className={`p-4 rounded-lg border bg-card ${
+                  tarsUpdate?.update_available ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Latest</span>
+                  {tarsUpdate?.update_available && (
+                    <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                      <Sparkles className="h-3 w-3" />
+                      Update available
+                    </span>
+                  )}
+                </div>
+                <div className="text-2xl font-mono font-bold">
+                  {loadingTars ? (
+                    <span className="text-muted-foreground">Loading...</span>
+                  ) : tarsUpdate?.latest_version ? (
+                    `v${tarsUpdate.latest_version}`
+                  ) : (
+                    <span className="text-green-600 dark:text-green-400 text-lg">Up to date</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Update Button */}
+            {tarsUpdate?.update_available && (
+              <div className="p-4 rounded-lg border border-primary/50 bg-primary/5 mb-6">
+                <div className="flex items-start gap-3">
+                  <Download className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium mb-1">
+                      TARS v{tarsUpdate.latest_version} is available!
+                    </p>
+                    {tarsUpdate.release_notes && (
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {tarsUpdate.release_notes.slice(0, 200)}
+                        {tarsUpdate.release_notes.length > 200 ? '...' : ''}
+                      </p>
+                    )}
+                    <Button
+                      onClick={handleInstallTarsUpdate}
+                      disabled={isInstalling}
+                      className="gap-2"
+                    >
+                      {isInstalling ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Installing...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" />
+                          Download & Install
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Plugin Updates Section */}

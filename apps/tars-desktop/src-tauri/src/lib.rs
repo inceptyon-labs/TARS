@@ -40,6 +40,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             // Scanner commands
@@ -134,6 +135,10 @@ pub fn run() {
             commands::fetch_claude_changelog,
             commands::get_claude_version_info,
             commands::check_plugin_updates,
+            // TARS app update commands
+            commands::check_tars_update,
+            commands::install_tars_update,
+            commands::get_tars_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

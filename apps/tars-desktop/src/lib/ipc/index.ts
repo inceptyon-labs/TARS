@@ -381,7 +381,12 @@ export async function deletePrompt(id: string): Promise<void> {
 }
 
 // Update commands
-import type { ClaudeVersionInfo, ChangelogResponse, PluginUpdatesResponse } from '../types';
+import type {
+  ClaudeVersionInfo,
+  ChangelogResponse,
+  PluginUpdatesResponse,
+  TarsUpdateInfo,
+} from '../types';
 
 export async function getInstalledClaudeVersion(): Promise<string | null> {
   return invoke('get_installed_claude_version');
@@ -397,4 +402,17 @@ export async function getClaudeVersionInfo(): Promise<ClaudeVersionInfo> {
 
 export async function checkPluginUpdates(): Promise<PluginUpdatesResponse> {
   return invoke('check_plugin_updates');
+}
+
+// TARS app update commands
+export async function checkTarsUpdate(): Promise<TarsUpdateInfo> {
+  return invoke('check_tars_update');
+}
+
+export async function installTarsUpdate(): Promise<void> {
+  return invoke('install_tars_update');
+}
+
+export async function getTarsVersion(): Promise<string> {
+  return invoke('get_tars_version');
 }

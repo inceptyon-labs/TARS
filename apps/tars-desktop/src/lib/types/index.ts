@@ -405,3 +405,12 @@ export interface PluginUpdatesResponse {
   total_plugins: number;
   plugins_with_updates: number;
 }
+
+// TARS app update types
+export interface TarsUpdateInfo {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+  release_notes: string | null;
+  download_url: string | null;
+}

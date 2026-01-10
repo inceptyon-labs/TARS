@@ -1,10 +1,13 @@
 //! Update checking Tauri commands
 //!
-//! Commands for checking Claude Code version and fetching changelog.
+//! Commands for checking Claude Code version, fetching changelog,
+//! and TARS app updates.
 
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use tars_scanner::plugins::PluginInventory;
+use tauri::AppHandle;
+use tauri_plugin_updater::UpdaterExt;
 
 /// Version info for Claude Code
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -273,4 +276,99 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
         total_plugins,
         plugins_with_updates,
     })
+}
+
+// ============================================================================
+// TARS App Updates
+// ============================================================================
+
+/// Information about a TARS app update
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TarsUpdateInfo {
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub update_available: bool,
+    pub release_notes: Option<String>,
+    pub download_url: Option<String>,
+}
+
+/// Check for TARS app updates
+#[tauri::command]
+pub async fn check_tars_update(app: AppHandle) -> Result<TarsUpdateInfo, String> {
+    let current_version = app.package_info().version.to_string();
+
+    // Check for updates using the updater plugin
+    let updater = app
+        .updater_builder()
+        .build()
+        .map_err(|e| format!("Failed to initialize updater: {e}"))?;
+
+    match updater.check().await {
+        Ok(Some(update)) => Ok(TarsUpdateInfo {
+            current_version,
+            latest_version: Some(update.version.clone()),
+            update_available: true,
+            release_notes: update.body.clone(),
+            download_url: Some(update.download_url.to_string()),
+        }),
+        Ok(None) => Ok(TarsUpdateInfo {
+            current_version,
+            latest_version: None,
+            update_available: false,
+            release_notes: None,
+            download_url: None,
+        }),
+        Err(e) => {
+            // Return current version info even if check fails
+            // This can happen if offline or endpoint is unavailable
+            eprintln!("Update check failed: {e}");
+            Ok(TarsUpdateInfo {
+                current_version,
+                latest_version: None,
+                update_available: false,
+                release_notes: None,
+                download_url: None,
+            })
+        }
+    }
+}
+
+/// Download and install TARS app update
+#[tauri::command]
+pub async fn install_tars_update(app: AppHandle) -> Result<(), String> {
+    let updater = app
+        .updater_builder()
+        .build()
+        .map_err(|e| format!("Failed to initialize updater: {e}"))?;
+
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| format!("Failed to check for update: {e}"))?
+        .ok_or_else(|| "No update available".to_string())?;
+
+    // Download and install the update
+    let mut downloaded = 0;
+    let _ = update
+        .download_and_install(
+            |chunk_length, content_length| {
+                downloaded += chunk_length;
+                if let Some(total) = content_length {
+                    eprintln!("Download progress: {downloaded}/{total}");
+                }
+            },
+            || {
+                eprintln!("Download finished, preparing to install...");
+            },
+        )
+        .await
+        .map_err(|e| format!("Failed to download and install update: {e}"))?;
+
+    Ok(())
+}
+
+/// Get the current TARS app version
+#[tauri::command]
+pub fn get_tars_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
 }
