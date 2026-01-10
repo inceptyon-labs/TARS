@@ -76,7 +76,16 @@ jobs:
       - name: Debug pkg-config
         run: |
           echo "Looking for glib-2.0.pc..."
-          find /usr -name "glib-2.0.pc" 2>/dev/null || echo "Not found in /usr"
+          find /usr -name "glib*.pc" 2>/dev/null | head -20
+          echo "---"
+          echo "Checking libglib2.0-dev installation:"
+          dpkg -L libglib2.0-dev | grep -E "\.pc$" || echo "No .pc files found"
+          echo "---"
+          echo "All .pc files in standard locations:"
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/ | grep glib || echo "No glib in x86_64-linux-gnu"
+          ls -la /usr/lib/pkgconfig/ 2>/dev/null | grep glib || echo "No glib in /usr/lib/pkgconfig"
+          ls -la /usr/share/pkgconfig/ 2>/dev/null | grep glib || echo "No glib in /usr/share/pkgconfig"
+          echo "---"
           echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
           which pkg-config
           pkg-config --version
