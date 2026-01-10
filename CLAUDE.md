@@ -33,6 +33,68 @@ git config core.hooksPath .githooks
 
 This runs `cargo fmt` checks before each commit.
 
+## Commit Message Convention
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). **All commits MUST follow this format:**
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+| Type | Description | In Changelog? |
+|------|-------------|---------------|
+| `feat` | New feature for users | ✅ Yes |
+| `fix` | Bug fix for users | ✅ Yes |
+| `perf` | Performance improvement | ✅ Yes |
+| `docs` | Documentation only | ❌ No |
+| `style` | Formatting, whitespace | ❌ No |
+| `refactor` | Code restructuring (no behavior change) | ❌ No |
+| `test` | Adding/updating tests | ❌ No |
+| `chore` | Maintenance, deps, config | ❌ No |
+| `ci` | CI/CD changes | ❌ No |
+| `build` | Build system changes | ❌ No |
+
+### Examples
+
+```bash
+# Feature (appears in changelog)
+feat: Add dark mode toggle to settings
+
+# Bug fix (appears in changelog)
+fix: Resolve crash when scanning empty directories
+
+# Performance (appears in changelog)
+perf: Optimize database queries with indexing
+
+# Breaking change (use ! or BREAKING CHANGE footer)
+feat!: Redesign plugin API
+
+# With scope
+feat(scanner): Add support for .mcp.json files
+fix(ui): Correct button alignment on settings page
+
+# NOT in changelog
+chore: Update dependencies
+docs: Improve README installation section
+ci: Add Windows build to CI workflow
+refactor: Extract validation into separate module
+test: Add unit tests for profile engine
+```
+
+### Rules
+
+1. **Type is required** - Must be one of the types above
+2. **Description is required** - Imperative mood, lowercase, no period at end
+3. **Scope is optional** - Use for clarity (e.g., `scanner`, `ui`, `cli`, `core`)
+4. **Breaking changes** - Add `!` after type or `BREAKING CHANGE:` in footer
+5. **Only `feat`, `fix`, `perf`** appear in the auto-generated changelog
+
 ## Architecture
 
 ### Planned Structure

@@ -396,6 +396,10 @@ export async function fetchClaudeChangelog(): Promise<ChangelogResponse> {
   return invoke('fetch_claude_changelog');
 }
 
+export async function fetchTarsChangelog(): Promise<ChangelogResponse> {
+  return invoke('fetch_tars_changelog');
+}
+
 export async function getClaudeVersionInfo(): Promise<ClaudeVersionInfo> {
   return invoke('get_claude_version_info');
 }

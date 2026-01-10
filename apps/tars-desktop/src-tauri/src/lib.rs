@@ -41,6 +41,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             // Scanner commands
@@ -133,6 +134,7 @@ pub fn run() {
             // Update commands
             commands::get_installed_claude_version,
             commands::fetch_claude_changelog,
+            commands::fetch_tars_changelog,
             commands::get_claude_version_info,
             commands::check_plugin_updates,
             // TARS app update commands

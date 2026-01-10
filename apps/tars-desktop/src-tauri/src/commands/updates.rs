@@ -234,6 +234,37 @@ fn add_linux_paths(paths: &mut Vec<PathBuf>) {
     paths.push(PathBuf::from("/var/lib/flatpak/exports/bin/claude"));
 }
 
+/// Fetch and parse the TARS changelog from GitHub
+#[tauri::command]
+pub async fn fetch_tars_changelog() -> Result<ChangelogResponse, String> {
+    let url = "https://raw.githubusercontent.com/inceptyon-labs/TARS/main/CHANGELOG.md";
+
+    let response = reqwest::get(url)
+        .await
+        .map_err(|e| format!("Failed to fetch changelog: {e}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to fetch changelog: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let content = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read changelog: {e}"))?;
+
+    let entries = parse_changelog(&content);
+    let fetched_at = chrono::Utc::now().to_rfc3339();
+
+    Ok(ChangelogResponse {
+        entries,
+        raw_content: content,
+        fetched_at,
+    })
+}
+
 /// Fetch and parse the Claude Code changelog from GitHub
 #[tauri::command]
 pub async fn fetch_claude_changelog() -> Result<ChangelogResponse, String> {

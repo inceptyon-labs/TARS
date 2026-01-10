@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog generation
 
       - name: Get version from tag
         id: get_version
@@ -35,6 +37,73 @@ jobs:
           else
             echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+
+          # Get the previous tag to determine commit range
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            COMMIT_RANGE="${PREV_TAG}..HEAD"
+          else
+            # First release - get all commits
+            COMMIT_RANGE="HEAD"
+          fi
+
+          # Extract conventional commits and categorize them
+          echo "## Downloads" > /tmp/release_notes.md
+          echo "" >> /tmp/release_notes.md
+          echo "| Platform | File | Notes |" >> /tmp/release_notes.md
+          echo "|----------|------|-------|" >> /tmp/release_notes.md
+          echo "| **macOS (Apple Silicon)** | \`TARS_*_aarch64.dmg\` | M1/M2/M3/M4 Macs |" >> /tmp/release_notes.md
+          echo "| **macOS (Intel)** | \`TARS_*_x64.dmg\` | Intel-based Macs |" >> /tmp/release_notes.md
+          echo "| **Windows** | \`TARS_*_x64-setup.exe\` | Windows 10/11 (64-bit) |" >> /tmp/release_notes.md
+          echo "| **Windows (MSI)** | \`TARS_*_x64_en-US.msi\` | Alternative installer |" >> /tmp/release_notes.md
+          echo "| **Linux (Debian/Ubuntu)** | \`TARS_*_amd64.deb\` | \`sudo dpkg -i <file>\` |" >> /tmp/release_notes.md
+          echo "| **Linux (Universal)** | \`TARS_*_amd64.AppImage\` | Make executable, then run |" >> /tmp/release_notes.md
+          echo "| **Linux (Fedora/RHEL)** | \`TARS_*_x86_64.rpm\` | \`sudo rpm -i <file>\` |" >> /tmp/release_notes.md
+          echo "" >> /tmp/release_notes.md
+
+          # Get features (feat:)
+          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:" | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
+          if [ -n "$FEATURES" ]; then
+            echo "## Features" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+            echo "$FEATURES" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+          fi
+
+          # Get fixes (fix:)
+          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:" | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
+          if [ -n "$FIXES" ]; then
+            echo "## Bug Fixes" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+            echo "$FIXES" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+          fi
+
+          # Get performance improvements (perf:)
+          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:" | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
+          if [ -n "$PERF" ]; then
+            echo "## Performance" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+            echo "$PERF" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+          fi
+
+          # Get breaking changes (anything with !)
+          BREAKING=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^[a-z]+(\(.+\))?!:" | sed -E 's/^[a-z]+(\([^)]+\))?!: /- **BREAKING:** /' || true)
+          if [ -n "$BREAKING" ]; then
+            echo "## Breaking Changes" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+            echo "$BREAKING" >> /tmp/release_notes.md
+            echo "" >> /tmp/release_notes.md
+          fi
+
+          echo "CHANGELOG_FILE=/tmp/release_notes.md" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create-release
@@ -46,32 +115,7 @@ jobs:
           release_name: TARS v${{ steps.get_version.outputs.VERSION }}
           draft: true
           prerelease: false
-          body: |
-            ## TARS v${{ steps.get_version.outputs.VERSION }}
-
-            ### Downloads
-
-            | Platform | File | Notes |
-            |----------|------|-------|
-            | **macOS (Apple Silicon)** | `TARS_*_aarch64.dmg` | M1/M2/M3/M4 Macs |
-            | **macOS (Intel)** | `TARS_*_x64.dmg` | Intel-based Macs |
-            | **Windows** | `TARS_*_x64-setup.exe` | Windows 10/11 (64-bit) |
-            | **Windows (MSI)** | `TARS_*_x64_en-US.msi` | Alternative installer |
-            | **Linux (Debian/Ubuntu)** | `TARS_*_amd64.deb` | `sudo dpkg -i <file>` |
-            | **Linux (Universal)** | `TARS_*_amd64.AppImage` | Make executable, then run |
-            | **Linux (Fedora/RHEL)** | `TARS_*_x86_64.rpm` | `sudo rpm -i <file>` |
-
-            ### Installation
-
-            **macOS**: Download the `.dmg`, open it, and drag TARS to Applications.
-
-            **Windows**: Run the `.exe` installer and follow the prompts.
-
-            **Linux**: Use your package manager or run the AppImage directly.
-
-            ### Changes
-
-            <!-- Add release notes here -->
+          body_path: ${{ steps.changelog.outputs.CHANGELOG_FILE }}
 
   build-tauri:
     needs: create-release

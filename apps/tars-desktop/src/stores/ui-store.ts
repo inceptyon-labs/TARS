@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -47,43 +48,56 @@ interface UIState {
   setSidebarWidth: (width: number) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  // Theme - default to dark for TARS aesthetic
-  theme: 'dark',
-  setTheme: (theme) => set({ theme }),
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      // Theme - default to dark for TARS aesthetic
+      theme: 'dark',
+      setTheme: (theme) => set({ theme }),
 
-  // Selected items
-  selectedProjectId: null,
-  setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+      // Selected items
+      selectedProjectId: null,
+      setSelectedProjectId: (id) => set({ selectedProjectId: id }),
 
-  selectedProjectPath: null,
-  setSelectedProjectPath: (path) => set({ selectedProjectPath: path }),
+      selectedProjectPath: null,
+      setSelectedProjectPath: (path) => set({ selectedProjectPath: path }),
 
-  selectedProfileId: null,
-  setSelectedProfileId: (id) => set({ selectedProfileId: id }),
+      selectedProfileId: null,
+      setSelectedProfileId: (id) => set({ selectedProfileId: id }),
 
-  // Dialog states
-  isAddProjectDialogOpen: false,
-  setAddProjectDialogOpen: (open) => set({ isAddProjectDialogOpen: open }),
+      // Dialog states
+      isAddProjectDialogOpen: false,
+      setAddProjectDialogOpen: (open) => set({ isAddProjectDialogOpen: open }),
 
-  isCreateProfileDialogOpen: false,
-  setCreateProfileDialogOpen: (open) => set({ isCreateProfileDialogOpen: open }),
+      isCreateProfileDialogOpen: false,
+      setCreateProfileDialogOpen: (open) => set({ isCreateProfileDialogOpen: open }),
 
-  isApplyDialogOpen: false,
-  setApplyDialogOpen: (open) => set({ isApplyDialogOpen: open }),
+      isApplyDialogOpen: false,
+      setApplyDialogOpen: (open) => set({ isApplyDialogOpen: open }),
 
-  isExportDialogOpen: false,
-  setExportDialogOpen: (open) => set({ isExportDialogOpen: open }),
+      isExportDialogOpen: false,
+      setExportDialogOpen: (open) => set({ isExportDialogOpen: open }),
 
-  // Current view
-  currentView: 'projects',
-  setCurrentView: (view) => set({ currentView: view }),
+      // Current view
+      currentView: 'projects',
+      setCurrentView: (view) => set({ currentView: view }),
 
-  // Sidebar
-  sidebarCollapsed: false,
-  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      // Sidebar
+      sidebarCollapsed: false,
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
-  // Sidebar width - default 256px (w-64)
-  sidebarWidth: 256,
-  setSidebarWidth: (width) => set({ sidebarWidth: width }),
-}));
+      // Sidebar width - default 256px (w-64)
+      sidebarWidth: 256,
+      setSidebarWidth: (width) => set({ sidebarWidth: width }),
+    }),
+    {
+      name: 'tars-ui-settings',
+      // Only persist user preferences, not transient state
+      partialize: (state) => ({
+        theme: state.theme,
+        sidebarCollapsed: state.sidebarCollapsed,
+        sidebarWidth: state.sidebarWidth,
+      }),
+    }
+  )
+);

@@ -1,0 +1,44 @@
+# Changelog
+
+All notable changes to TARS will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.3] - 2025-01-10
+
+### Added
+- Cross-platform Claude Code detection for GUI apps (macOS, Windows, Linux)
+- Auto-updater with signed releases
+- Windows build in CI workflow
+
+### Fixed
+- Claude Code not detected when running from .app bundle on macOS
+- CI builds now wait for tests to pass before starting
+
+## [0.1.2] - 2025-01-10
+
+### Added
+- TARS Desktop auto-update functionality
+- Release script for version bumping (`scripts/release.sh`)
+- Platform-specific download guide in release notes
+
+### Fixed
+- Linux builds on GitHub Actions (pkg-config glib-2.0 errors)
+
+## [0.1.1] - 2025-01-10
+
+### Added
+- Initial release workflow with multi-platform builds
+- macOS code signing and notarization support
+- Pre-commit hooks for Rust and frontend formatting
+
+## [0.1.0] - 2025-01-09
+
+### Added
+- Initial TARS Desktop application
+- Project scanning and inventory management
+- Profile creation, application, and rollback
+- Plugin marketplace integration
+- MCP server management
+- SQLite database for local storage

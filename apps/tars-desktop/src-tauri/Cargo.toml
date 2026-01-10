@@ -21,6 +21,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
