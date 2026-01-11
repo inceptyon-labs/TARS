@@ -1357,12 +1357,14 @@ export function ProjectOverview({
         open={isToolPickerOpen}
         onOpenChange={setIsToolPickerOpen}
         onAddTools={handleAddLocalTools}
+        onAddPlugins={() => {}} // Plugins are not used for local project overrides
         existingTools={combinedTools.map((t) => ({
           name: t.name,
           tool_type: t.tool_type,
           source_scope: t.source_scope,
           permissions: t.permissions,
         }))}
+        existingPlugins={[]} // No plugin refs for local overrides
       />
     </div>
   );

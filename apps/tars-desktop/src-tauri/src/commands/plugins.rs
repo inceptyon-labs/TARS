@@ -2,8 +2,9 @@
 //!
 //! Commands for managing Claude Code plugins via the CLI.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::process::Command;
+use tars_scanner::plugins::PluginInventory;
 use tars_scanner::CacheCleanupReport;
 
 /// Validate a plugin source string (marketplace URL or plugin@marketplace format)
@@ -59,6 +60,75 @@ fn validate_scope(scope: &str) -> Result<(), String> {
         )),
     }
 }
+
+// ============================================================================
+// Plugin Inventory Commands
+// ============================================================================
+
+/// Plugin manifest for frontend display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginManifestInfo {
+    pub name: String,
+    pub description: Option<String>,
+    pub version: Option<String>,
+}
+
+/// Plugin scope for frontend display (matches frontend `PluginScope` type)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginScopeInfo {
+    #[serde(rename = "type")]
+    pub scope_type: String,
+}
+
+/// Installed plugin for frontend display (matches frontend `InstalledPlugin` interface)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstalledPluginInfo {
+    pub id: String,
+    pub marketplace: Option<String>,
+    pub version: String,
+    pub scope: PluginScopeInfo,
+    pub enabled: bool,
+    pub path: String,
+    pub manifest: PluginManifestInfo,
+    pub installed_at: Option<String>,
+    pub last_updated: Option<String>,
+    pub project_path: Option<String>,
+}
+
+/// List all installed plugins
+#[tauri::command]
+pub async fn plugin_list() -> Result<Vec<InstalledPluginInfo>, String> {
+    let inventory = PluginInventory::scan().map_err(|e| format!("Failed to scan plugins: {e}"))?;
+
+    let plugins: Vec<InstalledPluginInfo> = inventory
+        .installed
+        .into_iter()
+        .map(|p| InstalledPluginInfo {
+            id: p.id,
+            marketplace: p.marketplace,
+            version: p.version.clone(),
+            scope: PluginScopeInfo {
+                scope_type: format!("{:?}", p.scope),
+            },
+            enabled: p.enabled,
+            path: p.path.display().to_string(),
+            manifest: PluginManifestInfo {
+                name: p.manifest.name,
+                description: Some(p.manifest.description),
+                version: Some(p.version),
+            },
+            installed_at: p.installed_at,
+            last_updated: p.last_updated,
+            project_path: p.project_path,
+        })
+        .collect();
+
+    Ok(plugins)
+}
+
+// ============================================================================
+// Plugin Marketplace Commands
+// ============================================================================
 
 /// Add a plugin marketplace
 #[tauri::command]
@@ -166,8 +236,13 @@ pub async fn plugin_install(
 
 /// Uninstall a plugin
 /// Note: CLI only accepts plugin name without marketplace
+/// For project scope, `project_path` must be provided to run CLI from that directory
 #[tauri::command]
-pub async fn plugin_uninstall(plugin: String, scope: Option<String>) -> Result<String, String> {
+pub async fn plugin_uninstall(
+    plugin: String,
+    scope: Option<String>,
+    project_path: Option<String>,
+) -> Result<String, String> {
     // Validate plugin source first
     validate_plugin_source(&plugin)?;
 
@@ -191,15 +266,31 @@ pub async fn plugin_uninstall(plugin: String, scope: Option<String>) -> Result<S
 
     args.push(plugin_name);
 
-    let output = Command::new("claude")
-        .args(&args)
+    let mut cmd = Command::new("claude");
+    cmd.args(&args);
+
+    // For project scope, run from the project directory
+    if let Some(ref path) = project_path {
+        cmd.current_dir(path);
+    }
+
+    let output = cmd
         .output()
-        .map_err(|_| "Failed to run claude CLI".to_string())?;
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err("Failed to uninstall plugin".to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+        Err(format!("Failed to uninstall plugin: {error_msg}"))
     }
 }
 
@@ -274,12 +365,10 @@ pub async fn plugin_disable(plugin: String) -> Result<String, String> {
     set_plugin_enabled(&plugin, false)
 }
 
-/// Set a plugin's enabled state in ~/.claude/settings.json
+/// Set a plugin's enabled state in ~/.claude/settings.json (cross-platform)
 fn set_plugin_enabled(plugin: &str, enabled: bool) -> Result<String, String> {
-    let home = std::env::var("HOME").map_err(|_| "Could not find HOME environment variable")?;
-    let settings_file = std::path::PathBuf::from(home)
-        .join(".claude")
-        .join("settings.json");
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let settings_file = home.join(".claude").join("settings.json");
 
     // Read existing settings or create empty object
     let mut settings: serde_json::Value = if settings_file.exists() {
@@ -324,8 +413,8 @@ pub async fn plugin_marketplace_set_auto_update(
 ) -> Result<String, String> {
     validate_plugin_name(&name)?;
 
-    let home = std::env::var("HOME").map_err(|_| "Could not find HOME environment variable")?;
-    let marketplaces_file = std::path::PathBuf::from(home)
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let marketplaces_file = home
         .join(".claude")
         .join("plugins")
         .join("known_marketplaces.json");

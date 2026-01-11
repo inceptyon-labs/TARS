@@ -116,11 +116,11 @@ pub async fn create_skill(
     validate_name(&name).map_err(|_| "Invalid skill name".to_string())?;
 
     let base_path = if scope == "user" {
-        let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
-        PathBuf::from(home).join(".claude/skills")
+        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+        home.join(".claude").join("skills")
     } else {
         let project = project_path.ok_or("Project path required for project-scoped skill")?;
-        PathBuf::from(project).join(".claude/skills")
+        PathBuf::from(project).join(".claude").join("skills")
     };
 
     let skill_dir = base_path.join(&name);
@@ -307,12 +307,7 @@ pub async fn delete_skill(path: String) -> Result<(), String> {
 /// Determine if a skill path is user-scoped or project-scoped
 fn determine_skill_scope(path: &Path) -> String {
     // Get user home directory
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .ok();
-
-    if let Some(home_str) = home {
-        let home_path = PathBuf::from(&home_str);
+    if let Some(home_path) = dirs::home_dir() {
         let user_skills_dir = home_path.join(".claude").join("skills");
 
         // Check if path is under user's .claude/skills directory
@@ -338,14 +333,14 @@ fn determine_skill_scope(path: &Path) -> String {
 fn get_skill_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
 
-    if let Ok(home) = std::env::var("HOME") {
-        let claude_dir = PathBuf::from(&home).join(".claude");
+    if let Some(home) = dirs::home_dir() {
+        let claude_dir = home.join(".claude");
         // User scope: ~/.claude/skills/
         roots.push(claude_dir.join("skills"));
         // Plugin cache: ~/.claude/plugins/cache/
-        roots.push(claude_dir.join("plugins/cache"));
+        roots.push(claude_dir.join("plugins").join("cache"));
         // Plugin marketplaces: ~/.claude/plugins/marketplaces/
-        roots.push(claude_dir.join("plugins/marketplaces"));
+        roots.push(claude_dir.join("plugins").join("marketplaces"));
     }
 
     roots

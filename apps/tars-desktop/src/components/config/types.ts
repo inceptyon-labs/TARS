@@ -18,6 +18,8 @@ export interface McpServer {
   env: Record<string, string>;
   url?: string;
   filePath: string;
+  /** If set, this server comes from a plugin and is read-only */
+  sourcePlugin?: string;
 }
 
 /** Skill configuration */

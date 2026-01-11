@@ -212,12 +212,27 @@ fn main() {
 }
 
 fn get_data_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    // Try HOME first (Unix), then USERPROFILE (Windows)
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .map(PathBuf::from)
-        .map_err(|_| "HOME or USERPROFILE environment variable not set")?;
+    let home = get_home_dir().ok_or("Cannot find home directory")?;
     Ok(home.join(".tars"))
+}
+
+/// Get the user's home directory.
+/// Checks environment variables first for testability, then falls back to dirs crate.
+fn get_home_dir() -> Option<PathBuf> {
+    // Check HOME first (Unix standard, also set by tests)
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.is_empty() {
+            return Some(PathBuf::from(home));
+        }
+    }
+    // Check USERPROFILE (Windows standard, also set by tests)
+    if let Ok(home) = std::env::var("USERPROFILE") {
+        if !home.is_empty() {
+            return Some(PathBuf::from(home));
+        }
+    }
+    // Fall back to dirs crate for system default
+    dirs::home_dir()
 }
 
 /// Validate a name for use in file paths (profile names, plugin names, etc.)

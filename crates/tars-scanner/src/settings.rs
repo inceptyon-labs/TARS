@@ -39,15 +39,20 @@ pub struct Permissions {
 }
 
 /// MCP (Model Context Protocol) configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct McpConfig {
     /// Path to the config file
+    #[serde(default)]
     pub path: PathBuf,
     /// SHA256 hash of file content
+    #[serde(default)]
     pub sha256: String,
     /// Configured servers
     #[serde(default)]
     pub servers: Vec<McpServer>,
+    /// Source plugin if this config came from a plugin
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_plugin: Option<String>,
 }
 
 /// MCP server configuration

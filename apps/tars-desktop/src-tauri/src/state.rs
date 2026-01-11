@@ -95,14 +95,9 @@ impl Default for AppState {
 /// 2. Standard XDG data directory on Linux
 /// 3. App data directory on Windows/macOS
 fn get_data_dir() -> PathBuf {
-    // Prefer $HOME/.tars for consistency with CLI tools
-    if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home).join(".tars");
-    }
-
-    // Windows fallback: use USERPROFILE
-    if let Ok(userprofile) = std::env::var("USERPROFILE") {
-        return PathBuf::from(userprofile).join(".tars");
+    // Use cross-platform dirs crate for home directory
+    if let Some(home) = dirs::home_dir() {
+        return home.join(".tars");
     }
 
     // XDG fallback for Linux

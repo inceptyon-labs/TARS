@@ -119,6 +119,7 @@ pub fn run() {
             commands::mcp_move,
             commands::config_rollback,
             // Plugin commands
+            commands::plugin_list,
             commands::plugin_marketplace_add,
             commands::plugin_marketplace_remove,
             commands::plugin_marketplace_update,

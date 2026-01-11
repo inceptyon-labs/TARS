@@ -47,7 +47,7 @@ impl ConfigScope {
         &[Self::User, Self::Project, Self::Local]
     }
 
-    /// Get the base directory for this scope
+    /// Get the base directory for this scope (cross-platform)
     pub fn base_dir(&self, project_path: Option<&PathBuf>) -> ConfigResult<PathBuf> {
         match self {
             Self::User => dirs::home_dir()
@@ -55,7 +55,28 @@ impl ConfigScope {
             Self::Project | Self::Local => project_path.cloned().ok_or_else(|| {
                 ConfigError::ValidationError("Project path required for project/local scope".into())
             }),
-            Self::Managed => Ok(PathBuf::from("/Library/Application Support/ClaudeCode")),
+            Self::Managed => Ok(Self::managed_base_dir()),
+        }
+    }
+
+    /// Get the managed scope base directory (cross-platform)
+    #[must_use]
+    fn managed_base_dir() -> PathBuf {
+        #[cfg(target_os = "macos")]
+        {
+            PathBuf::from("/Library/Application Support/ClaudeCode")
+        }
+        #[cfg(target_os = "linux")]
+        {
+            PathBuf::from("/etc/claude")
+        }
+        #[cfg(target_os = "windows")]
+        {
+            PathBuf::from(r"C:\ProgramData\ClaudeCode")
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+        {
+            PathBuf::from("/etc/claude")
         }
     }
 

@@ -104,7 +104,7 @@ fn plan_skill(
     // Validate skill name to prevent path traversal
     validate_name(&skill.name)?;
 
-    let skill_dir = project_path.join(".claude/skills").join(&skill.name);
+    let skill_dir = project_path.join(".claude").join("skills").join(&skill.name);
     let skill_file = skill_dir.join("SKILL.md");
 
     if skill_file.exists() {
@@ -137,7 +137,8 @@ fn plan_command(
     validate_name(&cmd.name)?;
 
     let cmd_path = project_path
-        .join(".claude/commands")
+        .join(".claude")
+        .join("commands")
         .join(format!("{}.md", cmd.name));
 
     if cmd_path.exists() {
@@ -169,7 +170,8 @@ fn plan_agent(
     validate_name(&agent.name)?;
 
     let agent_path = project_path
-        .join(".claude/agents")
+        .join(".claude")
+        .join("agents")
         .join(format!("{}.md", agent.name));
 
     if agent_path.exists() {

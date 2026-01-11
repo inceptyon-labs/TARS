@@ -82,11 +82,11 @@ pub async fn create_command(
     validate_name(&name).map_err(|_| "Invalid command name".to_string())?;
 
     let base_path = if scope == "user" {
-        let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
-        PathBuf::from(home).join(".claude/commands")
+        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+        home.join(".claude").join("commands")
     } else {
         let project = project_path.ok_or("Project path required for project-scoped command")?;
-        PathBuf::from(project).join(".claude/commands")
+        PathBuf::from(project).join(".claude").join("commands")
     };
 
     let command_file = base_path.join(format!("{name}.md"));
@@ -162,8 +162,8 @@ pub async fn move_command(
     let final_scope: String;
 
     if targetScope == "user" {
-        let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
-        let target_base = PathBuf::from(home).join(".claude/commands");
+        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+        let target_base = home.join(".claude").join("commands");
         let target_file = target_base.join(format!("{name}.md"));
 
         validate_command_path(&target_file)?;
@@ -191,7 +191,7 @@ pub async fn move_command(
         // Validate all targets first before making any changes
         let mut targets: Vec<(PathBuf, PathBuf)> = Vec::new();
         for project in &projects {
-            let target_base = PathBuf::from(project).join(".claude/commands");
+            let target_base = PathBuf::from(project).join(".claude").join("commands");
             let target_file = target_base.join(format!("{name}.md"));
 
             validate_command_path(&target_file)?;
@@ -272,12 +272,7 @@ pub async fn delete_command(path: String) -> Result<(), String> {
 
 /// Determine if a command path is user-scoped or project-scoped
 fn determine_command_scope(path: &Path) -> String {
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .ok();
-
-    if let Some(home_str) = home {
-        let home_path = PathBuf::from(&home_str);
+    if let Some(home_path) = dirs::home_dir() {
         let user_commands_dir = home_path.join(".claude").join("commands");
 
         if let Ok(canonical_user_commands) = user_commands_dir.canonicalize() {
@@ -300,11 +295,11 @@ fn determine_command_scope(path: &Path) -> String {
 fn get_command_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
 
-    if let Ok(home) = std::env::var("HOME") {
-        let claude_dir = PathBuf::from(&home).join(".claude");
+    if let Some(home) = dirs::home_dir() {
+        let claude_dir = home.join(".claude");
         roots.push(claude_dir.join("commands"));
-        roots.push(claude_dir.join("plugins/cache"));
-        roots.push(claude_dir.join("plugins/marketplaces"));
+        roots.push(claude_dir.join("plugins").join("cache"));
+        roots.push(claude_dir.join("plugins").join("marketplaces"));
     }
 
     roots

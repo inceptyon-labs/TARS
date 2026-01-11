@@ -269,6 +269,7 @@ fn test_scanner_does_not_create_directories() {
 }
 
 #[test]
+#[cfg(unix)]
 fn test_scanner_preserves_file_permissions() {
     use std::os::unix::fs::PermissionsExt;
 

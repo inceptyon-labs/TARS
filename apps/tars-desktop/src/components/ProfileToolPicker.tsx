@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   X,
@@ -7,6 +8,7 @@ import {
   Sparkles,
   Bot,
   Webhook,
+  Puzzle,
   Search,
   Check,
   Plus,
@@ -22,16 +24,18 @@ import { discoverClaudeProjects, scanProjects } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { Button } from './ui/button';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
-import type { ToolRef, ToolType, ToolPermissions } from '../lib/types';
+import type { ToolRef, ToolType, ToolPermissions, InstalledPlugin, ProfilePluginRef } from '../lib/types';
 
 interface ProfileToolPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAddTools: (tools: ToolRef[]) => void;
+  onAddPlugins: (plugins: ProfilePluginRef[]) => void;
   existingTools: ToolRef[];
+  existingPlugins: ProfilePluginRef[];
 }
 
-type TabType = 'mcp' | 'skill' | 'agent';
+type TabType = 'mcp' | 'skill' | 'agent' | 'plugin';
 
 interface ToolItem {
   name: string;
@@ -60,11 +64,14 @@ export function ProfileToolPicker({
   open: isOpen,
   onOpenChange,
   onAddTools,
+  onAddPlugins,
   existingTools,
+  existingPlugins,
 }: ProfileToolPickerProps) {
   const [activeTab, setActiveTab] = useState<TabType>('mcp');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTools, setSelectedTools] = useState<ToolItem[]>([]);
+  const [selectedPlugins, setSelectedPlugins] = useState<InstalledPlugin[]>([]);
   const [toolPermissions, setToolPermissions] = useState<Record<string, ToolPermissions | null>>(
     {}
   );
@@ -74,6 +81,21 @@ export function ProfileToolPicker({
   const setDevelopmentFolder = useUIStore((state) => state.setDevelopmentFolder);
 
   const getToolKey = (tool: ToolItem) => `${tool.toolType}:${tool.name}:${tool.sourcePath}`;
+
+  // Fetch installed plugins
+  const {
+    data: installedPlugins = [],
+    isLoading: isLoadingPlugins,
+    error: pluginsError,
+    refetch: refetchPlugins,
+  } = useQuery({
+    queryKey: ['installed-plugins'],
+    queryFn: async () => {
+      const result = await invoke<InstalledPlugin[]>('plugin_list');
+      return result;
+    },
+    enabled: isOpen,
+  });
 
   // Discover Claude projects in the development folder
   const {
@@ -165,7 +187,8 @@ export function ProfileToolPicker({
 
   // Filter tools based on search query and exclude already added tools
   const filteredTools = useMemo(() => {
-    const tools = availableTools[activeTab] || [];
+    if (activeTab === 'plugin') return [];
+    const tools = availableTools[activeTab as keyof typeof availableTools] || [];
     const existingNames = new Set(
       existingTools.filter((t) => t.tool_type === activeTab).map((t) => t.name)
     );
@@ -180,6 +203,22 @@ export function ProfileToolPicker({
       );
   }, [availableTools, activeTab, existingTools, searchQuery]);
 
+  // Filter plugins: only project-scoped (user-scoped are already globally available)
+  // Also exclude already added plugins and apply search filter
+  const filteredPlugins = useMemo(() => {
+    const existingIds = new Set(existingPlugins.map((p) => p.id));
+    return installedPlugins
+      // Only show project-scoped plugins (not user-scoped since they're already global)
+      .filter((p) => p.scope.type !== 'User')
+      .filter((p) => !existingIds.has(p.id))
+      .filter((p) =>
+        searchQuery
+          ? p.manifest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.manifest.description?.toLowerCase().includes(searchQuery.toLowerCase())
+          : true
+      );
+  }, [installedPlugins, existingPlugins, searchQuery]);
+
   const isToolSelected = (tool: ToolItem) =>
     selectedTools.some((t) => t.name === tool.name && t.toolType === tool.toolType);
 
@@ -193,15 +232,40 @@ export function ProfileToolPicker({
     }
   };
 
-  const handleAddTools = () => {
-    const toolRefs: ToolRef[] = selectedTools.map((t) => ({
-      name: t.name,
-      tool_type: t.toolType,
-      source_scope: 'project',
-      permissions: toolPermissions[getToolKey(t)] || null,
-    }));
-    onAddTools(toolRefs);
+  const isPluginSelected = (plugin: InstalledPlugin) =>
+    selectedPlugins.some((p) => p.id === plugin.id);
+
+  const togglePluginSelection = (plugin: InstalledPlugin) => {
+    if (isPluginSelected(plugin)) {
+      setSelectedPlugins(selectedPlugins.filter((p) => p.id !== plugin.id));
+    } else {
+      setSelectedPlugins([...selectedPlugins, plugin]);
+    }
+  };
+
+  const handleAddItems = () => {
+    // Add tools
+    if (selectedTools.length > 0) {
+      const toolRefs: ToolRef[] = selectedTools.map((t) => ({
+        name: t.name,
+        tool_type: t.toolType,
+        source_scope: 'project',
+        permissions: toolPermissions[getToolKey(t)] || null,
+      }));
+      onAddTools(toolRefs);
+    }
+    // Add plugins
+    if (selectedPlugins.length > 0) {
+      const pluginRefs: ProfilePluginRef[] = selectedPlugins.map((p) => ({
+        id: p.id,
+        marketplace: p.marketplace,
+        scope: p.scope.type.toLowerCase(),
+        enabled: true,
+      }));
+      onAddPlugins(pluginRefs);
+    }
     setSelectedTools([]);
+    setSelectedPlugins([]);
     setToolPermissions({});
     setExpandedTool(null);
     setSearchQuery('');
@@ -210,6 +274,7 @@ export function ProfileToolPicker({
 
   const handleClose = () => {
     setSelectedTools([]);
+    setSelectedPlugins([]);
     setToolPermissions({});
     setExpandedTool(null);
     setSearchQuery('');
@@ -247,16 +312,17 @@ export function ProfileToolPicker({
 
   if (!isOpen) return null;
 
-  const tabs: { id: TabType; label: string; icon: typeof Server }[] = [
-    { id: 'mcp', label: 'MCP Servers', icon: Server },
-    { id: 'skill', label: 'Skills', icon: Sparkles },
-    { id: 'agent', label: 'Agents', icon: Bot },
+  // Count only project-scoped plugins (user-scoped are already global)
+  const projectScopedPluginCount = installedPlugins.filter((p) => p.scope.type !== 'User').length;
+
+  const tabs: { id: TabType; label: string; icon: typeof Server; count: number }[] = [
+    { id: 'mcp', label: 'MCP Servers', icon: Server, count: availableTools.mcp?.length || 0 },
+    { id: 'skill', label: 'Skills', icon: Sparkles, count: availableTools.skill?.length || 0 },
+    { id: 'agent', label: 'Agents', icon: Bot, count: availableTools.agent?.length || 0 },
+    { id: 'plugin', label: 'Plugins', icon: Puzzle, count: projectScopedPluginCount },
   ];
 
-  const totalTools =
-    (availableTools.mcp?.length || 0) +
-    (availableTools.skill?.length || 0) +
-    (availableTools.agent?.length || 0);
+  const selectedCount = selectedTools.length + selectedPlugins.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -313,7 +379,7 @@ export function ProfileToolPicker({
               <tab.icon className="h-4 w-4" />
               {tab.label}
               <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                {availableTools[tab.id]?.length || 0}
+                {tab.count}
               </span>
             </button>
           ))}
@@ -333,72 +399,49 @@ export function ProfileToolPicker({
           </div>
         </div>
 
-        {/* Tool List */}
+        {/* Tool/Plugin List */}
         <div className="flex-1 overflow-auto p-4">
-          {!developmentFolder ? (
-            <div className="text-center py-12 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                <Folder className="h-8 w-8 text-muted-foreground" />
+          {activeTab === 'plugin' ? (
+            // Plugin list
+            isLoadingPlugins ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
               </div>
-              <div>
-                <p className="text-sm font-medium">Select a Development Folder</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Choose the folder where your projects live to discover available tools
+            ) : pluginsError ? (
+              <div className="text-center py-8 space-y-3">
+                <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
+                <p className="text-sm text-destructive">Failed to load plugins</p>
+                <p className="text-xs text-muted-foreground">
+                  {pluginsError instanceof Error ? pluginsError.message : String(pluginsError)}
                 </p>
+                <Button variant="outline" size="sm" onClick={() => refetchPlugins()}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Retry
+                </Button>
               </div>
-              <Button onClick={handleSelectFolder}>
-                <FolderOpen className="h-4 w-4 mr-2" />
-                Select Folder
-              </Button>
-            </div>
-          ) : isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
-            </div>
-          ) : error ? (
-            <div className="text-center py-8 space-y-3">
-              <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
-              <p className="text-sm text-destructive">Failed to load tools</p>
-              <p className="text-xs text-muted-foreground">
-                {error instanceof Error ? error.message : String(error)}
-              </p>
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Retry
-              </Button>
-            </div>
-          ) : totalTools === 0 ? (
-            <div className="text-center py-8 text-muted-foreground space-y-2">
-              <p className="text-sm">
-                No project-scoped tools found in {discoveredProjects?.length || 0} project(s)
-              </p>
-              <p className="text-xs">
-                Projects need .claude/ directories with skills, agents, or .mcp.json files
-              </p>
-            </div>
-          ) : filteredTools.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {searchQuery ? 'No tools match your search' : 'No tools available in this category'}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredTools.map((tool) => {
-                const Icon = getToolIcon(tool.toolType);
-                const selected = isToolSelected(tool);
-                const toolKey = getToolKey(tool);
-                const isExpanded = expandedTool === toolKey;
-                const hasPermissions = toolPermissions[toolKey] != null;
-                const isMcp = tool.toolType === 'mcp';
-
-                return (
-                  <div key={toolKey} className="space-y-0">
+            ) : projectScopedPluginCount === 0 ? (
+              <div className="text-center py-8 text-muted-foreground space-y-2">
+                <Puzzle className="h-8 w-8 mx-auto opacity-50" />
+                <p className="text-sm">No project-scoped plugins</p>
+                <p className="text-xs">User-scoped plugins are already globally available. Install plugins at project scope to add them to profiles.</p>
+              </div>
+            ) : filteredPlugins.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchQuery ? 'No plugins match your search' : 'All project-scoped plugins are already in this profile'}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredPlugins.map((plugin) => {
+                  const selected = isPluginSelected(plugin);
+                  return (
                     <button
-                      onClick={() => toggleToolSelection(tool)}
+                      key={plugin.id}
+                      onClick={() => togglePluginSelection(plugin)}
                       className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
                         selected
                           ? 'border-primary bg-primary/10'
                           : 'border-border hover:bg-muted/50'
-                      } ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
+                      }`}
                     >
                       <div
                         className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
@@ -409,65 +452,157 @@ export function ProfileToolPicker({
                       >
                         {selected && <Check className="h-3 w-3" />}
                       </div>
-                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Puzzle className="h-4 w-4 text-muted-foreground shrink-0" />
                       <div className="flex-1 text-left min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{tool.name}</span>
-                          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <FolderOpen className="h-3 w-3" />
-                            {tool.sourceProject}
+                          <span className="font-medium text-sm">{plugin.manifest.name}</span>
+                          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            {plugin.scope.type.toLowerCase()}
                           </span>
+                          {plugin.marketplace && (
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              {plugin.marketplace}
+                            </span>
+                          )}
                         </div>
-                        {tool.description && (
+                        {plugin.manifest.description && (
                           <div className="text-xs text-muted-foreground truncate">
-                            {tool.description}
+                            {plugin.manifest.description}
                           </div>
                         )}
                       </div>
-                      {isMcp && selected && (
-                        <button
-                          onClick={(e) => togglePermissionsExpand(tool, e)}
-                          className={`p-1.5 rounded hover:bg-muted transition-colors shrink-0 ${
-                            hasPermissions ? 'text-primary' : 'text-muted-foreground'
-                          }`}
-                          title="Configure permissions"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                          <Settings className="h-4 w-4 absolute opacity-0" />
-                        </button>
-                      )}
                     </button>
-                    {isMcp && selected && isExpanded && (
-                      <div className="border border-t-0 border-primary rounded-b-lg bg-primary/5 p-4">
-                        <ToolPermissionsEditor
-                          permissions={toolPermissions[toolKey] || null}
-                          onChange={(perms) => handlePermissionsChange(tool, perms)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )
+          ) : (
+            // Tool list (MCP, Skills, Agents)
+            !developmentFolder ? (
+              <div className="text-center py-12 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                  <Folder className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Select a Development Folder</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choose the folder where your projects live to discover available tools
+                  </p>
+                </div>
+                <Button onClick={handleSelectFolder}>
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Select Folder
+                </Button>
+              </div>
+            ) : isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-8 space-y-3">
+                <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
+                <p className="text-sm text-destructive">Failed to load tools</p>
+                <p className="text-xs text-muted-foreground">
+                  {error instanceof Error ? error.message : String(error)}
+                </p>
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Retry
+                </Button>
+              </div>
+            ) : filteredTools.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchQuery ? 'No tools match your search' : 'No tools available in this category'}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredTools.map((tool) => {
+                  const Icon = getToolIcon(tool.toolType);
+                  const selected = isToolSelected(tool);
+                  const toolKey = getToolKey(tool);
+                  const isExpanded = expandedTool === toolKey;
+                  const hasPermissions = toolPermissions[toolKey] != null;
+                  const isMcp = tool.toolType === 'mcp';
+
+                  return (
+                    <div key={toolKey} className="space-y-0">
+                      <button
+                        onClick={() => toggleToolSelection(tool)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                          selected
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:bg-muted/50'
+                        } ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                            selected
+                              ? 'bg-primary border-primary text-primary-foreground'
+                              : 'border-muted-foreground/40'
+                          }`}
+                        >
+                          {selected && <Check className="h-3 w-3" />}
+                        </div>
+                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 text-left min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{tool.name}</span>
+                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <FolderOpen className="h-3 w-3" />
+                              {tool.sourceProject}
+                            </span>
+                          </div>
+                          {tool.description && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {tool.description}
+                            </div>
+                          )}
+                        </div>
+                        {isMcp && selected && (
+                          <button
+                            onClick={(e) => togglePermissionsExpand(tool, e)}
+                            className={`p-1.5 rounded hover:bg-muted transition-colors shrink-0 ${
+                              hasPermissions ? 'text-primary' : 'text-muted-foreground'
+                            }`}
+                            title="Configure permissions"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                            <Settings className="h-4 w-4 absolute opacity-0" />
+                          </button>
+                        )}
+                      </button>
+                      {isMcp && selected && isExpanded && (
+                        <div className="border border-t-0 border-primary rounded-b-lg bg-primary/5 p-4">
+                          <ToolPermissionsEditor
+                            permissions={toolPermissions[toolKey] || null}
+                            onChange={(perms) => handlePermissionsChange(tool, perms)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t bg-muted/30">
           <div className="text-sm text-muted-foreground">
-            {selectedTools.length} tool{selectedTools.length === 1 ? '' : 's'} selected
+            {selectedCount} item{selectedCount === 1 ? '' : 's'} selected
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button onClick={handleAddTools} disabled={selectedTools.length === 0}>
+            <Button onClick={handleAddItems} disabled={selectedCount === 0}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Tools
+              Add to Profile
             </Button>
           </div>
         </div>

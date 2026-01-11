@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TARS (Tooling, Agents, Roles, Skills) is a macOS desktop app for managing Claude Code configuration across projects. It handles plugins, skills, commands, agents, hooks, MCP servers, and reusable profiles.
+TARS (Tooling, Agents, Roles, Skills) is a cross-platform desktop app for managing Claude Code configuration across projects. It handles plugins, skills, commands, agents, hooks, MCP servers, and reusable profiles.
 
-**Status**: Greenfield project - specs complete, implementation not started.
+**Platforms**: Windows, macOS, Linux
 
 ## Build Commands
 
@@ -64,43 +64,16 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 
 | Type | Description | In Changelog? |
 |------|-------------|---------------|
-| `feat` | New feature for users | ✅ Yes |
-| `fix` | Bug fix for users | ✅ Yes |
-| `perf` | Performance improvement | ✅ Yes |
-| `docs` | Documentation only | ❌ No |
-| `style` | Formatting, whitespace | ❌ No |
-| `refactor` | Code restructuring (no behavior change) | ❌ No |
-| `test` | Adding/updating tests | ❌ No |
-| `chore` | Maintenance, deps, config | ❌ No |
-| `ci` | CI/CD changes | ❌ No |
-| `build` | Build system changes | ❌ No |
-
-### Examples
-
-```bash
-# Feature (appears in changelog)
-feat: Add dark mode toggle to settings
-
-# Bug fix (appears in changelog)
-fix: Resolve crash when scanning empty directories
-
-# Performance (appears in changelog)
-perf: Optimize database queries with indexing
-
-# Breaking change (use ! or BREAKING CHANGE footer)
-feat!: Redesign plugin API
-
-# With scope
-feat(scanner): Add support for .mcp.json files
-fix(ui): Correct button alignment on settings page
-
-# NOT in changelog
-chore: Update dependencies
-docs: Improve README installation section
-ci: Add Windows build to CI workflow
-refactor: Extract validation into separate module
-test: Add unit tests for profile engine
-```
+| `feat` | New feature for users | Yes |
+| `fix` | Bug fix for users | Yes |
+| `perf` | Performance improvement | Yes |
+| `docs` | Documentation only | No |
+| `style` | Formatting, whitespace | No |
+| `refactor` | Code restructuring (no behavior change) | No |
+| `test` | Adding/updating tests | No |
+| `chore` | Maintenance, deps, config | No |
+| `ci` | CI/CD changes | No |
+| `build` | Build system changes | No |
 
 ### Rules
 
@@ -112,7 +85,7 @@ test: Add unit tests for profile engine
 
 ## Architecture
 
-### Planned Structure
+### Structure
 
 ```
 apps/tars-desktop/     # Tauri app (React + TypeScript + Vite)
@@ -126,43 +99,36 @@ crates/tars-core/      # Profiles, diff, apply, rollback engine
 - `scanner`: Non-destructive discovery of skills, commands, agents, hooks, MCP, plugins
 - `parser`: Frontmatter parsing for SKILL.md, agent definitions, commands
 - `profiles`: Snapshot/export/import/apply operations
-- `cli_bridge`: Wraps `claude plugin` and `claude mcp` CLI commands
-- `rollback`: Backups, checksums, byte-for-byte restore
+- `config`: MCP operations, config file management
+- `storage`: SQLite database for projects and profiles
 
-### Configuration Scopes (precedence high→low)
+### Configuration Scopes (precedence high to low)
 
-1. **Managed**: `/Library/Application Support/ClaudeCode/managed-*.json`
+**macOS/Linux:**
+1. **Managed**: `/Library/Application Support/ClaudeCode/managed-*.json` (macOS) or `/etc/claude-code/` (Linux)
 2. **Local**: `<repo>/.claude/settings.local.json`
 3. **Project**: `<repo>/.claude/settings.json`, `<repo>/.mcp.json`
 4. **User**: `~/.claude/settings.json`, `~/.claude.json`
 
-## Constitution Principles
+**Windows:**
+1. **Managed**: `%ProgramData%\ClaudeCode\managed-*.json`
+2. **Local**: `<repo>\.claude\settings.local.json`
+3. **Project**: `<repo>\.claude\settings.json`, `<repo>\.mcp.json`
+4. **User**: `%USERPROFILE%\.claude\settings.json`, `%USERPROFILE%\.claude.json`
 
-See `.specify/memory/constitution.md` for full details. Key rules:
+## Key Principles
 
 1. **Discovery-First**: Always scan before modifying
 2. **Safe-by-Default**: Diff preview, backups, rollback for all changes
 3. **Plugin-First**: Export as Claude Code plugin format
 4. **Profile Determinism**: Apply+rollback = byte-for-byte original
-5. **Current Docs First**: Match Claude Code CLI and file format specs
-6. Use Bun for JS tooling.
-7. Use Context7 plugin for current docs and dependency guidance and latest versions
-8. If anything is unclear, ask via AskUserQuestionTool before proceeding.
-9. Use the skills available to you for specialized tasks.
-10. Use the code review subagent after each phase to review the code.
-
-## Implementation Order
-
-Follow these tasks sequentially (from spec):
-
-1. **Scanner CLI** - Read-only inventory, JSON + MD output, collision detection
-2. **Profile Engine** - Snapshot, apply with diff preview, deterministic rollback
-3. **Tauri App** - Projects list, inventory view, profile management, skills editor
-4. **Plugin Export** - Convert profiles to `.claude-plugin/` format
+5. **Cross-Platform**: All paths and operations work on Windows, macOS, and Linux
+6. Use Bun for JS tooling
+7. If anything is unclear, ask via AskUserQuestionTool before proceeding
 
 ## Claude Code File Formats
 
-The scanner must parse:
+The scanner parses:
 
 - **SKILL.md**: Frontmatter with `name`, `description`, optional `allowed-tools`, `model`, `hooks`
 - **Agent definitions**: Frontmatter with `name`, `description`, optional `tools`, `model`, `skills`
@@ -171,21 +137,8 @@ The scanner must parse:
 - **settings.json**: Hooks, permissions, enabled plugins
 - **.mcp.json**: MCP server configurations (stdio/http/sse types)
 
-## Speckit Commands
+## Tech Stack
 
-This project uses the Speckit workflow. Available commands:
-
-- `/speckit.specify` - Create/update feature specification
-- `/speckit.plan` - Generate implementation plan from spec
-- `/speckit.tasks` - Generate task list from plan
-- `/speckit.implement` - Execute tasks from tasks.md
-- `/speckit.constitution` - Update project constitution
-
-## Active Technologies
-- Rust 1.75+ (backend/CLI), TypeScript 5.x (frontend) + Tauri 2.x, React 18, Vite 5, shadcn/ui, Tailwind CSS (001-tars)
-- SQLite (embedded via rusqlite), file-based backups (001-tars)
-- Rust 1.75+ (backend), TypeScript 5.8+ (frontend) + Tauri 2.x, React 19, rusqlite, serde, uuid, chrono (003-profiles)
-- SQLite (embedded via rusqlite) - existing database with profiles/projects tables (003-profiles)
-
-## Recent Changes
-- 001-tars: Added Rust 1.75+ (backend/CLI), TypeScript 5.x (frontend) + Tauri 2.x, React 18, Vite 5, shadcn/ui, Tailwind CSS
+- **Backend**: Rust 1.75+, Tauri 2.x, SQLite (rusqlite), Tokio, Serde
+- **Frontend**: TypeScript 5.x, React 19, Vite, TanStack Query, Zustand, Tailwind CSS, shadcn/ui
+- **Tooling**: Bun, Cargo

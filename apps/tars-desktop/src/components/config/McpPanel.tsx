@@ -261,7 +261,16 @@ export function McpPanel() {
                   <TableBody>
                     {scopeServers.map((server) => (
                       <TableRow key={`${server.scope}-${server.name}`}>
-                        <TableCell className="font-medium">{server.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {server.name}
+                            {server.sourcePlugin && (
+                              <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs" title={`From plugin: ${server.sourcePlugin}`}>
+                                plugin
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 bg-muted rounded text-xs">
                             {server.transport}
@@ -271,23 +280,29 @@ export function McpPanel() {
                           {server.command || server.url || '-'}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openMoveDialog(server)}
-                            >
-                              Move
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setServerToRemove(server)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
+                          {server.sourcePlugin ? (
+                            <span className="text-xs text-muted-foreground">
+                              Managed by plugin
+                            </span>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openMoveDialog(server)}
+                              >
+                                Move
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setServerToRemove(server)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

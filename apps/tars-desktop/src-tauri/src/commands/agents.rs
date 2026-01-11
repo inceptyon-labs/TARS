@@ -82,11 +82,11 @@ pub async fn create_agent(
     validate_name(&name).map_err(|_| "Invalid agent name".to_string())?;
 
     let base_path = if scope == "user" {
-        let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
-        PathBuf::from(home).join(".claude/agents")
+        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+        home.join(".claude").join("agents")
     } else {
         let project = project_path.ok_or("Project path required for project-scoped agent")?;
-        PathBuf::from(project).join(".claude/agents")
+        PathBuf::from(project).join(".claude").join("agents")
     };
 
     let agent_file = base_path.join(format!("{name}.md"));
@@ -165,8 +165,8 @@ pub async fn move_agent(
     let final_scope: String;
 
     if targetScope == "user" {
-        let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
-        let target_base = PathBuf::from(home).join(".claude/agents");
+        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+        let target_base = home.join(".claude").join("agents");
         let target_file = target_base.join(format!("{name}.md"));
 
         validate_agent_path(&target_file)?;
@@ -193,7 +193,7 @@ pub async fn move_agent(
         // Validate all targets first before making any changes
         let mut targets: Vec<(PathBuf, PathBuf)> = Vec::new();
         for project in &projects {
-            let target_base = PathBuf::from(project).join(".claude/agents");
+            let target_base = PathBuf::from(project).join(".claude").join("agents");
             let target_file = target_base.join(format!("{name}.md"));
 
             validate_agent_path(&target_file)?;
@@ -420,8 +420,8 @@ pub async fn list_disabled_agents(
     match &project_path {
         None => {
             // Check user-level disabled agents only
-            if let Ok(home) = std::env::var("HOME") {
-                let user_disabled_dir = PathBuf::from(&home).join(".claude/agents/.disabled");
+            if let Some(home) = dirs::home_dir() {
+                let user_disabled_dir = home.join(".claude").join("agents").join(".disabled");
                 if user_disabled_dir.exists() {
                     if let Ok(entries) = std::fs::read_dir(&user_disabled_dir) {
                         for entry in entries.flatten() {
@@ -450,7 +450,7 @@ pub async fn list_disabled_agents(
         }
         Some(project) => {
             // Check project-level disabled agents only
-            let project_disabled_dir = PathBuf::from(project).join(".claude/agents/.disabled");
+            let project_disabled_dir = PathBuf::from(project).join(".claude").join("agents").join(".disabled");
             if project_disabled_dir.exists() {
                 if let Ok(entries) = std::fs::read_dir(&project_disabled_dir) {
                     for entry in entries.flatten() {
@@ -483,12 +483,7 @@ pub async fn list_disabled_agents(
 
 /// Determine if an agent path is user-scoped or project-scoped
 fn determine_agent_scope(path: &Path) -> String {
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .ok();
-
-    if let Some(home_str) = home {
-        let home_path = PathBuf::from(&home_str);
+    if let Some(home_path) = dirs::home_dir() {
         let user_agents_dir = home_path.join(".claude").join("agents");
 
         if let Ok(canonical_user_agents) = user_agents_dir.canonicalize() {
@@ -511,11 +506,11 @@ fn determine_agent_scope(path: &Path) -> String {
 fn get_agent_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
 
-    if let Ok(home) = std::env::var("HOME") {
-        let claude_dir = PathBuf::from(&home).join(".claude");
+    if let Some(home) = dirs::home_dir() {
+        let claude_dir = home.join(".claude");
         roots.push(claude_dir.join("agents"));
-        roots.push(claude_dir.join("plugins/cache"));
-        roots.push(claude_dir.join("plugins/marketplaces"));
+        roots.push(claude_dir.join("plugins").join("cache"));
+        roots.push(claude_dir.join("plugins").join("marketplaces"));
     }
 
     roots

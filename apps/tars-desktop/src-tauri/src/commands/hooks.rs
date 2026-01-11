@@ -55,15 +55,15 @@ pub struct HooksConfig {
     pub events: Vec<HookEvent>,
 }
 
-/// Get the user settings.json path
+/// Get the user settings.json path (cross-platform)
 fn get_user_settings_path() -> Result<PathBuf, String> {
-    let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
-    Ok(PathBuf::from(home).join(".claude/settings.json"))
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    Ok(home.join(".claude").join("settings.json"))
 }
 
 /// Get the project settings.json path
 fn get_project_settings_path(project_path: &str) -> PathBuf {
-    PathBuf::from(project_path).join(".claude/settings.json")
+    PathBuf::from(project_path).join(".claude").join("settings.json")
 }
 
 /// Read hooks from a settings.json file

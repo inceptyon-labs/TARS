@@ -41,7 +41,7 @@ pub fn export_as_plugin(
     );
 
     // Write manifest
-    let manifest_path = output_dir.join(".claude-plugin/plugin.json");
+    let manifest_path = output_dir.join(".claude-plugin").join("plugin.json");
     let manifest_json = serde_json::to_string_pretty(&manifest)?;
     std::fs::write(manifest_path, manifest_json)?;
 

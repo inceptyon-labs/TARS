@@ -434,7 +434,10 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
 #[tauri::command]
 pub async fn get_context_stats(project_path: String) -> Result<ContextStats, String> {
     let project = PathBuf::from(&project_path);
-    let home = std::env::var("HOME").map_err(|_| "HOME environment variable not set")?;
+    let home = dirs::home_dir()
+        .ok_or("Cannot find home directory")?
+        .display()
+        .to_string();
     let user_claude = PathBuf::from(&home).join(".claude");
     let project_claude = project.join(".claude");
 

@@ -5,12 +5,20 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;
+use std::path::Path;
 use tempfile::TempDir;
 
 /// Get a command instance for the tars binary
 fn tars_cmd() -> Command {
     // Use the cargo_bin! macro to get the path to the compiled binary
     Command::new(assert_cmd::cargo_bin!("tars"))
+}
+
+/// Set home directory environment variables for cross-platform compatibility.
+/// On Unix, `dirs::home_dir()` uses HOME.
+/// On Windows, `dirs::home_dir()` uses USERPROFILE.
+fn set_home_env<'a>(cmd: &'a mut Command, path: &Path) -> &'a mut Command {
+    cmd.env("HOME", path).env("USERPROFILE", path)
 }
 
 #[test]
@@ -78,8 +86,8 @@ fn test_profile_list_empty() {
     // Use a temporary directory for the database
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("list")
         .assert()
@@ -91,8 +99,8 @@ fn test_profile_list_empty() {
 fn test_profile_show_not_found() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("show")
         .arg("nonexistent")
@@ -110,8 +118,8 @@ fn test_profile_create_from_project() {
     let claude_dir = project_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).expect("Failed to create .claude dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("create")
         .arg("test-profile")
@@ -130,8 +138,8 @@ fn test_profile_create_with_description() {
     let claude_dir = project_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).expect("Failed to create .claude dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("create")
         .arg("my-profile")
@@ -150,8 +158,8 @@ fn test_profile_create_validates_name() {
     let project_dir = TempDir::new().expect("Failed to create project dir");
 
     // Try to create with invalid name containing path separator
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("create")
         .arg("../bad-name")
@@ -167,8 +175,8 @@ fn test_profile_create_rejects_dot_prefix() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let project_dir = TempDir::new().expect("Failed to create project dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("create")
         .arg(".hidden-profile")
@@ -185,8 +193,8 @@ fn test_scan_creates_inventory_json() {
     let output_dir = TempDir::new().expect("Failed to create output dir");
     let project_dir = TempDir::new().expect("Failed to create project dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("scan")
         .arg(project_dir.path())
         .arg("--output")
@@ -207,8 +215,8 @@ fn test_scan_creates_inventory_markdown() {
     let output_dir = TempDir::new().expect("Failed to create output dir");
     let project_dir = TempDir::new().expect("Failed to create project dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("scan")
         .arg(project_dir.path())
         .arg("--output")
@@ -227,8 +235,8 @@ fn test_scan_creates_both_formats() {
     let output_dir = TempDir::new().expect("Failed to create output dir");
     let project_dir = TempDir::new().expect("Failed to create project dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("scan")
         .arg(project_dir.path())
         .arg("--output")
@@ -246,8 +254,8 @@ fn test_scan_creates_both_formats() {
 fn test_cache_status() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("cache")
         .arg("status")
         .assert()
@@ -259,8 +267,8 @@ fn test_cache_status() {
 fn test_cache_status_json() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("cache")
         .arg("status")
         .arg("--json")
@@ -273,8 +281,8 @@ fn test_cache_status_json() {
 fn test_cache_clean_dry_run() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("cache")
         .arg("clean")
         .arg("--dry-run")
@@ -291,8 +299,8 @@ fn test_profile_apply_nonexistent_target() {
     let claude_dir = project_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).expect("Failed to create .claude dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("create")
         .arg("test-profile")
@@ -302,8 +310,8 @@ fn test_profile_apply_nonexistent_target() {
         .success();
 
     // Try to apply to nonexistent target
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd2 = tars_cmd();
+    set_home_env(&mut cmd2, temp_dir.path())
         .arg("profile")
         .arg("apply")
         .arg("test-profile")
@@ -332,8 +340,8 @@ fn test_profile_apply_dry_run() {
     )
     .expect("Failed to write skill");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("create")
         .arg("test-profile")
@@ -343,8 +351,8 @@ fn test_profile_apply_dry_run() {
         .success();
 
     // Apply with dry-run
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd2 = tars_cmd();
+    set_home_env(&mut cmd2, temp_dir.path())
         .arg("profile")
         .arg("apply")
         .arg("test-profile")
@@ -359,8 +367,8 @@ fn test_profile_apply_dry_run() {
 fn test_profile_backups_empty() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("backups")
         .assert()
@@ -372,8 +380,8 @@ fn test_profile_backups_empty() {
 fn test_profile_delete_nonexistent() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("delete")
         .arg("nonexistent-profile")
@@ -393,8 +401,8 @@ fn test_profile_export_creates_plugin() {
     let claude_dir = source_dir.path().join(".claude");
     fs::create_dir_all(&claude_dir).expect("Failed to create .claude dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("profile")
         .arg("create")
         .arg("export-test")
@@ -404,8 +412,8 @@ fn test_profile_export_creates_plugin() {
         .success();
 
     // Export as plugin
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd2 = tars_cmd();
+    set_home_env(&mut cmd2, temp_dir.path())
         .arg("profile")
         .arg("export")
         .arg("export-test")
@@ -438,8 +446,8 @@ fn test_scan_with_include_managed() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let output_dir = TempDir::new().expect("Failed to create output dir");
 
-    tars_cmd()
-        .env("HOME", temp_dir.path())
+    let mut cmd = tars_cmd();
+    set_home_env(&mut cmd, temp_dir.path())
         .arg("scan")
         .arg("--output")
         .arg(output_dir.path())

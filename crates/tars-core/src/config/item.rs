@@ -117,6 +117,9 @@ pub struct ConfigItem {
     pub file_path: PathBuf,
     /// The actual configuration data
     pub config: ConfigItemData,
+    /// Source plugin ID if this item came from a plugin
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_plugin: Option<String>,
 }
 
 impl ConfigItem {
@@ -135,6 +138,7 @@ impl ConfigItem {
             scope,
             file_path,
             config,
+            source_plugin: None,
         }
     }
 

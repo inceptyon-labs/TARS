@@ -53,11 +53,9 @@ pub fn snapshot_from_project(project_path: &Path, name: String) -> Result<Profil
 /// # Errors
 /// Returns an error if snapshot creation fails
 pub fn snapshot_from_user(name: String) -> Result<Profile, SnapshotError> {
-    let home = std::env::var("HOME")
-        .map(std::path::PathBuf::from)
-        .map_err(|_| {
-            SnapshotError::PathNotFound("HOME environment variable not set".to_string())
-        })?;
+    let home = dirs::home_dir().ok_or_else(|| {
+        SnapshotError::PathNotFound("Cannot find home directory".to_string())
+    })?;
 
     let claude_dir = home.join(".claude");
     let mut profile = Profile::new(name);

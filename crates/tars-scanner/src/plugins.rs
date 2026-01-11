@@ -301,6 +301,7 @@ impl PluginInventory {
                     }),
                     installed_at: install.installed_at,
                     last_updated: install.last_updated,
+                    project_path: install.project_path,
                 });
             }
         }
@@ -551,6 +552,8 @@ struct RawInstalledPlugins {
 #[derive(Debug, Deserialize)]
 struct RawPluginInstall {
     scope: String,
+    #[serde(rename = "projectPath")]
+    project_path: Option<String>,
     #[serde(rename = "installPath")]
     install_path: String,
     version: String,
@@ -627,6 +630,9 @@ pub struct InstalledPlugin {
     pub installed_at: Option<String>,
     /// When the plugin was last updated (ISO 8601)
     pub last_updated: Option<String>,
+    /// Project path (for project-scoped plugins)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_path: Option<String>,
 }
 
 /// Plugin manifest (plugin.json)

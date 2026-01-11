@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::str::FromStr;
 
 /// Scope where an artifact was found
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,6 +18,20 @@ pub enum Scope {
     Managed,
     /// From a plugin
     Plugin(String),
+}
+
+impl FromStr for Scope {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "user" => Ok(Scope::User),
+            "project" => Ok(Scope::Project),
+            "local" => Ok(Scope::Local),
+            "managed" => Ok(Scope::Managed),
+            _ => Err(format!("Invalid scope: {s}")),
+        }
+    }
 }
 
 /// Information about a file
@@ -58,5 +73,5 @@ fn whoami_username() -> String {
 }
 
 fn dirs_home_dir() -> PathBuf {
-    std::env::var("HOME").map_or_else(|_| PathBuf::from("/"), PathBuf::from)
+    dirs::home_dir().unwrap_or_else(|| PathBuf::from(if cfg!(windows) { "C:\\" } else { "/" }))
 }

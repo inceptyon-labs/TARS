@@ -17,7 +17,7 @@ import { ProfileList } from '../components/ProfileList';
 import { ProfileDetail } from '../components/ProfileDetail';
 import { CreateProfileWizard } from '../components/CreateProfileWizard';
 import { ImportProfileDialog } from '../components/ImportProfileDialog';
-import type { ProfileDetails, ToolRef } from '../lib/types';
+import type { ProfileDetails, ToolRef, ProfilePluginRef } from '../lib/types';
 
 export function ProfilesPage() {
   const queryClient = useQueryClient();
@@ -87,8 +87,8 @@ export function ProfilesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, toolRefs }: { id: string; toolRefs: ToolRef[] }) =>
-      updateProfile({ id, toolRefs }),
+    mutationFn: ({ id, toolRefs, pluginRefs }: { id: string; toolRefs?: ToolRef[]; pluginRefs?: ProfilePluginRef[] }) =>
+      updateProfile({ id, toolRefs, pluginRefs }),
     onSuccess: async (response, variables) => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       // Refresh the selected profile details using the ID from mutation variables
@@ -118,6 +118,14 @@ export function ProfilesPage() {
     const existingTools = selectedProfile.tool_refs || [];
     const mergedTools = [...existingTools, ...tools];
     updateMutation.mutate({ id: selectedProfile.id, toolRefs: mergedTools });
+  }
+
+  async function handleAddPlugins(plugins: ProfilePluginRef[]) {
+    if (!selectedProfile) return;
+    // Merge new plugins with existing ones
+    const existingPlugins = selectedProfile.plugin_refs || [];
+    const mergedPlugins = [...existingPlugins, ...plugins];
+    updateMutation.mutate({ id: selectedProfile.id, pluginRefs: mergedPlugins });
   }
 
   async function handleExportProfile() {
@@ -239,6 +247,7 @@ export function ProfilesPage() {
             <ProfileDetail
               profile={selectedProfile}
               onAddTools={handleAddTools}
+              onAddPlugins={handleAddPlugins}
               onExportProfile={handleExportProfile}
             />
           ) : (

@@ -182,9 +182,13 @@ export function PluginsPage() {
     }
   }
 
-  async function handleUninstallPlugin(pluginId: string, scope: string) {
+  async function handleUninstallPlugin(pluginId: string, scope: string, projectPath?: string | null) {
     try {
-      await invoke('plugin_uninstall', { plugin: pluginId, scope });
+      await invoke('plugin_uninstall', {
+        plugin: pluginId,
+        scope,
+        projectPath: projectPath ?? undefined
+      });
       toast.success(`Uninstalled ${pluginId}`);
       await refetch();
     } catch (err) {
@@ -692,7 +696,7 @@ export function PluginsPage() {
                               size="sm"
                               className="text-destructive hover:text-destructive"
                               onClick={() =>
-                                handleUninstallPlugin(plugin.id, plugin.scope.type.toLowerCase())
+                                handleUninstallPlugin(plugin.id, plugin.scope.type.toLowerCase(), plugin.project_path)
                               }
                               title="Uninstall"
                             >

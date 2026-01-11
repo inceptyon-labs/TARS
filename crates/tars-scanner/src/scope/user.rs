@@ -10,9 +10,9 @@ use crate::types::Scope;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Get the user's home directory
-fn home_dir() -> PathBuf {
-    std::env::var("HOME").map_or_else(|_| PathBuf::from("/"), PathBuf::from)
+/// Get the user's home directory (cross-platform)
+fn home_dir() -> Option<PathBuf> {
+    dirs::home_dir()
 }
 
 /// Scan user-level Claude Code configuration with pre-scanned plugin inventory
@@ -22,21 +22,30 @@ fn home_dir() -> PathBuf {
 /// # Errors
 /// Returns an error if scanning fails
 pub fn scan_user_scope_with_plugins(plugin_inventory: &PluginInventory) -> ScanResult<UserScope> {
-    let home = home_dir();
+    let home = home_dir().ok_or(ScanError::HomeNotFound)?;
     let claude_dir = home.join(".claude");
 
     let settings = scan_user_settings(&claude_dir)?;
-    let mcp = scan_user_mcp(&home)?;
 
-    // Scan user skills
+    // Scan user MCP config and merge with plugin-provided MCP configs
+    let mut mcp = scan_user_mcp(&home)?;
+    let plugin_mcp = extract_plugin_mcp(plugin_inventory)?;
+    mcp = merge_mcp_configs(mcp, plugin_mcp);
+
+    // Scan user skills and merge with plugin-provided skills
     let mut skills = scan_user_skills(&claude_dir)?;
-
-    // Extract plugin skills from the provided inventory (no duplicate scan)
     let plugin_skills = extract_plugin_skills(plugin_inventory)?;
     skills.extend(plugin_skills);
 
-    let commands = scan_user_commands(&claude_dir)?;
-    let agents = scan_user_agents(&claude_dir)?;
+    // Scan user commands and merge with plugin-provided commands
+    let mut commands = scan_user_commands(&claude_dir)?;
+    let plugin_commands = extract_plugin_commands(plugin_inventory)?;
+    commands.extend(plugin_commands);
+
+    // Scan user agents and merge with plugin-provided agents
+    let mut agents = scan_user_agents(&claude_dir)?;
+    let plugin_agents = extract_plugin_agents(plugin_inventory)?;
+    agents.extend(plugin_agents);
 
     Ok(UserScope {
         settings,
@@ -92,8 +101,11 @@ fn scan_user_skills(claude_dir: &Path) -> ScanResult<Vec<SkillInfo>> {
 fn extract_plugin_skills(plugin_inventory: &PluginInventory) -> ScanResult<Vec<SkillInfo>> {
     let mut all_skills = Vec::new();
 
-    // Only scan skills from installed plugin paths
+    // Only scan skills from installed AND enabled plugin paths
     for plugin in &plugin_inventory.installed {
+        if !plugin.enabled {
+            continue;
+        }
         let skills_dir = plugin.path.join("skills");
         if skills_dir.exists() {
             let plugin_id = match &plugin.marketplace {
@@ -107,6 +119,108 @@ fn extract_plugin_skills(plugin_inventory: &PluginInventory) -> ScanResult<Vec<S
     }
 
     Ok(all_skills)
+}
+
+/// Extract MCP configs from installed plugins
+fn extract_plugin_mcp(plugin_inventory: &PluginInventory) -> ScanResult<Vec<McpConfig>> {
+    let mut all_mcp = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !plugin.enabled {
+            continue;
+        }
+        let mcp_path = plugin.path.join(".mcp.json");
+        if mcp_path.exists() {
+            if let Ok(content) = fs::read_to_string(&mcp_path) {
+                if let Ok(mut mcp) = parse_mcp_config(&mcp_path, &content) {
+                    // Tag the MCP servers with their plugin source
+                    let plugin_id = match &plugin.marketplace {
+                        Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                        None => plugin.id.clone(),
+                    };
+                    mcp.source_plugin = Some(plugin_id);
+                    all_mcp.push(mcp);
+                }
+            }
+        }
+    }
+
+    Ok(all_mcp)
+}
+
+/// Merge multiple MCP configs into a single Option<McpConfig>
+fn merge_mcp_configs(base: Option<McpConfig>, plugin_configs: Vec<McpConfig>) -> Option<McpConfig> {
+    if plugin_configs.is_empty() {
+        return base;
+    }
+
+    let mut merged = base.unwrap_or_default();
+
+    // Get existing server names to avoid duplicates
+    let existing_names: std::collections::HashSet<_> =
+        merged.servers.iter().map(|s| s.name.clone()).collect();
+
+    for config in plugin_configs {
+        // Merge servers from plugin configs
+        for server in config.servers {
+            // Don't overwrite user-defined servers
+            if !existing_names.contains(&server.name) {
+                merged.servers.push(server);
+            }
+        }
+    }
+
+    if merged.servers.is_empty() && merged.path.as_os_str().is_empty() {
+        None
+    } else {
+        Some(merged)
+    }
+}
+
+/// Extract commands from installed plugins
+fn extract_plugin_commands(plugin_inventory: &PluginInventory) -> ScanResult<Vec<CommandInfo>> {
+    let mut all_commands = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !plugin.enabled {
+            continue;
+        }
+        let commands_dir = plugin.path.join("commands");
+        if commands_dir.exists() {
+            let plugin_id = match &plugin.marketplace {
+                Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                None => plugin.id.clone(),
+            };
+            let scope = Scope::Plugin(plugin_id);
+            let dir_commands = scan_commands_directory(&commands_dir, scope)?;
+            all_commands.extend(dir_commands);
+        }
+    }
+
+    Ok(all_commands)
+}
+
+/// Extract agents from installed plugins
+fn extract_plugin_agents(plugin_inventory: &PluginInventory) -> ScanResult<Vec<AgentInfo>> {
+    let mut all_agents = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !plugin.enabled {
+            continue;
+        }
+        let agents_dir = plugin.path.join("agents");
+        if agents_dir.exists() {
+            let plugin_id = match &plugin.marketplace {
+                Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                None => plugin.id.clone(),
+            };
+            let scope = Scope::Plugin(plugin_id);
+            let dir_agents = scan_agents_directory(&agents_dir, scope)?;
+            all_agents.extend(dir_agents);
+        }
+    }
+
+    Ok(all_agents)
 }
 
 fn scan_user_commands(claude_dir: &Path) -> ScanResult<Vec<CommandInfo>> {

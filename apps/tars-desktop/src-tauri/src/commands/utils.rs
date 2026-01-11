@@ -52,10 +52,12 @@ pub async fn get_directory_info(path: String) -> Result<DirectoryInfo, String> {
     })
 }
 
-/// Get home directory path
+/// Get home directory path (cross-platform)
 #[tauri::command]
 pub async fn get_home_dir() -> Result<String, String> {
-    std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())
+    dirs::home_dir()
+        .map(|p| p.display().to_string())
+        .ok_or_else(|| "Cannot find home directory".to_string())
 }
 
 /// List subdirectories in a path
@@ -245,13 +247,11 @@ struct RawModelUsage {
     cache_creation_input_tokens: u64,
 }
 
-/// Get Claude Code usage statistics from the local stats cache
+/// Get Claude Code usage statistics from the local stats cache (cross-platform)
 #[tauri::command]
 pub async fn get_claude_usage_stats() -> Result<ClaudeUsageStats, String> {
-    let home = std::env::var("HOME").map_err(|_| "HOME environment variable not set")?;
-    let stats_path = PathBuf::from(&home)
-        .join(".claude")
-        .join("stats-cache.json");
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let stats_path = home.join(".claude").join("stats-cache.json");
 
     if !stats_path.exists() {
         return Err("Claude Code stats file not found. Have you used Claude Code yet?".to_string());

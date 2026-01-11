@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>A macOS desktop application for managing Claude Code configuration across projects</strong>
+  <strong>A cross-platform desktop application for managing Claude Code configuration across projects</strong>
 </p>
 
 <p align="center">
@@ -71,6 +71,7 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 - **Transport types** - Support for stdio, HTTP, and SSE
 - **Scope configuration** - User-level or project-specific servers
 - **Environment variables** - Configure server environment
+- **Plugin integration** - View MCP servers provided by installed plugins
 
 ### Plugin Management
 - **Marketplace support** - Add GitHub, URL, or local marketplace sources
@@ -91,10 +92,11 @@ Profiles let you create reusable configuration bundles that can be shared across
   - **Development folder** - Scan an entire folder for all Claude-configured projects
   - **Start empty** - Create a blank profile and add tools later
 - **Tool discovery** - Automatically finds MCP servers, skills, and agents from project `.claude/` directories and `.mcp.json` files
+- **Plugin inclusion** - Add project-scoped plugins to profiles
 
 **Tool Management**
 - **Visual tool picker** - Browse and select tools with descriptions and source info
-- **Categorized view** - Filter by MCP servers, skills, or agents
+- **Categorized view** - Filter by MCP servers, skills, agents, or plugins
 - **Bulk selection** - Select all or clear selections quickly
 - **Search** - Find specific tools across all discovered projects
 
@@ -124,7 +126,7 @@ Profiles let you create reusable configuration bundles that can be shared across
 - **Personal storage** - Save prompts and notes (not loaded by Claude)
 - **Rich editing** - MDXEditor with full markdown support
 - **Code blocks** - Syntax highlighting for 14+ languages
-- **Separate storage** - Stored in `~/.tars/prompts/`, independent of Claude config
+- **Separate storage** - Stored in app data directory, independent of Claude config
 
 ### Updates
 - **Claude Code updates** - Compare installed vs latest version with update notifications
@@ -142,7 +144,7 @@ Profiles let you create reusable configuration bundles that can be shared across
 
 ### Prerequisites
 
-- **macOS** (Apple Silicon or Intel)
+- **Windows**, **macOS**, or **Linux**
 - **Rust** 1.75+ with Cargo
 - **Bun** (or npm/yarn/pnpm)
 - **Claude Code** CLI installed
@@ -162,7 +164,9 @@ bun install
 bun run tauri build
 
 # The built app will be at:
-# src-tauri/target/release/bundle/macos/TARS - Tooling, Agents, Roles, Skills.app
+# Windows: src-tauri/target/release/TARS.exe
+# macOS:   src-tauri/target/release/bundle/macos/TARS.app
+# Linux:   src-tauri/target/release/tars
 ```
 
 ### Development Mode
@@ -188,7 +192,7 @@ bun run tauri dev
 2. Click **"New Skill"**
 3. Choose scope (User or Project)
 4. Edit the skill template with your prompt and configuration
-5. Save with `Cmd+S` or click Save
+5. Save with `Ctrl+S` / `Cmd+S` or click Save
 
 ### Managing Profiles
 
@@ -200,7 +204,7 @@ bun run tauri dev
    - **Registered projects** - Pick from projects already in TARS
    - **Development folder** - Scan a parent folder (e.g., `~/Development`)
    - **Empty** - Start blank and add tools later
-4. Select the MCP servers, skills, and agents you want in the profile
+4. Select the MCP servers, skills, agents, and plugins you want in the profile
 5. Click **"Create Profile"** to save
 
 **Assigning to Projects:**
@@ -263,7 +267,20 @@ tars/
 
 TARS respects Claude Code's scope hierarchy (highest to lowest precedence):
 
+**macOS:**
 1. **Managed** - `/Library/Application Support/ClaudeCode/managed-*.json`
+2. **Local** - `<repo>/.claude/settings.local.json`
+3. **Project** - `<repo>/.claude/settings.json`, `<repo>/.mcp.json`
+4. **User** - `~/.claude/settings.json`, `~/.claude.json`
+
+**Windows:**
+1. **Managed** - `%ProgramData%\ClaudeCode\managed-*.json`
+2. **Local** - `<repo>\.claude\settings.local.json`
+3. **Project** - `<repo>\.claude\settings.json`, `<repo>\.mcp.json`
+4. **User** - `%USERPROFILE%\.claude\settings.json`, `%USERPROFILE%\.claude.json`
+
+**Linux:**
+1. **Managed** - `/etc/claude-code/managed-*.json`
 2. **Local** - `<repo>/.claude/settings.local.json`
 3. **Project** - `<repo>/.claude/settings.json`, `<repo>/.mcp.json`
 4. **User** - `~/.claude/settings.json`, `~/.claude.json`
@@ -294,12 +311,14 @@ TARS respects Claude Code's scope hierarchy (highest to lowest precedence):
 # Rust crates
 cargo build                    # Build all crates
 cargo test                     # Run tests
+cargo clippy --all -- -D warnings  # Lint (must pass)
 cargo run -p tars-cli -- scan  # Run scanner CLI
 
 # Frontend
 cd apps/tars-desktop
 bun run dev                    # Vite dev server only
 bun run build                  # Build frontend
+bun tsc --noEmit               # Type check
 bun run tauri dev              # Full Tauri dev mode
 bun run tauri build            # Production build
 ```
@@ -338,7 +357,7 @@ Your skill prompt here with $ARGUMENTS placeholder.
 
 ## Roadmap
 
-- [ ] Windows and Linux support
+- [x] Cross-platform support (Windows, macOS, Linux)
 - [x] Profile sharing via Claude Code plugin format
 - [ ] Diff visualization improvements
 - [ ] Bulk operations

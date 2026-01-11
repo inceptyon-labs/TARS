@@ -27,6 +27,9 @@ pub struct McpServerItem {
     pub url: Option<String>,
     #[serde(rename = "filePath")]
     pub file_path: String,
+    /// If set, this server comes from a plugin and is read-only
+    #[serde(rename = "sourcePlugin", skip_serializing_if = "Option::is_none")]
+    pub source_plugin: Option<String>,
 }
 
 /// Result from `mcp_list` command
@@ -86,6 +89,7 @@ pub async fn mcp_list(
                     env: config.env,
                     url: config.url,
                     file_path: item.file_path.display().to_string(),
+                    source_plugin: item.source_plugin,
                 })
             } else {
                 None
@@ -259,9 +263,9 @@ pub async fn mcp_move(
     project_path: Option<String>,
     _state: State<'_, AppState>,
 ) -> Result<McpMoveResult, String> {
-    let backup_dir = std::env::var("HOME").map_or_else(
-        |_| PathBuf::from("/tmp/tars/backups"),
-        |h| PathBuf::from(h).join(".tars").join("backups"),
+    let backup_dir = dirs::home_dir().map_or_else(
+        || std::env::temp_dir().join("tars").join("backups"),
+        |h| h.join(".tars").join("backups"),
     );
 
     let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);

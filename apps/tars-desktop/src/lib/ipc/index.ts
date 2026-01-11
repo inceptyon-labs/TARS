@@ -152,13 +152,14 @@ export async function getProfile(id: string): Promise<ProfileDetails> {
   return invoke('get_profile', { id });
 }
 
-import type { ToolRef, UpdateProfileResponse } from '../types';
+import type { ToolRef, ProfilePluginRef, UpdateProfileResponse } from '../types';
 
 export interface UpdateProfileParams {
   id: string;
   name?: string;
   description?: string;
   toolRefs?: ToolRef[];
+  pluginRefs?: ProfilePluginRef[];
 }
 
 export async function updateProfile(params: UpdateProfileParams): Promise<UpdateProfileResponse> {
@@ -167,6 +168,7 @@ export async function updateProfile(params: UpdateProfileParams): Promise<Update
   if (params.name !== undefined) input.name = params.name;
   if (params.description !== undefined) input.description = params.description;
   if (params.toolRefs !== undefined) input.tool_refs = params.toolRefs;
+  if (params.pluginRefs !== undefined) input.plugin_refs = params.pluginRefs;
 
   // Wrap in 'input' to match Rust parameter name
   return invoke('update_profile', { input });

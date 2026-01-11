@@ -12,15 +12,17 @@ import {
   Users,
   Plus,
   Download,
+  Puzzle,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ProfileToolPicker } from './ProfileToolPicker';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
-import type { ProfileDetails, ToolRef } from '../lib/types';
+import type { ProfileDetails, ToolRef, ProfilePluginRef } from '../lib/types';
 
 interface ProfileDetailProps {
   profile: ProfileDetails;
   onAddTools?: (tools: ToolRef[]) => void;
+  onAddPlugins?: (plugins: ProfilePluginRef[]) => void;
   onExportProfile?: () => void;
 }
 
@@ -54,7 +56,7 @@ function getToolTypeLabel(toolType: string) {
   }
 }
 
-export function ProfileDetail({ profile, onAddTools, onExportProfile }: ProfileDetailProps) {
+export function ProfileDetail({ profile, onAddTools, onAddPlugins, onExportProfile }: ProfileDetailProps) {
   const [isToolPickerOpen, setIsToolPickerOpen] = useState(false);
 
   const stats = [
@@ -62,11 +64,19 @@ export function ProfileDetail({ profile, onAddTools, onExportProfile }: ProfileD
     { label: 'Skills', value: profile.skills_count, icon: Sparkles },
     { label: 'Commands', value: profile.commands_count, icon: Terminal },
     { label: 'Agents', value: profile.agents_count, icon: Bot },
+    { label: 'Plugins', value: profile.plugins_count || 0, icon: Puzzle },
   ];
 
   const handleAddTools = (tools: ToolRef[]) => {
     if (onAddTools) {
       onAddTools(tools);
+    }
+    setIsToolPickerOpen(false);
+  };
+
+  const handleAddPlugins = (plugins: ProfilePluginRef[]) => {
+    if (onAddPlugins) {
+      onAddPlugins(plugins);
     }
     setIsToolPickerOpen(false);
   };
@@ -80,7 +90,7 @@ export function ProfileDetail({ profile, onAddTools, onExportProfile }: ProfileD
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {stats.map((stat) => (
           <div key={stat.label} className="border rounded-lg p-4 text-center">
             <stat.icon className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
@@ -98,19 +108,23 @@ export function ProfileDetail({ profile, onAddTools, onExportProfile }: ProfileD
         </div>
       )}
 
-      {/* Tool References */}
+      {/* Tools and Plugins */}
       <div className="border-t pt-4">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium">Tools ({profile.tool_refs?.length || 0})</h4>
-          {onAddTools && (
+          <h4 className="text-sm font-medium">
+            Tools & Plugins ({(profile.tool_refs?.length || 0) + (profile.plugin_refs?.length || 0)})
+          </h4>
+          {(onAddTools || onAddPlugins) && (
             <Button variant="outline" size="sm" onClick={() => setIsToolPickerOpen(true)}>
               <Plus className="h-4 w-4 mr-1" />
-              Add Tool
+              Add
             </Button>
           )}
         </div>
-        {profile.tool_refs && profile.tool_refs.length > 0 ? (
-          <div className="space-y-2">
+
+        {/* Tools */}
+        {profile.tool_refs && profile.tool_refs.length > 0 && (
+          <div className="space-y-2 mb-4">
             {profile.tool_refs.map((tool, index) => {
               const Icon = getToolIcon(tool.tool_type);
               return (
@@ -134,9 +148,37 @@ export function ProfileDetail({ profile, onAddTools, onExportProfile }: ProfileD
               );
             })}
           </div>
-        ) : (
+        )}
+
+        {/* Plugins */}
+        {profile.plugin_refs && profile.plugin_refs.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {profile.plugin_refs.map((plugin, index) => (
+              <div
+                key={`plugin-${plugin.id}-${index}`}
+                className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <Puzzle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{plugin.id}</span>
+                  <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+                    Plugin
+                  </span>
+                  <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+                    {plugin.scope}
+                  </span>
+                </div>
+                <span className={`text-xs px-1.5 py-0.5 rounded ${plugin.enabled ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}>
+                  {plugin.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(!profile.tool_refs || profile.tool_refs.length === 0) && (!profile.plugin_refs || profile.plugin_refs.length === 0) && (
           <div className="text-sm text-muted-foreground py-4 text-center border rounded-lg bg-muted/10">
-            No tools added yet. Click "Add Tool" to select tools from your inventory.
+            No tools or plugins added yet. Click "Add" to select from your inventory.
           </div>
         )}
       </div>
@@ -199,7 +241,9 @@ export function ProfileDetail({ profile, onAddTools, onExportProfile }: ProfileD
         open={isToolPickerOpen}
         onOpenChange={setIsToolPickerOpen}
         onAddTools={handleAddTools}
+        onAddPlugins={handleAddPlugins}
         existingTools={profile.tool_refs || []}
+        existingPlugins={profile.plugin_refs || []}
       />
     </div>
   );

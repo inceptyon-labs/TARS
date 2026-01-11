@@ -7,10 +7,11 @@ use std::path::PathBuf;
 
 use chrono::Utc;
 use serde_json::{json, Value};
+use tars_scanner::plugins::PluginInventory;
 
 use super::error::{ConfigError, ConfigResult};
 use super::item::{validate_name, ConfigItem, ConfigItemData, ConfigItemType};
-use super::mcp::McpServerConfig;
+use super::mcp::{McpServerConfig, McpTransport};
 use super::ops::{OperationResult, OperationType};
 use super::scope::ConfigScope;
 
@@ -39,7 +40,7 @@ impl McpOps {
         self
     }
 
-    /// List all MCP servers across scopes
+    /// List all MCP servers across scopes (including plugins)
     pub fn list(&self) -> ConfigResult<Vec<ConfigItem>> {
         let mut items = Vec::new();
 
@@ -57,7 +58,175 @@ impl McpOps {
             }
         }
 
+        // Read from installed plugins
+        items.extend(self.read_plugin_servers()?);
+
         Ok(items)
+    }
+
+    /// Read MCP servers from installed plugins
+    /// Only includes:
+    /// - User-scoped plugins (always)
+    /// - Project-scoped plugins (only if their `project_path` matches current project)
+    fn read_plugin_servers(&self) -> ConfigResult<Vec<ConfigItem>> {
+        use tars_scanner::types::Scope;
+
+        let mut items = Vec::new();
+
+        // Scan plugins - ignore errors (plugins are optional)
+        let Ok(plugin_inventory) = PluginInventory::scan() else {
+            return Ok(items);
+        };
+
+        for plugin in &plugin_inventory.installed {
+            if !plugin.enabled {
+                continue;
+            }
+
+            // Filter based on plugin scope:
+            // - User scope: always include
+            // - Project scope: only if project_path matches
+            // - Local/Managed: skip for now
+            let include_plugin = match &plugin.scope {
+                Scope::User => true,
+                Scope::Project => {
+                    // Only include if we're viewing the same project
+                    match (&self.project_path, &plugin.project_path) {
+                        (Some(current), Some(plugin_proj)) => {
+                            // Normalize paths for comparison
+                            let current_normalized = current.to_string_lossy().replace('\\', "/").to_lowercase();
+                            let plugin_normalized = plugin_proj.replace('\\', "/").to_lowercase();
+                            current_normalized == plugin_normalized
+                        }
+                        _ => false, // No project context or no plugin project path
+                    }
+                }
+                _ => false, // Local, Managed, Plugin scopes - skip
+            };
+
+            if !include_plugin {
+                continue;
+            }
+
+            let mcp_path = plugin.path.join(".mcp.json");
+            if !mcp_path.exists() {
+                continue;
+            }
+
+            let Ok(content) = fs::read_to_string(&mcp_path) else {
+                continue;
+            };
+
+            let Ok(json): Result<Value, _> = serde_json::from_str(&content) else {
+                continue;
+            };
+
+            // Plugin format is flat: { "serverName": { "type": "...", ... } }
+            let Some(servers) = json.as_object() else {
+                continue;
+            };
+
+            let plugin_id = match &plugin.marketplace {
+                Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                None => plugin.id.clone(),
+            };
+
+            // Determine the scope to display based on plugin scope
+            let display_scope = match &plugin.scope {
+                Scope::User => ConfigScope::User,
+                Scope::Project => ConfigScope::Project,
+                _ => ConfigScope::User,
+            };
+
+            for (name, value) in servers {
+                // Skip mcpServers wrapper if present
+                if name == "mcpServers" {
+                    if let Some(inner) = value.as_object() {
+                        for (inner_name, inner_value) in inner {
+                            if let Some(item) = self.parse_plugin_server(
+                                inner_name,
+                                inner_value,
+                                &mcp_path,
+                                &plugin_id,
+                                display_scope,
+                            ) {
+                                items.push(item);
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                if let Some(item) =
+                    self.parse_plugin_server(name, value, &mcp_path, &plugin_id, display_scope)
+                {
+                    items.push(item);
+                }
+            }
+        }
+
+        Ok(items)
+    }
+
+    /// Parse a single MCP server from plugin config
+    fn parse_plugin_server(
+        &self,
+        name: &str,
+        value: &Value,
+        file_path: &PathBuf,
+        plugin_id: &str,
+        scope: ConfigScope,
+    ) -> Option<ConfigItem> {
+        // Parse the transport type
+        let transport_str = value.get("type").and_then(|v| v.as_str()).unwrap_or("stdio");
+        let transport = match transport_str {
+            "http" => McpTransport::Http,
+            "sse" => McpTransport::Sse,
+            _ => McpTransport::Stdio,
+        };
+
+        let config = McpServerConfig {
+            transport,
+            command: value.get("command").and_then(|v| v.as_str()).map(String::from),
+            args: value
+                .get("args")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            env: value
+                .get("env")
+                .and_then(|v| v.as_object())
+                .map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            url: value.get("url").and_then(|v| v.as_str()).map(String::from),
+        };
+
+        // Skip invalid configs
+        if config.validate().is_err() {
+            return None;
+        }
+
+        // Create item with the appropriate scope
+        let mut item = ConfigItem::new(
+            name.to_string(),
+            ConfigItemType::McpServer,
+            scope,
+            file_path.clone(),
+            ConfigItemData::McpServer(config),
+        );
+
+        // Add plugin source info to distinguish from regular servers
+        item.source_plugin = Some(plugin_id.to_string());
+
+        Some(item)
     }
 
     /// List MCP servers from a specific scope only

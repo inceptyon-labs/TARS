@@ -1,6 +1,9 @@
 //! Managed scope scanner
 //!
-//! Scans IT-deployed (managed) configuration from /etc/claude/
+//! Scans IT-deployed (managed) configuration.
+//! - macOS: /Library/Application Support/ClaudeCode/
+//! - Linux: /etc/claude/
+//! - Windows: C:\ProgramData\ClaudeCode\
 
 use crate::error::ScanResult;
 use crate::inventory::ManagedScope;
@@ -9,9 +12,24 @@ use crate::settings::{McpConfig, SettingsFile};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Get the managed configuration directory
+/// Get the managed configuration directory (cross-platform)
 fn managed_dir() -> PathBuf {
-    PathBuf::from("/etc/claude")
+    #[cfg(target_os = "macos")]
+    {
+        PathBuf::from("/Library/Application Support/ClaudeCode")
+    }
+    #[cfg(target_os = "linux")]
+    {
+        PathBuf::from("/etc/claude")
+    }
+    #[cfg(target_os = "windows")]
+    {
+        PathBuf::from(r"C:\ProgramData\ClaudeCode")
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        PathBuf::from("/etc/claude")
+    }
 }
 
 /// Scan managed (IT-deployed) Claude Code configuration

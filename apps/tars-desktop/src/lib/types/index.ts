@@ -57,6 +57,7 @@ export interface InstalledPlugin {
   manifest: PluginManifest;
   installed_at: string | null;
   last_updated: string | null;
+  project_path?: string | null;
 }
 
 export type PluginScope =
@@ -224,16 +225,25 @@ export interface ProfileInfo {
   updated_at: string;
 }
 
+export interface ProfilePluginRef {
+  id: string;
+  marketplace: string | null;
+  scope: string;
+  enabled: boolean;
+}
+
 export interface ProfileDetails {
   id: string;
   name: string;
   description: string | null;
   tool_refs: ToolRef[];
+  plugin_refs: ProfilePluginRef[];
   assigned_projects: ProjectRef[];
   mcp_count: number;
   skills_count: number;
   commands_count: number;
   agents_count: number;
+  plugins_count: number;
   has_claude_md: boolean;
   created_at: string;
   updated_at: string;

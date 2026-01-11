@@ -156,8 +156,7 @@ fn add_windows_paths(paths: &mut Vec<PathBuf>) {
 /// Add Unix-specific paths (macOS and Linux)
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 fn add_unix_paths(paths: &mut Vec<PathBuf>) {
-    if let Ok(home) = std::env::var("HOME") {
-        let home = PathBuf::from(&home);
+    if let Some(home) = dirs::home_dir() {
 
         // npm global install locations
         paths.push(home.join(".local").join("bin").join("claude"));
@@ -220,10 +219,9 @@ fn add_linux_paths(paths: &mut Vec<PathBuf>) {
     paths.push(PathBuf::from("/snap/bin/claude"));
 
     // Flatpak
-    if let Ok(home) = std::env::var("HOME") {
+    if let Some(home) = dirs::home_dir() {
         paths.push(
-            PathBuf::from(&home)
-                .join(".local")
+            home.join(".local")
                 .join("share")
                 .join("flatpak")
                 .join("exports")

@@ -9,10 +9,11 @@ use std::path::{Path, PathBuf};
 use tars_core::export::export_as_plugin;
 use tars_core::profile::snapshot::snapshot_from_project;
 use tars_core::profile::sync::{convert_profile_to_local_overrides, sync_profile_to_projects};
-use tars_core::profile::{ToolPermissions, ToolRef, ToolType};
+use tars_core::profile::{PluginRef, ToolPermissions, ToolRef, ToolType};
 use tars_core::storage::projects::ProjectStore;
 use tars_core::storage::ProfileStore;
 use tars_core::Profile;
+use tars_scanner::types::Scope;
 use tauri::State;
 
 /// Profile summary for frontend display
@@ -92,6 +93,26 @@ pub struct ProjectRef {
     pub path: String,
 }
 
+/// Plugin reference for frontend display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginRefInfo {
+    pub id: String,
+    pub marketplace: Option<String>,
+    pub scope: String,
+    pub enabled: bool,
+}
+
+impl From<&tars_core::profile::PluginRef> for PluginRefInfo {
+    fn from(r: &tars_core::profile::PluginRef) -> Self {
+        Self {
+            id: r.id.clone(),
+            marketplace: r.marketplace.clone(),
+            scope: format!("{:?}", r.scope).to_lowercase(),
+            enabled: r.enabled,
+        }
+    }
+}
+
 /// Full profile details for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileDetails {
@@ -99,11 +120,13 @@ pub struct ProfileDetails {
     pub name: String,
     pub description: Option<String>,
     pub tool_refs: Vec<ToolRefInfo>,
+    pub plugin_refs: Vec<PluginRefInfo>,
     pub assigned_projects: Vec<ProjectRef>,
     pub mcp_count: usize,
     pub skills_count: usize,
     pub commands_count: usize,
     pub agents_count: usize,
+    pub plugins_count: usize,
     pub has_claude_md: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -133,17 +156,20 @@ impl From<&Profile> for ProfileDetails {
         let skills_count = p.repo_overlays.skills.len() + p.user_overlays.skills.len() + skill_refs;
         let commands_count = p.repo_overlays.commands.len() + p.user_overlays.commands.len();
         let agents_count = p.repo_overlays.agents.len() + agent_refs;
+        let plugins_count = p.plugin_set.plugins.len();
 
         Self {
             id: p.id.to_string(),
             name: p.name.clone(),
             description: p.description.clone(),
             tool_refs: p.tool_refs.iter().map(ToolRefInfo::from).collect(),
+            plugin_refs: p.plugin_set.plugins.iter().map(PluginRefInfo::from).collect(),
             assigned_projects: Vec::new(), // Will be populated separately
             mcp_count,
             skills_count,
             commands_count,
             agents_count,
+            plugins_count,
             has_claude_md: p.repo_overlays.claude_md.is_some(),
             created_at: p.created_at.to_rfc3339(),
             updated_at: p.updated_at.to_rfc3339(),
@@ -351,6 +377,43 @@ pub struct ToolPermissionsInput {
     pub disallowed_tools: Vec<String>,
 }
 
+/// Plugin reference input from frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginRefInput {
+    pub id: String,
+    pub marketplace: Option<String>,
+    pub scope: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl TryFrom<PluginRefInput> for PluginRef {
+    type Error = String;
+
+    fn try_from(input: PluginRefInput) -> Result<Self, Self::Error> {
+        let id = input.id.trim().to_string();
+        if id.is_empty() {
+            return Err("Plugin ID cannot be empty".to_string());
+        }
+
+        let scope: Scope = input
+            .scope
+            .parse()
+            .map_err(|_| format!("Invalid scope: {}", input.scope))?;
+
+        Ok(PluginRef {
+            id,
+            marketplace: input.marketplace,
+            scope,
+            enabled: input.enabled,
+        })
+    }
+}
+
 /// Validate that a directory path is relative and doesn't contain path traversal
 fn validate_allowed_directory(path: &str) -> Result<PathBuf, String> {
     let path_buf = PathBuf::from(path);
@@ -441,9 +504,11 @@ pub struct UpdateProfileInput {
     pub description: Option<String>,
     #[serde(default)]
     pub tool_refs: Option<Vec<ToolRefInput>>,
+    #[serde(default)]
+    pub plugin_refs: Option<Vec<PluginRefInput>>,
 }
 
-/// Update a profile (name, description, and/or `tool_refs`)
+/// Update a profile (name, description, `tool_refs`, and/or `plugin_refs`)
 #[tauri::command]
 pub async fn update_profile(
     input: UpdateProfileInput,
@@ -453,6 +518,7 @@ pub async fn update_profile(
     let name = input.name;
     let description = input.description;
     let tool_refs = input.tool_refs;
+    let plugin_refs = input.plugin_refs;
 
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| format!("Invalid UUID: {e}"))?;
 
@@ -494,6 +560,14 @@ pub async fn update_profile(
             profile.tool_refs = refs
                 .into_iter()
                 .map(ToolRef::try_from)
+                .collect::<Result<Vec<_>, _>>()?;
+        }
+
+        // Update plugin_refs if provided
+        if let Some(refs) = plugin_refs {
+            profile.plugin_set.plugins = refs
+                .into_iter()
+                .map(PluginRef::try_from)
                 .collect::<Result<Vec<_>, _>>()?;
         }
 
@@ -545,14 +619,13 @@ fn validate_export_path(path: &Path) -> Result<PathBuf, String> {
     }
 
     // Get safe export directories
-    let home = std::env::var("HOME").map_err(|_| "HOME not set")?;
-    let home_path = PathBuf::from(&home);
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
 
     let safe_dirs = vec![
-        home_path.join("Downloads"),
-        home_path.join("Desktop"),
-        home_path.join("Documents"),
-        home_path.join(".tars/exports"),
+        home.join("Downloads"),
+        home.join("Desktop"),
+        home.join("Documents"),
+        home.join(".tars").join("exports"),
     ];
 
     // Normalize the path by iterating components (handles redundant separators)
