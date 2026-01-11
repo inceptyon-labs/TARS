@@ -265,7 +265,10 @@ export function McpPanel() {
                           <div className="flex items-center gap-2">
                             {server.name}
                             {server.sourcePlugin && (
-                              <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs" title={`From plugin: ${server.sourcePlugin}`}>
+                              <span
+                                className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs"
+                                title={`From plugin: ${server.sourcePlugin}`}
+                              >
                                 plugin
                               </span>
                             )}
@@ -281,9 +284,7 @@ export function McpPanel() {
                         </TableCell>
                         <TableCell>
                           {server.sourcePlugin ? (
-                            <span className="text-xs text-muted-foreground">
-                              Managed by plugin
-                            </span>
+                            <span className="text-xs text-muted-foreground">Managed by plugin</span>
                           ) : (
                             <div className="flex gap-1">
                               <Button

@@ -24,7 +24,13 @@ import { discoverClaudeProjects, scanProjects } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { Button } from './ui/button';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
-import type { ToolRef, ToolType, ToolPermissions, InstalledPlugin, ProfilePluginRef } from '../lib/types';
+import type {
+  ToolRef,
+  ToolType,
+  ToolPermissions,
+  InstalledPlugin,
+  ProfilePluginRef,
+} from '../lib/types';
 
 interface ProfileToolPickerProps {
   open: boolean;
@@ -207,16 +213,18 @@ export function ProfileToolPicker({
   // Also exclude already added plugins and apply search filter
   const filteredPlugins = useMemo(() => {
     const existingIds = new Set(existingPlugins.map((p) => p.id));
-    return installedPlugins
-      // Only show project-scoped plugins (not user-scoped since they're already global)
-      .filter((p) => p.scope.type !== 'User')
-      .filter((p) => !existingIds.has(p.id))
-      .filter((p) =>
-        searchQuery
-          ? p.manifest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.manifest.description?.toLowerCase().includes(searchQuery.toLowerCase())
-          : true
-      );
+    return (
+      installedPlugins
+        // Only show project-scoped plugins (not user-scoped since they're already global)
+        .filter((p) => p.scope.type !== 'User')
+        .filter((p) => !existingIds.has(p.id))
+        .filter((p) =>
+          searchQuery
+            ? p.manifest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              p.manifest.description?.toLowerCase().includes(searchQuery.toLowerCase())
+            : true
+        )
+    );
   }, [installedPlugins, existingPlugins, searchQuery]);
 
   const isToolSelected = (tool: ToolItem) =>
@@ -378,9 +386,7 @@ export function ProfileToolPicker({
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
-              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                {tab.count}
-              </span>
+              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{tab.count}</span>
             </button>
           ))}
         </div>
@@ -423,11 +429,16 @@ export function ProfileToolPicker({
               <div className="text-center py-8 text-muted-foreground space-y-2">
                 <Puzzle className="h-8 w-8 mx-auto opacity-50" />
                 <p className="text-sm">No project-scoped plugins</p>
-                <p className="text-xs">User-scoped plugins are already globally available. Install plugins at project scope to add them to profiles.</p>
+                <p className="text-xs">
+                  User-scoped plugins are already globally available. Install plugins at project
+                  scope to add them to profiles.
+                </p>
               </div>
             ) : filteredPlugins.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                {searchQuery ? 'No plugins match your search' : 'All project-scoped plugins are already in this profile'}
+                {searchQuery
+                  ? 'No plugins match your search'
+                  : 'All project-scoped plugins are already in this profile'}
               </div>
             ) : (
               <div className="space-y-2">
@@ -476,118 +487,116 @@ export function ProfileToolPicker({
                 })}
               </div>
             )
-          ) : (
-            // Tool list (MCP, Skills, Agents)
-            !developmentFolder ? (
-              <div className="text-center py-12 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                  <Folder className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Select a Development Folder</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Choose the folder where your projects live to discover available tools
-                  </p>
-                </div>
-                <Button onClick={handleSelectFolder}>
-                  <FolderOpen className="h-4 w-4 mr-2" />
-                  Select Folder
-                </Button>
+          ) : // Tool list (MCP, Skills, Agents)
+          !developmentFolder ? (
+            <div className="text-center py-12 space-y-4">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                <Folder className="h-8 w-8 text-muted-foreground" />
               </div>
-            ) : isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
-              </div>
-            ) : error ? (
-              <div className="text-center py-8 space-y-3">
-                <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
-                <p className="text-sm text-destructive">Failed to load tools</p>
-                <p className="text-xs text-muted-foreground">
-                  {error instanceof Error ? error.message : String(error)}
+              <div>
+                <p className="text-sm font-medium">Select a Development Folder</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose the folder where your projects live to discover available tools
                 </p>
-                <Button variant="outline" size="sm" onClick={() => refetch()}>
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Retry
-                </Button>
               </div>
-            ) : filteredTools.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchQuery ? 'No tools match your search' : 'No tools available in this category'}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredTools.map((tool) => {
-                  const Icon = getToolIcon(tool.toolType);
-                  const selected = isToolSelected(tool);
-                  const toolKey = getToolKey(tool);
-                  const isExpanded = expandedTool === toolKey;
-                  const hasPermissions = toolPermissions[toolKey] != null;
-                  const isMcp = tool.toolType === 'mcp';
+              <Button onClick={handleSelectFolder}>
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Select Folder
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 space-y-3">
+              <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
+              <p className="text-sm text-destructive">Failed to load tools</p>
+              <p className="text-xs text-muted-foreground">
+                {error instanceof Error ? error.message : String(error)}
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Retry
+              </Button>
+            </div>
+          ) : filteredTools.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchQuery ? 'No tools match your search' : 'No tools available in this category'}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredTools.map((tool) => {
+                const Icon = getToolIcon(tool.toolType);
+                const selected = isToolSelected(tool);
+                const toolKey = getToolKey(tool);
+                const isExpanded = expandedTool === toolKey;
+                const hasPermissions = toolPermissions[toolKey] != null;
+                const isMcp = tool.toolType === 'mcp';
 
-                  return (
-                    <div key={toolKey} className="space-y-0">
-                      <button
-                        onClick={() => toggleToolSelection(tool)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                return (
+                  <div key={toolKey} className="space-y-0">
+                    <button
+                      onClick={() => toggleToolSelection(tool)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                        selected
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:bg-muted/50'
+                      } ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
                           selected
-                            ? 'border-primary bg-primary/10'
-                            : 'border-border hover:bg-muted/50'
-                        } ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
+                            ? 'bg-primary border-primary text-primary-foreground'
+                            : 'border-muted-foreground/40'
+                        }`}
                       >
-                        <div
-                          className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
-                            selected
-                              ? 'bg-primary border-primary text-primary-foreground'
-                              : 'border-muted-foreground/40'
-                          }`}
-                        >
-                          {selected && <Check className="h-3 w-3" />}
+                        {selected && <Check className="h-3 w-3" />}
+                      </div>
+                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{tool.name}</span>
+                          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <FolderOpen className="h-3 w-3" />
+                            {tool.sourceProject}
+                          </span>
                         </div>
-                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 text-left min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{tool.name}</span>
-                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex items-center gap-1">
-                              <FolderOpen className="h-3 w-3" />
-                              {tool.sourceProject}
-                            </span>
+                        {tool.description && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {tool.description}
                           </div>
-                          {tool.description && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {tool.description}
-                            </div>
-                          )}
-                        </div>
-                        {isMcp && selected && (
-                          <button
-                            onClick={(e) => togglePermissionsExpand(tool, e)}
-                            className={`p-1.5 rounded hover:bg-muted transition-colors shrink-0 ${
-                              hasPermissions ? 'text-primary' : 'text-muted-foreground'
-                            }`}
-                            title="Configure permissions"
-                          >
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                            <Settings className="h-4 w-4 absolute opacity-0" />
-                          </button>
                         )}
-                      </button>
-                      {isMcp && selected && isExpanded && (
-                        <div className="border border-t-0 border-primary rounded-b-lg bg-primary/5 p-4">
-                          <ToolPermissionsEditor
-                            permissions={toolPermissions[toolKey] || null}
-                            onChange={(perms) => handlePermissionsChange(tool, perms)}
-                          />
-                        </div>
+                      </div>
+                      {isMcp && selected && (
+                        <button
+                          onClick={(e) => togglePermissionsExpand(tool, e)}
+                          className={`p-1.5 rounded hover:bg-muted transition-colors shrink-0 ${
+                            hasPermissions ? 'text-primary' : 'text-muted-foreground'
+                          }`}
+                          title="Configure permissions"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          <Settings className="h-4 w-4 absolute opacity-0" />
+                        </button>
                       )}
-                    </div>
-                  );
-                })}
-              </div>
-            )
+                    </button>
+                    {isMcp && selected && isExpanded && (
+                      <div className="border border-t-0 border-primary rounded-b-lg bg-primary/5 p-4">
+                        <ToolPermissionsEditor
+                          permissions={toolPermissions[toolKey] || null}
+                          onChange={(perms) => handlePermissionsChange(tool, perms)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 

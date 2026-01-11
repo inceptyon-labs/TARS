@@ -53,9 +53,8 @@ pub fn snapshot_from_project(project_path: &Path, name: String) -> Result<Profil
 /// # Errors
 /// Returns an error if snapshot creation fails
 pub fn snapshot_from_user(name: String) -> Result<Profile, SnapshotError> {
-    let home = dirs::home_dir().ok_or_else(|| {
-        SnapshotError::PathNotFound("Cannot find home directory".to_string())
-    })?;
+    let home = dirs::home_dir()
+        .ok_or_else(|| SnapshotError::PathNotFound("Cannot find home directory".to_string()))?;
 
     let claude_dir = home.join(".claude");
     let mut profile = Profile::new(name);

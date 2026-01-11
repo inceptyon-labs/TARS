@@ -56,7 +56,12 @@ function getToolTypeLabel(toolType: string) {
   }
 }
 
-export function ProfileDetail({ profile, onAddTools, onAddPlugins, onExportProfile }: ProfileDetailProps) {
+export function ProfileDetail({
+  profile,
+  onAddTools,
+  onAddPlugins,
+  onExportProfile,
+}: ProfileDetailProps) {
   const [isToolPickerOpen, setIsToolPickerOpen] = useState(false);
 
   const stats = [
@@ -112,7 +117,8 @@ export function ProfileDetail({ profile, onAddTools, onAddPlugins, onExportProfi
       <div className="border-t pt-4">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-sm font-medium">
-            Tools & Plugins ({(profile.tool_refs?.length || 0) + (profile.plugin_refs?.length || 0)})
+            Tools & Plugins ({(profile.tool_refs?.length || 0) + (profile.plugin_refs?.length || 0)}
+            )
           </h4>
           {(onAddTools || onAddPlugins) && (
             <Button variant="outline" size="sm" onClick={() => setIsToolPickerOpen(true)}>
@@ -168,7 +174,9 @@ export function ProfileDetail({ profile, onAddTools, onAddPlugins, onExportProfi
                     {plugin.scope}
                   </span>
                 </div>
-                <span className={`text-xs px-1.5 py-0.5 rounded ${plugin.enabled ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}>
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded ${plugin.enabled ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}
+                >
                   {plugin.enabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
@@ -176,11 +184,12 @@ export function ProfileDetail({ profile, onAddTools, onAddPlugins, onExportProfi
           </div>
         )}
 
-        {(!profile.tool_refs || profile.tool_refs.length === 0) && (!profile.plugin_refs || profile.plugin_refs.length === 0) && (
-          <div className="text-sm text-muted-foreground py-4 text-center border rounded-lg bg-muted/10">
-            No tools or plugins added yet. Click "Add" to select from your inventory.
-          </div>
-        )}
+        {(!profile.tool_refs || profile.tool_refs.length === 0) &&
+          (!profile.plugin_refs || profile.plugin_refs.length === 0) && (
+            <div className="text-sm text-muted-foreground py-4 text-center border rounded-lg bg-muted/10">
+              No tools or plugins added yet. Click "Add" to select from your inventory.
+            </div>
+          )}
       </div>
 
       {/* Assigned Projects */}

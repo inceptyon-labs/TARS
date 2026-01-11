@@ -104,7 +104,10 @@ fn plan_skill(
     // Validate skill name to prevent path traversal
     validate_name(&skill.name)?;
 
-    let skill_dir = project_path.join(".claude").join("skills").join(&skill.name);
+    let skill_dir = project_path
+        .join(".claude")
+        .join("skills")
+        .join(&skill.name);
     let skill_file = skill_dir.join("SKILL.md");
 
     if skill_file.exists() {

@@ -94,7 +94,8 @@ impl McpOps {
                     match (&self.project_path, &plugin.project_path) {
                         (Some(current), Some(plugin_proj)) => {
                             // Normalize paths for comparison
-                            let current_normalized = current.to_string_lossy().replace('\\', "/").to_lowercase();
+                            let current_normalized =
+                                current.to_string_lossy().replace('\\', "/").to_lowercase();
                             let plugin_normalized = plugin_proj.replace('\\', "/").to_lowercase();
                             current_normalized == plugin_normalized
                         }
@@ -178,7 +179,10 @@ impl McpOps {
         scope: ConfigScope,
     ) -> Option<ConfigItem> {
         // Parse the transport type
-        let transport_str = value.get("type").and_then(|v| v.as_str()).unwrap_or("stdio");
+        let transport_str = value
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("stdio");
         let transport = match transport_str {
             "http" => McpTransport::Http,
             "sse" => McpTransport::Sse,
@@ -187,7 +191,10 @@ impl McpOps {
 
         let config = McpServerConfig {
             transport,
-            command: value.get("command").and_then(|v| v.as_str()).map(String::from),
+            command: value
+                .get("command")
+                .and_then(|v| v.as_str())
+                .map(String::from),
             args: value
                 .get("args")
                 .and_then(|v| v.as_array())

@@ -63,7 +63,9 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
 
 /// Get the project settings.json path
 fn get_project_settings_path(project_path: &str) -> PathBuf {
-    PathBuf::from(project_path).join(".claude").join("settings.json")
+    PathBuf::from(project_path)
+        .join(".claude")
+        .join("settings.json")
 }
 
 /// Read hooks from a settings.json file

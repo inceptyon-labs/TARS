@@ -163,7 +163,12 @@ impl From<&Profile> for ProfileDetails {
             name: p.name.clone(),
             description: p.description.clone(),
             tool_refs: p.tool_refs.iter().map(ToolRefInfo::from).collect(),
-            plugin_refs: p.plugin_set.plugins.iter().map(PluginRefInfo::from).collect(),
+            plugin_refs: p
+                .plugin_set
+                .plugins
+                .iter()
+                .map(PluginRefInfo::from)
+                .collect(),
             assigned_projects: Vec::new(), // Will be populated separately
             mcp_count,
             skills_count,

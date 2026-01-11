@@ -87,8 +87,15 @@ export function ProfilesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, toolRefs, pluginRefs }: { id: string; toolRefs?: ToolRef[]; pluginRefs?: ProfilePluginRef[] }) =>
-      updateProfile({ id, toolRefs, pluginRefs }),
+    mutationFn: ({
+      id,
+      toolRefs,
+      pluginRefs,
+    }: {
+      id: string;
+      toolRefs?: ToolRef[];
+      pluginRefs?: ProfilePluginRef[];
+    }) => updateProfile({ id, toolRefs, pluginRefs }),
     onSuccess: async (response, variables) => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       // Refresh the selected profile details using the ID from mutation variables

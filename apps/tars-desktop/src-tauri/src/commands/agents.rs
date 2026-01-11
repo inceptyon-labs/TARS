@@ -450,7 +450,10 @@ pub async fn list_disabled_agents(
         }
         Some(project) => {
             // Check project-level disabled agents only
-            let project_disabled_dir = PathBuf::from(project).join(".claude").join("agents").join(".disabled");
+            let project_disabled_dir = PathBuf::from(project)
+                .join(".claude")
+                .join("agents")
+                .join(".disabled");
             if project_disabled_dir.exists() {
                 if let Ok(entries) = std::fs::read_dir(&project_disabled_dir) {
                     for entry in entries.flatten() {

@@ -157,7 +157,6 @@ fn add_windows_paths(paths: &mut Vec<PathBuf>) {
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 fn add_unix_paths(paths: &mut Vec<PathBuf>) {
     if let Some(home) = dirs::home_dir() {
-
         // npm global install locations
         paths.push(home.join(".local").join("bin").join("claude"));
         paths.push(home.join(".npm-global").join("bin").join("claude"));
