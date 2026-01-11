@@ -23,7 +23,12 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
-import { getClaudeVersionInfo, checkPluginUpdates, getTarsVersion } from '../lib/ipc';
+import {
+  getClaudeVersionInfo,
+  checkPluginUpdates,
+  checkTarsUpdate,
+  getTarsVersion,
+} from '../lib/ipc';
 
 // Poll interval for update checks: 10 minutes
 const UPDATE_POLL_INTERVAL = 10 * 60 * 1000;
@@ -135,9 +140,18 @@ export function MainLayout() {
     staleTime: Infinity, // Version doesn't change during runtime
   });
 
+  const { data: tarsUpdate } = useQuery({
+    queryKey: ['tars-update'],
+    queryFn: checkTarsUpdate,
+    refetchInterval: UPDATE_POLL_INTERVAL,
+    staleTime: UPDATE_POLL_INTERVAL - 60000,
+  });
+
   const claudeUpdateAvailable = versionInfo?.update_available ?? false;
+  const tarsUpdateAvailable = tarsUpdate?.update_available ?? false;
   const pluginsWithUpdates = pluginUpdates?.plugins_with_updates ?? 0;
-  const totalUpdates = (claudeUpdateAvailable ? 1 : 0) + pluginsWithUpdates;
+  const totalUpdates =
+    (claudeUpdateAvailable ? 1 : 0) + (tarsUpdateAvailable ? 1 : 0) + pluginsWithUpdates;
   const hasUpdates = totalUpdates > 0;
 
   return (
