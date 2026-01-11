@@ -108,3 +108,34 @@ pub async fn list_subdirectories(path: String) -> Result<Vec<DirectoryInfo>, Str
 pub async fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
+
+/// Platform information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlatformInfo {
+    pub os: String,
+    pub arch: String,
+    pub display: String,
+}
+
+/// Get platform info (OS and architecture)
+#[tauri::command]
+pub async fn get_platform_info() -> PlatformInfo {
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+
+    let display = match (os, arch) {
+        ("macos", "aarch64") => "macOS (Apple Silicon)".to_string(),
+        ("macos", "x86_64") => "macOS (Intel)".to_string(),
+        ("windows", "x86_64") => "Windows (x64)".to_string(),
+        ("windows", "aarch64") => "Windows (ARM64)".to_string(),
+        ("linux", "x86_64") => "Linux (x64)".to_string(),
+        ("linux", "aarch64") => "Linux (ARM64)".to_string(),
+        _ => format!("{os} ({arch})"),
+    };
+
+    PlatformInfo {
+        os: os.to_string(),
+        arch: arch.to_string(),
+        display,
+    }
+}

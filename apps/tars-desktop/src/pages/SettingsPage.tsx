@@ -4,7 +4,7 @@ import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { appDataDir } from '@tauri-apps/api/path';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
-import { getTarsVersion } from '../lib/ipc';
+import { getTarsVersion, getPlatformInfo } from '../lib/ipc';
 
 export function SettingsPage() {
   const theme = useUIStore((state) => state.theme);
@@ -13,6 +13,12 @@ export function SettingsPage() {
   const { data: appVersion } = useQuery({
     queryKey: ['tars-version'],
     queryFn: getTarsVersion,
+    staleTime: Infinity,
+  });
+
+  const { data: platformInfo } = useQuery({
+    queryKey: ['platform-info'],
+    queryFn: getPlatformInfo,
     staleTime: Infinity,
   });
 
@@ -148,7 +154,7 @@ export function SettingsPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Platform</span>
-                  <span className="font-mono">{navigator.platform}</span>
+                  <span className="font-mono">{platformInfo?.display ?? '...'}</span>
                 </div>
                 <div className="pt-3 border-t border-border">
                   <p className="text-sm text-muted-foreground">

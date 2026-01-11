@@ -131,6 +131,7 @@ pub fn run() {
             commands::get_home_dir,
             commands::list_subdirectories,
             commands::get_app_version,
+            commands::get_platform_info,
             // Update commands
             commands::get_installed_claude_version,
             commands::fetch_claude_changelog,

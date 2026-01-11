@@ -420,3 +420,14 @@ export async function installTarsUpdate(): Promise<void> {
 export async function getTarsVersion(): Promise<string> {
   return invoke('get_tars_version');
 }
+
+// Platform info
+export interface PlatformInfo {
+  os: string;
+  arch: string;
+  display: string;
+}
+
+export async function getPlatformInfo(): Promise<PlatformInfo> {
+  return invoke('get_platform_info');
+}
