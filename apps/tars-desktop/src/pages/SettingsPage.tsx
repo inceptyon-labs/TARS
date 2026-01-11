@@ -1,9 +1,10 @@
-import { Sun, Moon, Monitor, FolderOpen, RotateCcw, Info, ExternalLink } from 'lucide-react';
+import { Sun, Moon, Monitor, FolderOpen, RotateCcw, Info, ExternalLink, Heart } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { revealItemInDir, openUrl } from '@tauri-apps/plugin-opener';
 import { homeDir } from '@tauri-apps/api/path';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
+import { SupportButton } from '../components/SupportButton';
 import { getTarsVersion, getPlatformInfo } from '../lib/ipc';
 
 export function SettingsPage() {
@@ -182,6 +183,25 @@ export function SettingsPage() {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </button>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Support Section */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Heart className="h-5 w-5" />
+              Support
+            </h2>
+            <div className="p-4 rounded-lg border border-border bg-card">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">Support Development</h3>
+                  <p className="text-sm text-muted-foreground">
+                    If you find TARS useful, consider supporting its development
+                  </p>
+                </div>
+                <SupportButton />
               </div>
             </div>
           </section>

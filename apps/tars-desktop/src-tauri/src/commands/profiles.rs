@@ -443,7 +443,7 @@ pub struct UpdateProfileInput {
     pub tool_refs: Option<Vec<ToolRefInput>>,
 }
 
-/// Update a profile (name, description, and/or tool_refs)
+/// Update a profile (name, description, and/or `tool_refs`)
 #[tauri::command]
 pub async fn update_profile(
     input: UpdateProfileInput,
@@ -473,7 +473,7 @@ pub async fn update_profile(
                     .map_err(|e| format!("Database error: {e}"))?
                 {
                     if existing.id != uuid {
-                        return Err(format!("Profile '{}' already exists", new_name));
+                        return Err(format!("Profile '{new_name}' already exists"));
                     }
                 }
             }
@@ -880,8 +880,7 @@ pub async fn add_local_tool(
                     .any(|t| t.name == tool_name)
                 {
                     return Err(format!(
-                        "MCP server '{}' already exists as local override",
-                        tool_name
+                        "MCP server '{tool_name}' already exists as local override"
                     ));
                 }
                 project.local_overrides.mcp_servers.push(tool_ref);
@@ -894,8 +893,7 @@ pub async fn add_local_tool(
                     .any(|t| t.name == tool_name)
                 {
                     return Err(format!(
-                        "Skill '{}' already exists as local override",
-                        tool_name
+                        "Skill '{tool_name}' already exists as local override"
                     ));
                 }
                 project.local_overrides.skills.push(tool_ref);
@@ -908,8 +906,7 @@ pub async fn add_local_tool(
                     .any(|t| t.name == tool_name)
                 {
                     return Err(format!(
-                        "Agent '{}' already exists as local override",
-                        tool_name
+                        "Agent '{tool_name}' already exists as local override"
                     ));
                 }
                 project.local_overrides.agents.push(tool_ref);
@@ -922,8 +919,7 @@ pub async fn add_local_tool(
                     .any(|t| t.name == tool_name)
                 {
                     return Err(format!(
-                        "Hook '{}' already exists as local override",
-                        tool_name
+                        "Hook '{tool_name}' already exists as local override"
                     ));
                 }
                 project.local_overrides.hooks.push(tool_ref);

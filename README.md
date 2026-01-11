@@ -351,6 +351,14 @@ Your skill prompt here with $ARGUMENTS placeholder.
 
 Contributions are welcome! Please read the contributing guidelines before submitting PRs.
 
+## Support
+
+If you find TARS useful, consider supporting its development:
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github)](https://github.com/sponsors/inceptyon-labs)
+[![Ko-fi](https://img.shields.io/badge/Support-Ko--fi-ff5e5b?logo=ko-fi)](https://ko-fi.com/P5P51QJAJ5)
+[![ETH](https://img.shields.io/badge/ETH-0x4235...0b8B-627eea?logo=ethereum)](https://etherscan.io/address/0x42353a7Fc70Eab5C0017733813805313B7b10b8B)
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.

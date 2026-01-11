@@ -166,6 +166,7 @@ pub struct DailyModelTokens {
 /// Lifetime usage stats for a model
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::struct_field_names)] // Matches external JSON format from Claude
 pub struct ModelUsage {
     pub input_tokens: u64,
     pub output_tokens: u64,
@@ -232,6 +233,7 @@ struct RawDailyModelTokens {
 
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::struct_field_names)] // Matches external JSON format from Claude
 struct RawModelUsage {
     #[serde(default)]
     input_tokens: u64,

@@ -23,6 +23,21 @@ bun run tauri dev                     # Development mode
 bun run tauri build                   # Production build
 ```
 
+## Linting
+
+**IMPORTANT**: After making significant changes to Rust code, always run clippy before committing to catch issues that would fail CI:
+
+```bash
+cargo clippy --all -- -D warnings    # Run clippy on all crates (must pass with no warnings)
+```
+
+For TypeScript/frontend changes:
+
+```bash
+cd apps/tars-desktop
+bun tsc --noEmit                     # Type-check frontend code
+```
+
 ## Setup
 
 After cloning, enable the pre-commit hooks:
