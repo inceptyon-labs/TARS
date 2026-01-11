@@ -42,12 +42,12 @@ Based on plan.md:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Create profile sync module skeleton in crates/tars-core/src/profile/sync.rs
-- [ ] T009 Add sync module to crates/tars-core/src/profile/mod.rs exports
-- [ ] T010 [P] Create Tauri commands module structure in apps/tars-desktop/src-tauri/src/commands/mod.rs
-- [ ] T011 [P] Create profile commands file skeleton in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T012 Register commands module in apps/tars-desktop/src-tauri/src/lib.rs
-- [ ] T013 Add query for projects by profile_id in crates/tars-core/src/storage/projects.rs
+- [x] T008 Create profile sync module skeleton in crates/tars-core/src/profile/sync.rs
+- [x] T009 Add sync module to crates/tars-core/src/profile/mod.rs exports
+- [x] T010 [P] Create Tauri commands module structure in apps/tars-desktop/src-tauri/src/commands/mod.rs
+- [x] T011 [P] Create profile commands file skeleton in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T012 Register commands module in apps/tars-desktop/src-tauri/src/lib.rs
+- [x] T013 Add query for projects by profile_id in crates/tars-core/src/storage/projects.rs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -61,17 +61,17 @@ Based on plan.md:
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement create_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T015 [US1] Implement list_profiles Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T016 [US1] Implement get_profile Tauri command (with tool_refs) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T017 [US1] Implement update_profile Tauri command (update name, description, tool_refs) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T018 [US1] Implement delete_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T019 [P] [US1] Add IPC wrapper functions for profile CRUD in apps/tars-desktop/src/lib/ipc/index.ts
-- [ ] T020 [US1] Create ProfileToolPicker component for selecting tools from inventory in apps/tars-desktop/src/components/ProfileToolPicker.tsx
-- [ ] T021 [US1] Extend ProfileDetail component to display tool_refs list in apps/tars-desktop/src/components/ProfileDetail.tsx
-- [ ] T022 [US1] Add "Add Tool" button to ProfileDetail that opens ProfileToolPicker in apps/tars-desktop/src/components/ProfileDetail.tsx
-- [ ] T023 [US1] Extend CreateProfileDialog to support description field in apps/tars-desktop/src/components/CreateProfileDialog.tsx
-- [ ] T024 [US1] Update ProfileList to show tool count per profile in apps/tars-desktop/src/components/ProfileList.tsx
+- [x] T014 [US1] Implement create_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T015 [US1] Implement list_profiles Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T016 [US1] Implement get_profile Tauri command (with tool_refs) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T017 [US1] Implement update_profile Tauri command (update name, description, tool_refs) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T018 [US1] Implement delete_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T019 [P] [US1] Add IPC wrapper functions for profile CRUD in apps/tars-desktop/src/lib/ipc/index.ts
+- [x] T020 [US1] Create ProfileToolPicker component for selecting tools from inventory in apps/tars-desktop/src/components/ProfileToolPicker.tsx
+- [x] T021 [US1] Extend ProfileDetail component to display tool_refs list in apps/tars-desktop/src/components/ProfileDetail.tsx
+- [x] T022 [US1] Add "Add Tool" button to ProfileDetail that opens ProfileToolPicker in apps/tars-desktop/src/components/ProfileDetail.tsx
+- [x] T023 [US1] Extend CreateProfileDialog to support description field in apps/tars-desktop/src/components/CreateProfileDialog.tsx
+- [x] T024 [US1] Update ProfileList to show tool count per profile in apps/tars-desktop/src/components/ProfileList.tsx
 
 **Checkpoint**: User Story 1 complete - profiles can be created, tools added, and persist across restarts
 
@@ -85,15 +85,15 @@ Based on plan.md:
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Implement assign_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T026 [US2] Implement unassign_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T027 [US2] Implement get_project_tools Tauri command (combines profile + local) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T028 [P] [US2] Add IPC wrapper functions for profile assignment in apps/tars-desktop/src/lib/ipc/index.ts
-- [ ] T029 [US2] Create AssignProfileDialog component for profile selection in apps/tars-desktop/src/components/AssignProfileDialog.tsx
-- [ ] T030 [US2] Add profile column/badge to project list in apps/tars-desktop/src/pages/ProjectsPage.tsx
-- [ ] T031 [US2] Add "Assign Profile" button to project view that opens AssignProfileDialog in apps/tars-desktop/src/pages/ProjectsPage.tsx
-- [ ] T032 [US2] Update ProjectOverview to show tools with source badges ("from profile" vs "local") in apps/tars-desktop/src/components/ProjectOverview.tsx
-- [ ] T033 [US2] Show assigned projects list in ProfileDetail component in apps/tars-desktop/src/components/ProfileDetail.tsx
+- [x] T025 [US2] Implement assign_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T026 [US2] Implement unassign_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T027 [US2] Implement get_project_tools Tauri command (combines profile + local) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T028 [P] [US2] Add IPC wrapper functions for profile assignment in apps/tars-desktop/src/lib/ipc/index.ts
+- [x] T029 [US2] Create AssignProfileDialog component for profile selection in apps/tars-desktop/src/components/AssignProfileDialog.tsx
+- [x] T030 [US2] Add profile column/badge to project list in apps/tars-desktop/src/pages/ProjectsPage.tsx
+- [x] T031 [US2] Add "Assign Profile" button to project view that opens AssignProfileDialog in apps/tars-desktop/src/pages/ProjectsPage.tsx
+- [x] T032 [US2] Update ProjectOverview to show tools with source badges ("from profile" vs "local") in apps/tars-desktop/src/components/ProjectOverview.tsx
+- [x] T033 [US2] Show assigned projects list in ProfileDetail component in apps/tars-desktop/src/components/ProfileDetail.tsx
 
 **Checkpoint**: User Story 2 complete - profiles can be assigned to projects with visual distinction
 
@@ -107,11 +107,11 @@ Based on plan.md:
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Implement sync_profile_to_projects function in crates/tars-core/src/profile/sync.rs
-- [ ] T035 [US3] Add sync call to update_profile command (after profile save) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T036 [US3] Return SyncResult from update_profile command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T037 [US3] Add toast notification on profile sync in apps/tars-desktop/src/pages/ProfilesPage.tsx
-- [ ] T038 [US3] Invalidate project queries after profile update in apps/tars-desktop/src/pages/ProfilesPage.tsx
+- [x] T034 [US3] Implement sync_profile_to_projects function in crates/tars-core/src/profile/sync.rs
+- [x] T035 [US3] Add sync call to update_profile command (after profile save) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T036 [US3] Return SyncResult from update_profile command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T037 [US3] Add toast notification on profile sync in apps/tars-desktop/src/pages/ProfilesPage.tsx
+- [x] T038 [US3] Invalidate project queries after profile update in apps/tars-desktop/src/pages/ProfilesPage.tsx
 
 **Checkpoint**: User Story 3 complete - profile changes auto-sync to projects with notifications
 
@@ -125,13 +125,13 @@ Based on plan.md:
 
 ### Implementation for User Story 4
 
-- [ ] T039 [US4] Implement add_local_tool Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T040 [US4] Implement remove_local_tool Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T041 [US4] Update sync logic to preserve local_overrides in crates/tars-core/src/profile/sync.rs
-- [ ] T042 [P] [US4] Add IPC wrapper functions for local overrides in apps/tars-desktop/src/lib/ipc/index.ts
-- [ ] T043 [US4] Add "Add Local Tool" button to ProjectOverview in apps/tars-desktop/src/components/ProjectOverview.tsx
-- [ ] T044 [US4] Update tool list to show "(local)" badge for local overrides in apps/tars-desktop/src/components/ProjectOverview.tsx
-- [ ] T045 [US4] Add remove button for local tools in ProjectOverview in apps/tars-desktop/src/components/ProjectOverview.tsx
+- [x] T039 [US4] Implement add_local_tool Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T040 [US4] Implement remove_local_tool Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T041 [US4] Update sync logic to preserve local_overrides in crates/tars-core/src/profile/sync.rs
+- [x] T042 [P] [US4] Add IPC wrapper functions for local overrides in apps/tars-desktop/src/lib/ipc/index.ts
+- [x] T043 [US4] Add "Add Local Tool" button to ProjectOverview in apps/tars-desktop/src/components/ProjectOverview.tsx
+- [x] T044 [US4] Update tool list to show "(local)" badge for local overrides in apps/tars-desktop/src/components/ProjectOverview.tsx
+- [x] T045 [US4] Add remove button for local tools in ProjectOverview in apps/tars-desktop/src/components/ProjectOverview.tsx
 
 **Checkpoint**: User Story 4 complete - local overrides work alongside profile tools
 
@@ -145,19 +145,19 @@ Based on plan.md:
 
 ### Implementation for User Story 5
 
-- [ ] T046 [P] [US5] Create ProfileExport struct in crates/tars-core/src/profile/export.rs
-- [ ] T047 [P] [US5] Create ExportedTool struct in crates/tars-core/src/profile/export.rs
-- [ ] T048 [US5] Implement export_profile function in crates/tars-core/src/profile/export.rs
-- [ ] T049 [US5] Implement import_profile function in crates/tars-core/src/profile/export.rs
-- [ ] T050 [US5] Implement preview_import function in crates/tars-core/src/profile/export.rs
-- [ ] T051 [US5] Add export module to crates/tars-core/src/profile/mod.rs exports
-- [ ] T052 [US5] Implement export_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T053 [US5] Implement import_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T054 [US5] Implement preview_import Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T055 [P] [US5] Add IPC wrapper functions for export/import in apps/tars-desktop/src/lib/ipc/index.ts
-- [ ] T056 [US5] Add "Export" button to ProfileDetail in apps/tars-desktop/src/components/ProfileDetail.tsx
-- [ ] T057 [US5] Add "Import Profile" button to ProfilesPage header in apps/tars-desktop/src/pages/ProfilesPage.tsx
-- [ ] T058 [US5] Create ImportProfileDialog with collision handling in apps/tars-desktop/src/components/ImportProfileDialog.tsx
+- [x] T046 [P] [US5] Create ProfileExport struct in crates/tars-core/src/profile/export.rs
+- [x] T047 [P] [US5] Create ExportedTool struct in crates/tars-core/src/profile/export.rs
+- [x] T048 [US5] Implement export_profile function in crates/tars-core/src/profile/export.rs
+- [x] T049 [US5] Implement import_profile function in crates/tars-core/src/profile/export.rs
+- [x] T050 [US5] Implement preview_import function in crates/tars-core/src/profile/export.rs
+- [x] T051 [US5] Add export module to crates/tars-core/src/profile/mod.rs exports
+- [x] T052 [US5] Implement export_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T053 [US5] Implement import_profile Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T054 [US5] Implement preview_import Tauri command in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T055 [P] [US5] Add IPC wrapper functions for export/import in apps/tars-desktop/src/lib/ipc/index.ts
+- [x] T056 [US5] Add "Export" button to ProfileDetail in apps/tars-desktop/src/components/ProfileDetail.tsx
+- [x] T057 [US5] Add "Import Profile" button to ProfilesPage header in apps/tars-desktop/src/pages/ProfilesPage.tsx
+- [x] T058 [US5] Create ImportProfileDialog with collision handling in apps/tars-desktop/src/components/ImportProfileDialog.tsx
 
 **Checkpoint**: User Story 5 complete - profiles can be shared via file export/import
 
@@ -171,11 +171,11 @@ Based on plan.md:
 
 ### Implementation for User Story 6
 
-- [ ] T059 [US6] Create ToolPermissionsEditor component for editing permissions in apps/tars-desktop/src/components/ToolPermissionsEditor.tsx
-- [ ] T060 [US6] Integrate ToolPermissionsEditor into ProfileToolPicker in apps/tars-desktop/src/components/ProfileToolPicker.tsx
-- [ ] T061 [US6] Display permissions in tool list items in ProfileDetail in apps/tars-desktop/src/components/ProfileDetail.tsx
-- [ ] T062 [US6] Display permissions in tool list items in ProjectOverview in apps/tars-desktop/src/components/ProjectOverview.tsx
-- [ ] T063 [US6] Ensure permissions are preserved in export/import in crates/tars-core/src/profile/export.rs
+- [x] T059 [US6] Create ToolPermissionsEditor component for editing permissions in apps/tars-desktop/src/components/ToolPermissionsEditor.tsx
+- [x] T060 [US6] Integrate ToolPermissionsEditor into ProfileToolPicker in apps/tars-desktop/src/components/ProfileToolPicker.tsx
+- [x] T061 [US6] Display permissions in tool list items in ProfileDetail in apps/tars-desktop/src/components/ProfileDetail.tsx
+- [x] T062 [US6] Display permissions in tool list items in ProjectOverview in apps/tars-desktop/src/components/ProjectOverview.tsx
+- [x] T063 [US6] Ensure permissions are preserved in export/import in crates/tars-core/src/profile/export.rs
 
 **Checkpoint**: User Story 6 complete - tool permissions can be configured per-profile
 
@@ -187,20 +187,20 @@ Based on plan.md:
 
 ### Edge Case Handling
 
-- [ ] T064 Implement profile deletion with local override conversion (FR-015) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
-- [ ] T065 Add warning badge for unavailable tools (FR-016) in apps/tars-desktop/src/components/ProfileDetail.tsx
-- [ ] T066 Handle name collision on import with rename prompt in apps/tars-desktop/src/components/ImportProfileDialog.tsx
+- [x] T064 Implement profile deletion with local override conversion (FR-015) in apps/tars-desktop/src-tauri/src/commands/profiles.rs
+- [x] T065 Add warning badge for unavailable tools (FR-016) in apps/tars-desktop/src/components/ProjectOverview.tsx
+- [x] T066 Handle name collision on import with rename prompt in apps/tars-desktop/src/components/ImportProfileDialog.tsx
 
 ### Tests (Critical Paths)
 
-- [ ] T067 [P] Add unit tests for ToolRef and LocalOverrides serialization in crates/tars-core/src/profile/types.rs
-- [ ] T068 [P] Add unit tests for export/import round-trip in crates/tars-core/tests/profile_export_test.rs
-- [ ] T069 Add integration test for profile sync in crates/tars-core/tests/profile_sync_test.rs
+- [x] T067 [P] Add unit tests for ToolRef and LocalOverrides serialization in crates/tars-core/tests/profile_test.rs
+- [x] T068 [P] Add unit tests for export/import round-trip in crates/tars-core/tests/profile_export_test.rs
+- [x] T069 Add integration test for profile sync in crates/tars-core/tests/profile_sync_test.rs
 
 ### Documentation
 
-- [ ] T070 Update quickstart.md with actual screenshots/commands in specs/003-profiles/quickstart.md
-- [ ] T071 Run build verification: cargo build && bun run build
+- [x] T070 Update quickstart.md with actual usage info in specs/003-profiles/quickstart.md
+- [x] T071 Run build verification: cargo build && bun run build
 
 ---
 

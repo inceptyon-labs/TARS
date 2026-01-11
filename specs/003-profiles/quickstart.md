@@ -26,10 +26,12 @@
 ```bash
 # In the Profile detail view:
 # 1. Click "Add Tool" button
-# 2. Select tool type (MCP, Skill, Agent, Hook)
-# 3. Pick from discovered tools inventory
-# 4. Optionally configure permissions
-# 5. Click Add
+# 2. Select tool type tab (MCP Servers, Skills, Agents)
+# 3. Check the tools you want from the inventory
+# 4. For MCP servers: click the chevron to expand permissions
+#    - Add allowed_tools (tools this server can use)
+#    - Add disallowed_tools (tools blocked from this server)
+# 5. Click "Add Tools"
 ```
 
 ### 3. Assign Profile to Project
@@ -78,11 +80,25 @@ bun run test
 
 | File | Purpose |
 |------|---------|
-| `crates/tars-core/src/profile/types.rs` | Profile data types |
-| `crates/tars-core/src/profile/sync.rs` | Profile sync logic |
-| `crates/tars-core/src/profile/export.rs` | Export/import |
-| `apps/tars-desktop/src/pages/ProfilesPage.tsx` | Profiles UI |
+| `crates/tars-core/src/profile/types.rs` | Profile, ToolRef, ToolPermissions types |
+| `crates/tars-core/src/profile/export.rs` | Export/import to .tars-profile.json |
+| `crates/tars-core/src/project.rs` | Project, LocalOverrides types |
+| `crates/tars-core/src/storage/profiles.rs` | Profile database operations |
+| `crates/tars-core/src/storage/projects.rs` | Project database operations |
+| `apps/tars-desktop/src/pages/ProfilesPage.tsx` | Profiles list & management UI |
+| `apps/tars-desktop/src/pages/ProjectsPage.tsx` | Projects list & assignment UI |
 | `apps/tars-desktop/src/components/ProfileDetail.tsx` | Profile detail view |
+| `apps/tars-desktop/src/components/ProfileToolPicker.tsx` | Tool selection dialog with permissions |
+| `apps/tars-desktop/src/components/ToolPermissionsEditor.tsx` | Permissions editor component |
+| `apps/tars-desktop/src/components/ProjectOverview.tsx` | Project tools display |
+
+### Test Files
+
+| File | Tests |
+|------|-------|
+| `crates/tars-core/tests/profile_test.rs` | Profile CRUD, ToolRef serialization |
+| `crates/tars-core/tests/profile_export_test.rs` | Export/import round-trip |
+| `crates/tars-core/tests/profile_sync_test.rs` | Profile-project sync, LocalOverrides |
 
 ---
 
@@ -92,26 +108,28 @@ bun run test
 
 ```typescript
 // Frontend
-import { exportProfile } from '../lib/ipc';
+import { exportProfileJson } from '../lib/ipc';
 
-const result = await exportProfile(profileId, '/path/to/output.tars-profile.json');
-console.log(`Exported to ${result.path}`);
+// Export to .tars-profile.json file
+const result = await exportProfileJson(profileId, '/path/to/output.tars-profile.json');
+console.log(`Exported ${result.tool_count} tools`);
 ```
 
 ### Import a Profile
 
 ```typescript
 // Frontend
-import { previewImport, importProfile } from '../lib/ipc';
+import { previewProfileImport, importProfileJson } from '../lib/ipc';
 
 // Preview first (check for collisions)
-const preview = await previewImport('/path/to/profile.tars-profile.json');
+const preview = await previewProfileImport('/path/to/profile.tars-profile.json');
+console.log(`Profile: ${preview.name}, Tools: ${preview.tool_count}`);
 
-if (preview.has_name_collision) {
-  // Ask user for new name
-  const result = await importProfile(path, 'New Name');
+if (preview.name_exists) {
+  // Ask user for new name to avoid collision
+  const result = await importProfileJson(path, 'New Name');
 } else {
-  const result = await importProfile(path);
+  const result = await importProfileJson(path);
 }
 ```
 
@@ -131,22 +149,55 @@ println!("Synced to {} projects", result.affected_count);
 
 ## Testing Checklist
 
-- [ ] Create profile with name and description
-- [ ] Add MCP server to profile
-- [ ] Add skill to profile
-- [ ] Assign profile to project
-- [ ] Verify project shows profile tools with badge
-- [ ] Update profile (add tool)
-- [ ] Verify project reflects update
-- [ ] Add local tool to project
-- [ ] Update profile again
-- [ ] Verify local tool persists
-- [ ] Unassign profile from project
-- [ ] Delete profile with assigned projects
-- [ ] Verify tools converted to local overrides
-- [ ] Export profile to file
-- [ ] Import profile from file
-- [ ] Handle import name collision
+- [x] Create profile with name and description
+- [x] Add MCP server to profile with permissions
+- [x] Add skill to profile
+- [x] Assign profile to project
+- [x] Verify project shows profile tools with "From Profile" badge
+- [x] Update profile (add tool)
+- [x] Verify project reflects update (auto-sync)
+- [x] Add local tool to project
+- [x] Update profile again
+- [x] Verify local tool persists (not overwritten)
+- [x] Unassign profile from project
+- [x] Delete profile with assigned projects
+- [x] Verify tools converted to local overrides
+- [x] Export profile to .tars-profile.json file
+- [x] Import profile from file
+- [x] Handle import name collision with rename
+
+---
+
+## Key Data Types
+
+### ToolRef (profile tool reference)
+```typescript
+interface ToolRef {
+  name: string;           // Tool identifier
+  tool_type: 'mcp' | 'skill' | 'agent' | 'hook';
+  source_scope?: 'user' | 'project' | 'managed';
+  permissions?: ToolPermissions;
+}
+```
+
+### ToolPermissions (MCP restrictions)
+```typescript
+interface ToolPermissions {
+  allowed_directories: string[];  // Paths tool can access
+  allowed_tools: string[];        // Tools this server can use
+  disallowed_tools: string[];     // Tools blocked from this server
+}
+```
+
+### LocalOverrides (project-specific tools)
+```typescript
+interface LocalOverrides {
+  mcp_servers: ToolRef[];
+  skills: ToolRef[];
+  agents: ToolRef[];
+  hooks: ToolRef[];
+}
+```
 
 ---
 

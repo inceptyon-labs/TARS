@@ -3,6 +3,7 @@
 //! Commands for scanning Claude Code configuration.
 
 use crate::state::AppState;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tars_scanner::{Inventory, Scanner};
 use tauri::State;
@@ -58,4 +59,89 @@ pub async fn scan_projects(
     scanner
         .scan_all(&path_refs)
         .map_err(|e| format!("Scan failed: {e}"))
+}
+
+/// Info about a discovered Claude project
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveredProject {
+    /// Project directory path
+    pub path: String,
+    /// Project name (directory name)
+    pub name: String,
+    /// Whether it has a .claude/ directory
+    pub has_claude_dir: bool,
+    /// Whether it has a CLAUDE.md file
+    pub has_claude_md: bool,
+    /// Whether it has an .mcp.json file
+    pub has_mcp_json: bool,
+}
+
+/// Discover all Claude projects in a directory (non-recursive first level only)
+#[tauri::command]
+pub async fn discover_claude_projects(
+    folder: String,
+    _state: State<'_, AppState>,
+) -> Result<Vec<DiscoveredProject>, String> {
+    let folder_path = PathBuf::from(&folder);
+
+    if !folder_path.exists() {
+        return Err(format!("Folder does not exist: {folder}"));
+    }
+
+    if !folder_path.is_dir() {
+        return Err(format!("Path is not a directory: {folder}"));
+    }
+
+    let mut projects = Vec::new();
+
+    // Read the directory entries
+    let entries =
+        std::fs::read_dir(&folder_path).map_err(|e| format!("Failed to read directory: {e}"))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        // Only look at directories
+        if !path.is_dir() {
+            continue;
+        }
+
+        // Skip hidden directories
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if name.starts_with('.') {
+                continue;
+            }
+        }
+
+        // Check for Claude configuration indicators
+        let claude_dir = path.join(".claude");
+        let claude_md = path.join("CLAUDE.md");
+        let mcp_json = path.join(".mcp.json");
+
+        let has_claude_dir = claude_dir.is_dir();
+        let has_claude_md = claude_md.is_file();
+        let has_mcp_json = mcp_json.is_file();
+
+        // Only include if it has some Claude configuration
+        if has_claude_dir || has_claude_md || has_mcp_json {
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("Unknown")
+                .to_string();
+
+            projects.push(DiscoveredProject {
+                path: path.to_string_lossy().to_string(),
+                name,
+                has_claude_dir,
+                has_claude_md,
+                has_mcp_json,
+            });
+        }
+    }
+
+    // Sort by name
+    projects.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    Ok(projects)
 }

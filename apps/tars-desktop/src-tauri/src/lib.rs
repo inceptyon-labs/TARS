@@ -48,6 +48,7 @@ pub fn run() {
             commands::scan_project,
             commands::scan_user_scope,
             commands::scan_projects,
+            commands::discover_claude_projects,
             // Project commands
             commands::list_projects,
             commands::add_project,
@@ -65,6 +66,17 @@ pub fn run() {
             commands::update_profile,
             commands::delete_profile,
             commands::export_profile_as_plugin,
+            // Profile assignment commands
+            commands::assign_profile,
+            commands::unassign_profile,
+            commands::get_project_tools,
+            // Local override commands
+            commands::add_local_tool,
+            commands::remove_local_tool,
+            // Profile export/import commands
+            commands::export_profile_json,
+            commands::preview_profile_import,
+            commands::import_profile_json,
             // Apply commands
             commands::preview_apply,
             commands::apply_profile,

@@ -1,16 +1,75 @@
-import { Sparkles, Terminal, Bot, FileText, Calendar, Upload } from 'lucide-react';
-import type { ProfileDetails } from '../lib/types';
+import { useState } from 'react';
+import {
+  Sparkles,
+  Terminal,
+  Bot,
+  FileText,
+  Calendar,
+  Upload,
+  Server,
+  Webhook,
+  FolderOpen,
+  Users,
+  Plus,
+  Download,
+} from 'lucide-react';
+import { Button } from './ui/button';
+import { ProfileToolPicker } from './ProfileToolPicker';
+import { ToolPermissionsEditor } from './ToolPermissionsEditor';
+import type { ProfileDetails, ToolRef } from '../lib/types';
 
 interface ProfileDetailProps {
   profile: ProfileDetails;
+  onAddTools?: (tools: ToolRef[]) => void;
+  onExportProfile?: () => void;
 }
 
-export function ProfileDetail({ profile }: ProfileDetailProps) {
+function getToolIcon(toolType: string) {
+  switch (toolType) {
+    case 'mcp':
+      return Server;
+    case 'skill':
+      return Sparkles;
+    case 'agent':
+      return Bot;
+    case 'hook':
+      return Webhook;
+    default:
+      return Terminal;
+  }
+}
+
+function getToolTypeLabel(toolType: string) {
+  switch (toolType) {
+    case 'mcp':
+      return 'MCP Server';
+    case 'skill':
+      return 'Skill';
+    case 'agent':
+      return 'Agent';
+    case 'hook':
+      return 'Hook';
+    default:
+      return toolType;
+  }
+}
+
+export function ProfileDetail({ profile, onAddTools, onExportProfile }: ProfileDetailProps) {
+  const [isToolPickerOpen, setIsToolPickerOpen] = useState(false);
+
   const stats = [
+    { label: 'MCP Servers', value: profile.mcp_count, icon: Server },
     { label: 'Skills', value: profile.skills_count, icon: Sparkles },
     { label: 'Commands', value: profile.commands_count, icon: Terminal },
     { label: 'Agents', value: profile.agents_count, icon: Bot },
   ];
+
+  const handleAddTools = (tools: ToolRef[]) => {
+    if (onAddTools) {
+      onAddTools(tools);
+    }
+    setIsToolPickerOpen(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -21,7 +80,7 @@ export function ProfileDetail({ profile }: ProfileDetailProps) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         {stats.map((stat) => (
           <div key={stat.label} className="border rounded-lg p-4 text-center">
             <stat.icon className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
@@ -39,6 +98,75 @@ export function ProfileDetail({ profile }: ProfileDetailProps) {
         </div>
       )}
 
+      {/* Tool References */}
+      <div className="border-t pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium">Tools ({profile.tool_refs?.length || 0})</h4>
+          {onAddTools && (
+            <Button variant="outline" size="sm" onClick={() => setIsToolPickerOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Tool
+            </Button>
+          )}
+        </div>
+        {profile.tool_refs && profile.tool_refs.length > 0 ? (
+          <div className="space-y-2">
+            {profile.tool_refs.map((tool, index) => {
+              const Icon = getToolIcon(tool.tool_type);
+              return (
+                <div
+                  key={`${tool.tool_type}-${tool.name}-${index}`}
+                  className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{tool.name}</span>
+                    <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+                      {getToolTypeLabel(tool.tool_type)}
+                    </span>
+                  </div>
+                  <ToolPermissionsEditor
+                    permissions={tool.permissions}
+                    onChange={() => {}}
+                    compact
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground py-4 text-center border rounded-lg bg-muted/10">
+            No tools added yet. Click "Add Tool" to select tools from your inventory.
+          </div>
+        )}
+      </div>
+
+      {/* Assigned Projects */}
+      {profile.assigned_projects && profile.assigned_projects.length > 0 && (
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Assigned Projects ({profile.assigned_projects.length})
+          </h4>
+          <div className="space-y-2">
+            {profile.assigned_projects.map((project) => (
+              <div
+                key={project.id}
+                className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{project.name}</span>
+                </div>
+                <span className="text-xs text-muted-foreground truncate max-w-48">
+                  {project.path}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Metadata */}
       <div className="border-t pt-4 space-y-2 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
@@ -53,14 +181,26 @@ export function ProfileDetail({ profile }: ProfileDetailProps) {
 
       {/* Actions */}
       <div className="border-t pt-4 flex gap-2">
-        <button className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
+        <Button variant="default" disabled title="Coming soon">
           Apply to Project
-        </button>
-        <button className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-muted">
-          <Upload className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" onClick={onExportProfile} disabled={!onExportProfile}>
+          <Download className="h-4 w-4 mr-2" />
+          Export Profile
+        </Button>
+        <Button variant="outline" disabled title="Coming soon">
+          <Upload className="h-4 w-4 mr-2" />
           Export as Plugin
-        </button>
+        </Button>
       </div>
+
+      {/* Tool Picker Dialog */}
+      <ProfileToolPicker
+        open={isToolPickerOpen}
+        onOpenChange={setIsToolPickerOpen}
+        onAddTools={handleAddTools}
+        existingTools={profile.tool_refs || []}
+      />
     </div>
   );
 }

@@ -1,19 +1,33 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, FolderOpen, RefreshCw, AlertCircle, Search, FolderGit2 } from 'lucide-react';
-import { useState } from 'react';
-import { listProjects, addProject, removeProject, scanProject } from '../lib/ipc';
+import { useState, useRef } from 'react';
+import { toast } from 'sonner';
+import {
+  listProjects,
+  addProject,
+  removeProject,
+  scanProject,
+  assignProfile,
+  unassignProfile,
+  getProjectTools,
+} from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { ProjectList } from '../components/ProjectList';
 import { ProjectOverview } from '../components/ProjectOverview';
 import { AddProjectDialog } from '../components/AddProjectDialog';
-import type { Inventory } from '../lib/types';
+import { AssignProfileDialog } from '../components/AssignProfileDialog';
+import type { Inventory, ProjectInfo, ProjectToolsResponse } from '../lib/types';
 
 export function ProjectsPage() {
   const queryClient = useQueryClient();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectInfo | null>(null);
   const [inventory, setInventory] = useState<Inventory | null>(null);
+  const [projectTools, setProjectTools] = useState<ProjectToolsResponse | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const scanRequestRef = useRef(0); // Guard against stale scan results
 
   const isDialogOpen = useUIStore((state) => state.isAddProjectDialogOpen);
   const setDialogOpen = useUIStore((state) => state.setAddProjectDialogOpen);
@@ -35,21 +49,122 @@ export function ProjectsPage() {
     mutationFn: removeProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      if (selectedPath) setSelectedPath(null);
+      if (selectedPath) {
+        setSelectedPath(null);
+        setSelectedProject(null);
+        setProjectTools(null);
+      }
     },
   });
 
-  async function handleScan(path: string) {
+  const assignMutation = useMutation({
+    mutationFn: ({ projectId, profileId }: { projectId: string; profileId: string }) =>
+      assignProfile(projectId, profileId),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      // Refresh project tools
+      if (selectedProject) {
+        try {
+          const tools = await getProjectTools(selectedProject.id);
+          setProjectTools(tools);
+        } catch (err) {
+          console.error('Failed to refresh project tools:', err);
+        }
+      }
+      setIsAssignDialogOpen(false);
+      toast.success('Profile assigned successfully');
+    },
+    onError: (err) => {
+      toast.error(`Failed to assign profile: ${err}`);
+    },
+  });
+
+  const unassignMutation = useMutation({
+    mutationFn: (projectId: string) => unassignProfile(projectId),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      if (selectedProject) {
+        try {
+          const tools = await getProjectTools(selectedProject.id);
+          setProjectTools(tools);
+        } catch (err) {
+          console.error('Failed to refresh project tools:', err);
+        }
+      }
+      setIsAssignDialogOpen(false);
+      toast.success('Profile unassigned');
+    },
+    onError: (err) => {
+      toast.error(`Failed to unassign profile: ${err}`);
+    },
+  });
+
+  async function handleScan(project: ProjectInfo) {
+    const path = project.path;
+    const requestId = ++scanRequestRef.current; // Increment to invalidate previous requests
+
     setScanning(true);
     setScanError(null);
+    // Clear previous state before setting new project to prevent stale data
+    setSelectedPath(path);
+    setSelectedProject(project);
+    setInventory(null);
+    setProjectTools(null);
+
     try {
-      const result = await scanProject(path);
-      setInventory(result);
-      setSelectedPath(path);
-    } catch (err) {
-      setScanError(String(err));
+      // Fetch scan and tools in parallel, but handle failures independently
+      const [scanResult, toolsResult] = await Promise.allSettled([
+        scanProject(path),
+        getProjectTools(project.id),
+      ]);
+
+      // Guard against stale results from slower requests
+      if (requestId !== scanRequestRef.current) return;
+
+      // Handle scan result
+      if (scanResult.status === 'fulfilled') {
+        setInventory(scanResult.value);
+      } else {
+        setScanError(String(scanResult.reason));
+        setSelectedProject(null);
+        setSelectedPath(null);
+        return; // Exit early if scan failed
+      }
+
+      // Handle tools result (non-critical, just log error)
+      if (toolsResult.status === 'fulfilled') {
+        setProjectTools(toolsResult.value);
+      } else {
+        console.error('Failed to fetch project tools:', toolsResult.reason);
+        // Don't clear selection - scan succeeded, tools are optional
+      }
     } finally {
-      setScanning(false);
+      if (requestId === scanRequestRef.current) {
+        setScanning(false);
+      }
+    }
+  }
+
+  async function handleRefreshTools() {
+    if (selectedProject) {
+      try {
+        const tools = await getProjectTools(selectedProject.id);
+        setProjectTools(tools);
+      } catch (err) {
+        console.error('Failed to refresh project tools:', err);
+      }
+    }
+  }
+
+  function handleAssignProfile(profileId: string) {
+    if (selectedProject) {
+      assignMutation.mutate({ projectId: selectedProject.id, profileId });
+    }
+  }
+
+  function handleUnassignProfile() {
+    if (selectedProject) {
+      unassignMutation.mutate(selectedProject.id);
     }
   }
 
@@ -111,7 +226,7 @@ export function ProjectsPage() {
               <ProjectList
                 projects={projects}
                 selectedPath={selectedPath}
-                onSelect={(project) => handleScan(project.path)}
+                onSelect={(project) => handleScan(project)}
                 onRemove={(id) => removeMutation.mutate(id)}
               />
             )}
@@ -141,8 +256,14 @@ export function ProjectsPage() {
                 <p className="text-sm mt-2 text-muted-foreground">{scanError}</p>
               </div>
             </div>
-          ) : inventory && selectedPath ? (
-            <ProjectOverview inventory={inventory} projectPath={selectedPath} />
+          ) : inventory && selectedPath && selectedProject ? (
+            <ProjectOverview
+              inventory={inventory}
+              projectPath={selectedPath}
+              projectTools={projectTools}
+              onAssignProfile={() => setIsAssignDialogOpen(true)}
+              onRefreshTools={handleRefreshTools}
+            />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <div className="w-20 h-20 rounded-lg tars-panel flex items-center justify-center">
@@ -166,6 +287,17 @@ export function ProjectsPage() {
         onAdd={(path) => addMutation.mutate(path)}
         isLoading={addMutation.isPending}
         error={addMutation.error ? String(addMutation.error) : undefined}
+      />
+
+      {/* Assign Profile Dialog */}
+      <AssignProfileDialog
+        open={isAssignDialogOpen}
+        onOpenChange={setIsAssignDialogOpen}
+        onAssign={handleAssignProfile}
+        onUnassign={handleUnassignProfile}
+        currentProfileId={projectTools?.profile?.id || null}
+        projectName={selectedProject?.name || ''}
+        isLoading={assignMutation.isPending || unassignMutation.isPending}
       />
     </div>
   );

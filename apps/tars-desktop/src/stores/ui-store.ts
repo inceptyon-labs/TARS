@@ -47,6 +47,10 @@ interface UIState {
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
 
+  // Development folder for discovering Claude projects
+  developmentFolder: string | null;
+  setDevelopmentFolder: (folder: string | null) => void;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -93,6 +97,10 @@ export const useUIStore = create<UIState>()(
       sidebarWidth: 256,
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
 
+      // Development folder - null means not set
+      developmentFolder: null,
+      setDevelopmentFolder: (folder) => set({ developmentFolder: folder }),
+
       // Reset to defaults
       reset: () =>
         set({
@@ -107,6 +115,7 @@ export const useUIStore = create<UIState>()(
           currentView: 'projects',
           sidebarCollapsed: false,
           sidebarWidth: 256,
+          developmentFolder: null,
         }),
     }),
     {
@@ -116,6 +125,7 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
         sidebarWidth: state.sidebarWidth,
+        developmentFolder: state.developmentFolder,
       }),
     }
   )

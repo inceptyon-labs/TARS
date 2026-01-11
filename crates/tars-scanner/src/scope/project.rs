@@ -120,15 +120,22 @@ fn scan_settings_file(path: &Path) -> ScanResult<Option<SettingsFile>> {
 }
 
 fn scan_project_mcp(project_path: &Path) -> ScanResult<Option<McpConfig>> {
-    // Project MCP config is at .claude.json in project root
-    let mcp_path = project_path.join(".claude.json");
-    if mcp_path.exists() {
-        let content = fs::read_to_string(&mcp_path)?;
-        let mcp = parse_mcp_config(&mcp_path, &content)?;
-        Ok(Some(mcp))
+    // Project MCP config can be at .mcp.json or .claude.json in project root
+    let mcp_json_path = project_path.join(".mcp.json");
+    let claude_json_path = project_path.join(".claude.json");
+
+    // Prefer .mcp.json, fall back to .claude.json
+    let mcp_path = if mcp_json_path.exists() {
+        mcp_json_path
+    } else if claude_json_path.exists() {
+        claude_json_path
     } else {
-        Ok(None)
-    }
+        return Ok(None);
+    };
+
+    let content = fs::read_to_string(&mcp_path)?;
+    let mcp = parse_mcp_config(&mcp_path, &content)?;
+    Ok(Some(mcp))
 }
 
 fn scan_git_info(project_path: &Path) -> Option<GitInfo> {

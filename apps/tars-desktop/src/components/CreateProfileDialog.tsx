@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 interface CreateProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (name: string, sourcePath: string, description?: string) => void;
+  onCreate: (name: string, sourcePath: string | undefined, description?: string) => void;
   isLoading: boolean;
   error?: string;
 }
@@ -46,8 +46,8 @@ export function CreateProfileDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (name.trim() && sourcePath.trim()) {
-      onCreate(name.trim(), sourcePath.trim(), description.trim() || undefined);
+    if (name.trim()) {
+      onCreate(name.trim(), sourcePath.trim() || undefined, description.trim() || undefined);
     }
   }
 
@@ -88,7 +88,9 @@ export function CreateProfileDialog({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">Source Project</label>
+              <label className="block text-sm font-medium mb-1.5">
+                Source Project <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -102,7 +104,9 @@ export function CreateProfileDialog({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1.5">
-                Skills, commands, agents, and CLAUDE.md will be captured
+                {sourcePath.trim()
+                  ? 'Skills, commands, agents, and CLAUDE.md will be captured'
+                  : 'Leave empty to create a blank profile'}
               </p>
             </div>
 
@@ -123,7 +127,7 @@ export function CreateProfileDialog({
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={!name.trim() || !sourcePath.trim() || isLoading}>
+              <Button type="submit" disabled={!name.trim() || isLoading}>
                 {isLoading ? 'Creating...' : 'Create Profile'}
               </Button>
             </div>

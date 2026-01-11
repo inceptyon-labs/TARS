@@ -106,7 +106,8 @@ impl<'a> ProfileStore<'a> {
     pub fn list(&self) -> Result<Vec<ProfileSummary>, DatabaseError> {
         let mut stmt = self.conn.prepare(
             r"
-            SELECT id, name, description, created_at, updated_at
+            SELECT id, name, description, created_at, updated_at,
+                   COALESCE(json_array_length(data, '$.tool_refs'), 0) as tool_count
             FROM profiles
             ORDER BY name
             ",
@@ -118,13 +119,21 @@ impl<'a> ProfileStore<'a> {
             let description: Option<String> = row.get(2)?;
             let created_at: String = row.get(3)?;
             let updated_at: String = row.get(4)?;
+            let tool_count: i64 = row.get(5)?;
 
-            Ok((id_str, name, description, created_at, updated_at))
+            Ok((
+                id_str,
+                name,
+                description,
+                created_at,
+                updated_at,
+                tool_count,
+            ))
         })?;
 
         let mut profiles = Vec::new();
         for row in rows {
-            let (id_str, name, description, created_at_str, updated_at_str) = row?;
+            let (id_str, name, description, created_at_str, updated_at_str, tool_count) = row?;
             let id = Uuid::parse_str(&id_str)
                 .map_err(|e| DatabaseError::Migration(format!("Invalid UUID: {e}")))?;
             let created_at = DateTime::parse_from_rfc3339(&created_at_str)
@@ -138,6 +147,7 @@ impl<'a> ProfileStore<'a> {
                 id,
                 name,
                 description,
+                tool_count: tool_count as usize,
                 created_at,
                 updated_at,
             });
@@ -204,6 +214,8 @@ pub struct ProfileSummary {
     pub name: String,
     /// Optional description
     pub description: Option<String>,
+    /// Number of tool references in this profile
+    pub tool_count: usize,
     /// When created
     pub created_at: DateTime<Utc>,
     /// When last updated

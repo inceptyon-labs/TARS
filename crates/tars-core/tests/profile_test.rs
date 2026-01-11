@@ -351,3 +351,220 @@ fn test_profile_timestamps() {
     assert_eq!(retrieved.created_at, original_created);
     assert_eq!(retrieved.updated_at, original_updated);
 }
+
+// ============================================================================
+// ToolRef and ToolPermissions Serialization Tests
+// ============================================================================
+
+use std::path::PathBuf;
+use tars_core::profile::{ToolPermissions, ToolRef, ToolType};
+
+#[test]
+fn test_tool_type_serialization() {
+    // Test all tool types serialize correctly
+    assert_eq!(serde_json::to_string(&ToolType::Mcp).unwrap(), "\"mcp\"");
+    assert_eq!(
+        serde_json::to_string(&ToolType::Skill).unwrap(),
+        "\"skill\""
+    );
+    assert_eq!(
+        serde_json::to_string(&ToolType::Agent).unwrap(),
+        "\"agent\""
+    );
+    assert_eq!(serde_json::to_string(&ToolType::Hook).unwrap(), "\"hook\"");
+}
+
+#[test]
+fn test_tool_type_deserialization() {
+    // Test all tool types deserialize correctly
+    assert_eq!(
+        serde_json::from_str::<ToolType>("\"mcp\"").unwrap(),
+        ToolType::Mcp
+    );
+    assert_eq!(
+        serde_json::from_str::<ToolType>("\"skill\"").unwrap(),
+        ToolType::Skill
+    );
+    assert_eq!(
+        serde_json::from_str::<ToolType>("\"agent\"").unwrap(),
+        ToolType::Agent
+    );
+    assert_eq!(
+        serde_json::from_str::<ToolType>("\"hook\"").unwrap(),
+        ToolType::Hook
+    );
+}
+
+#[test]
+fn test_tool_permissions_serialization() {
+    let perms = ToolPermissions {
+        allowed_directories: vec![PathBuf::from("/path/to/dir"), PathBuf::from("./relative")],
+        allowed_tools: vec!["tool1".to_string(), "tool2".to_string()],
+        disallowed_tools: vec!["dangerous_tool".to_string()],
+    };
+
+    let json = serde_json::to_string(&perms).unwrap();
+    let deserialized: ToolPermissions = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.allowed_directories.len(), 2);
+    assert_eq!(deserialized.allowed_tools, vec!["tool1", "tool2"]);
+    assert_eq!(deserialized.disallowed_tools, vec!["dangerous_tool"]);
+}
+
+#[test]
+fn test_tool_permissions_default() {
+    let perms = ToolPermissions::default();
+
+    assert!(perms.allowed_directories.is_empty());
+    assert!(perms.allowed_tools.is_empty());
+    assert!(perms.disallowed_tools.is_empty());
+}
+
+#[test]
+fn test_tool_permissions_empty_fields_skipped() {
+    // Empty fields should be skipped in serialization due to #[serde(default)]
+    let perms = ToolPermissions {
+        allowed_directories: vec![],
+        allowed_tools: vec!["tool1".to_string()],
+        disallowed_tools: vec![],
+    };
+
+    let json = serde_json::to_string(&perms).unwrap();
+
+    // Deserialize back
+    let deserialized: ToolPermissions = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.allowed_tools, vec!["tool1"]);
+    assert!(deserialized.allowed_directories.is_empty());
+    assert!(deserialized.disallowed_tools.is_empty());
+}
+
+#[test]
+fn test_tool_ref_minimal() {
+    let tool_ref = ToolRef {
+        name: "test-server".to_string(),
+        tool_type: ToolType::Mcp,
+        source_scope: None,
+        permissions: None,
+    };
+
+    let json = serde_json::to_string(&tool_ref).unwrap();
+    let deserialized: ToolRef = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.name, "test-server");
+    assert_eq!(deserialized.tool_type, ToolType::Mcp);
+    assert!(deserialized.source_scope.is_none());
+    assert!(deserialized.permissions.is_none());
+}
+
+#[test]
+fn test_tool_ref_with_permissions() {
+    let tool_ref = ToolRef {
+        name: "context7".to_string(),
+        tool_type: ToolType::Mcp,
+        source_scope: Some(Scope::User),
+        permissions: Some(ToolPermissions {
+            allowed_directories: vec![PathBuf::from("/home/user/projects")],
+            allowed_tools: vec!["query-docs".to_string()],
+            disallowed_tools: vec![],
+        }),
+    };
+
+    let json = serde_json::to_string(&tool_ref).unwrap();
+    let deserialized: ToolRef = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.name, "context7");
+    assert_eq!(deserialized.tool_type, ToolType::Mcp);
+    assert_eq!(deserialized.source_scope, Some(Scope::User));
+
+    let perms = deserialized.permissions.unwrap();
+    assert_eq!(perms.allowed_directories.len(), 1);
+    assert_eq!(perms.allowed_tools, vec!["query-docs"]);
+}
+
+#[test]
+fn test_tool_ref_all_tool_types() {
+    // Test that all tool types work correctly in a ToolRef
+    let tool_types = [
+        ToolType::Mcp,
+        ToolType::Skill,
+        ToolType::Agent,
+        ToolType::Hook,
+    ];
+
+    for tool_type in tool_types {
+        let tool_ref = ToolRef {
+            name: format!("test-{}", tool_type),
+            tool_type,
+            source_scope: None,
+            permissions: None,
+        };
+
+        let json = serde_json::to_string(&tool_ref).unwrap();
+        let deserialized: ToolRef = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.tool_type, tool_type);
+    }
+}
+
+#[test]
+fn test_profile_with_tool_refs() {
+    let db = Database::in_memory().expect("Failed to create database");
+    let store = ProfileStore::new(db.connection());
+
+    let mut profile = Profile::new("tools-test".to_string());
+    profile.tool_refs = vec![
+        ToolRef {
+            name: "server1".to_string(),
+            tool_type: ToolType::Mcp,
+            source_scope: Some(Scope::User),
+            permissions: Some(ToolPermissions {
+                allowed_directories: vec![PathBuf::from("/allowed")],
+                allowed_tools: vec!["read".to_string()],
+                disallowed_tools: vec!["write".to_string()],
+            }),
+        },
+        ToolRef {
+            name: "my-skill".to_string(),
+            tool_type: ToolType::Skill,
+            source_scope: None,
+            permissions: None,
+        },
+    ];
+
+    let profile_id = profile.id;
+    store.create(&profile).expect("Failed to create profile");
+
+    let retrieved = store
+        .get(profile_id)
+        .expect("Failed to get profile")
+        .expect("Profile not found");
+
+    // Verify tool refs are preserved
+    assert_eq!(retrieved.tool_refs.len(), 2);
+
+    // Check first tool ref (MCP with permissions)
+    let mcp_ref = &retrieved.tool_refs[0];
+    assert_eq!(mcp_ref.name, "server1");
+    assert_eq!(mcp_ref.tool_type, ToolType::Mcp);
+    assert_eq!(mcp_ref.source_scope, Some(Scope::User));
+
+    let perms = mcp_ref.permissions.as_ref().expect("Expected permissions");
+    assert_eq!(perms.allowed_directories.len(), 1);
+    assert_eq!(perms.allowed_tools, vec!["read"]);
+    assert_eq!(perms.disallowed_tools, vec!["write"]);
+
+    // Check second tool ref (Skill without permissions)
+    let skill_ref = &retrieved.tool_refs[1];
+    assert_eq!(skill_ref.name, "my-skill");
+    assert_eq!(skill_ref.tool_type, ToolType::Skill);
+    assert!(skill_ref.permissions.is_none());
+}
+
+#[test]
+fn test_tool_ref_display() {
+    // Test ToolType Display implementation
+    assert_eq!(format!("{}", ToolType::Mcp), "mcp");
+    assert_eq!(format!("{}", ToolType::Skill), "skill");
+    assert_eq!(format!("{}", ToolType::Agent), "agent");
+    assert_eq!(format!("{}", ToolType::Hook), "hook");
+}

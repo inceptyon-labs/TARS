@@ -219,6 +219,7 @@ export interface ProfileInfo {
   id: string;
   name: string;
   description: string | null;
+  tool_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -229,6 +230,7 @@ export interface ProfileDetails {
   description: string | null;
   tool_refs: ToolRef[];
   assigned_projects: ProjectRef[];
+  mcp_count: number;
   skills_count: number;
   commands_count: number;
   agents_count: number;

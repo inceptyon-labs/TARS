@@ -32,6 +32,18 @@ export async function scanProjects(paths: string[]): Promise<Inventory> {
   return invoke('scan_projects', { paths });
 }
 
+export interface DiscoveredProject {
+  path: string;
+  name: string;
+  has_claude_dir: boolean;
+  has_claude_md: boolean;
+  has_mcp_json: boolean;
+}
+
+export async function discoverClaudeProjects(folder: string): Promise<DiscoveredProject[]> {
+  return invoke('discover_claude_projects', { folder });
+}
+
 // Project commands
 export async function listProjects(): Promise<ProjectInfo[]> {
   return invoke('list_projects');
@@ -124,7 +136,7 @@ export async function createProfile(
 ): Promise<ProfileInfo> {
   return invoke('create_profile', {
     name,
-    source_path: sourcePath,
+    sourcePath,
     description,
   });
 }
@@ -150,16 +162,74 @@ export interface UpdateProfileParams {
 }
 
 export async function updateProfile(params: UpdateProfileParams): Promise<UpdateProfileResponse> {
-  return invoke('update_profile', {
-    id: params.id,
-    name: params.name,
-    description: params.description,
-    tool_refs: params.toolRefs,
+  // Build input object for Rust struct deserialization
+  const input: Record<string, unknown> = { id: params.id };
+  if (params.name !== undefined) input.name = params.name;
+  if (params.description !== undefined) input.description = params.description;
+  if (params.toolRefs !== undefined) input.tool_refs = params.toolRefs;
+
+  // Wrap in 'input' to match Rust parameter name
+  return invoke('update_profile', { input });
+}
+
+import type { DeleteProfileResponse } from '../types';
+
+export async function deleteProfile(id: string): Promise<DeleteProfileResponse> {
+  return invoke('delete_profile', { id });
+}
+
+// Profile assignment commands
+import type {
+  AssignProfileResponse,
+  UnassignProfileResponse,
+  ProjectToolsResponse,
+} from '../types';
+
+export async function assignProfile(
+  projectId: string,
+  profileId: string
+): Promise<AssignProfileResponse> {
+  return invoke('assign_profile', {
+    projectId,
+    profileId,
   });
 }
 
-export async function deleteProfile(id: string): Promise<boolean> {
-  return invoke('delete_profile', { id });
+export async function unassignProfile(projectId: string): Promise<UnassignProfileResponse> {
+  return invoke('unassign_profile', {
+    projectId,
+  });
+}
+
+export async function getProjectTools(projectId: string): Promise<ProjectToolsResponse> {
+  return invoke('get_project_tools', {
+    projectId,
+  });
+}
+
+// Local override commands
+import type { AddLocalToolResponse, RemoveLocalToolResponse } from '../types';
+
+export async function addLocalTool(
+  projectId: string,
+  tool: ToolRef
+): Promise<AddLocalToolResponse> {
+  return invoke('add_local_tool', {
+    projectId,
+    tool,
+  });
+}
+
+export async function removeLocalTool(
+  projectId: string,
+  toolName: string,
+  toolType: string
+): Promise<RemoveLocalToolResponse> {
+  return invoke('remove_local_tool', {
+    projectId,
+    toolName,
+    toolType,
+  });
 }
 
 export async function exportProfileAsPlugin(
@@ -168,35 +238,64 @@ export async function exportProfileAsPlugin(
   options: PluginExportOptions
 ): Promise<string> {
   return invoke('export_profile_as_plugin', {
-    profile_id: profileId,
-    output_path: outputPath,
+    profileId,
+    outputPath,
     options,
+  });
+}
+
+// Profile export/import commands
+import type { ExportProfileResponse, ImportProfileResponse, PreviewImportResponse } from '../types';
+
+export async function exportProfileJson(
+  profileId: string,
+  outputPath: string
+): Promise<ExportProfileResponse> {
+  return invoke('export_profile_json', {
+    profileId,
+    outputPath,
+  });
+}
+
+export async function previewProfileImport(filePath: string): Promise<PreviewImportResponse> {
+  return invoke('preview_profile_import', {
+    filePath,
+  });
+}
+
+export async function importProfileJson(
+  filePath: string,
+  renameTo?: string
+): Promise<ImportProfileResponse> {
+  return invoke('import_profile_json', {
+    filePath,
+    renameTo,
   });
 }
 
 // Apply commands
 export async function previewApply(profileId: string, projectPath: string): Promise<DiffPreview> {
   return invoke('preview_apply', {
-    profile_id: profileId,
-    project_path: projectPath,
+    profileId,
+    projectPath,
   });
 }
 
 export async function applyProfile(profileId: string, projectPath: string): Promise<BackupInfo> {
   return invoke('apply_profile', {
-    profile_id: profileId,
-    project_path: projectPath,
+    profileId,
+    projectPath,
   });
 }
 
 export async function listBackups(projectId: string): Promise<BackupInfo[]> {
-  return invoke('list_backups', { project_id: projectId });
+  return invoke('list_backups', { projectId });
 }
 
 export async function rollback(backupId: string, projectPath: string): Promise<number> {
   return invoke('rollback', {
-    backup_id: backupId,
-    project_path: projectPath,
+    backupId,
+    projectPath,
   });
 }
 
@@ -217,7 +316,7 @@ export async function createSkill(
   return invoke('create_skill', {
     name,
     scope,
-    project_path: projectPath,
+    projectPath,
   });
 }
 
@@ -264,7 +363,7 @@ export async function createAgent(
   return invoke('create_agent', {
     name,
     scope,
-    project_path: projectPath,
+    projectPath,
   });
 }
 
@@ -293,9 +392,9 @@ export async function enableAgent(path: string): Promise<string> {
 }
 
 export async function listDisabledAgents(projectPath?: string): Promise<AgentDetails[]> {
-  // Only include project_path if it's defined, otherwise Tauri may not deserialize None correctly
+  // Only include projectPath if it's defined, otherwise Tauri may not deserialize None correctly
   if (projectPath) {
-    return invoke('list_disabled_agents', { project_path: projectPath });
+    return invoke('list_disabled_agents', { projectPath });
   }
   return invoke('list_disabled_agents', {});
 }
@@ -317,7 +416,7 @@ export async function createCommand(
   return invoke('create_command', {
     name,
     scope,
-    project_path: projectPath,
+    projectPath,
   });
 }
 
@@ -364,7 +463,7 @@ export async function getUserHooks(): Promise<SettingsHooksConfig> {
 }
 
 export async function getProjectHooks(projectPath: string): Promise<SettingsHooksConfig> {
-  return invoke('get_project_hooks', { project_path: projectPath });
+  return invoke('get_project_hooks', { projectPath });
 }
 
 export async function saveUserHooks(events: SettingsHookEvent[]): Promise<void> {
@@ -375,7 +474,7 @@ export async function saveProjectHooks(
   projectPath: string,
   events: SettingsHookEvent[]
 ): Promise<void> {
-  return invoke('save_project_hooks', { project_path: projectPath, events });
+  return invoke('save_project_hooks', { projectPath, events });
 }
 
 export async function getHookEventTypes(): Promise<string[]> {
