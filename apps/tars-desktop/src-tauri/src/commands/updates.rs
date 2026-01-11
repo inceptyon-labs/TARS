@@ -573,7 +573,9 @@ pub async fn install_tars_update(app: AppHandle) -> Result<(), String> {
         .await
         .map_err(|e| format!("Failed to download and install update: {e}"))?;
 
-    Ok(())
+    // Restart the app to apply the update
+    // Note: restart() never returns, it exits the process
+    app.restart()
 }
 
 /// Get the current TARS app version
