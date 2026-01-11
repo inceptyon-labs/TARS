@@ -7,6 +7,60 @@ use std::path::PathBuf;
 use tars_scanner::types::Scope;
 use uuid::Uuid;
 
+/// Type of tool that can be referenced in a profile
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolType {
+    /// MCP server
+    Mcp,
+    /// Skill
+    Skill,
+    /// Agent
+    Agent,
+    /// Hook
+    Hook,
+}
+
+impl std::fmt::Display for ToolType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ToolType::Mcp => write!(f, "mcp"),
+            ToolType::Skill => write!(f, "skill"),
+            ToolType::Agent => write!(f, "agent"),
+            ToolType::Hook => write!(f, "hook"),
+        }
+    }
+}
+
+/// Permission restrictions for a tool in a profile
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ToolPermissions {
+    /// Directories the tool can access (relative paths resolved against project root)
+    #[serde(default)]
+    pub allowed_directories: Vec<PathBuf>,
+    /// Tools this agent/skill can use
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    /// Tools this agent/skill cannot use
+    #[serde(default)]
+    pub disallowed_tools: Vec<String>,
+}
+
+/// A reference to a tool (MCP server, skill, agent, or hook) with optional permissions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolRef {
+    /// Tool identifier/name
+    pub name: String,
+    /// Type of tool
+    pub tool_type: ToolType,
+    /// Where the tool was discovered
+    #[serde(default)]
+    pub source_scope: Option<Scope>,
+    /// Optional permission restrictions
+    #[serde(default)]
+    pub permissions: Option<ToolPermissions>,
+}
+
 /// A profile configuration bundle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
@@ -16,6 +70,9 @@ pub struct Profile {
     pub name: String,
     /// Optional description
     pub description: Option<String>,
+    /// Tool references for this profile
+    #[serde(default)]
+    pub tool_refs: Vec<ToolRef>,
     /// Plugin configuration
     pub plugin_set: PluginSet,
     /// Repository-level overlays
@@ -39,6 +96,7 @@ impl Profile {
             id: Uuid::new_v4(),
             name,
             description: None,
+            tool_refs: Vec::new(),
             plugin_set: PluginSet::default(),
             repo_overlays: RepoOverlays::default(),
             user_overlays: UserOverlays::default(),

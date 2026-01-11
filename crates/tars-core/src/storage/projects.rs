@@ -195,6 +195,50 @@ impl<'a> ProjectStore<'a> {
 
         Ok(deleted > 0)
     }
+
+    /// List all projects with a specific profile assigned
+    ///
+    /// # Errors
+    /// Returns an error if the projects cannot be listed
+    pub fn list_by_profile(&self, profile_id: Uuid) -> Result<Vec<Project>, DatabaseError> {
+        // Since assigned_profile_id is stored in the JSON data column,
+        // we need to load all projects and filter in Rust.
+        // For MVP scale this is acceptable. Future optimization:
+        // add assigned_profile_id as a separate column for SQL filtering.
+        let mut stmt = self.conn.prepare(
+            r"
+            SELECT data FROM projects
+            ",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let json: String = row.get(0)?;
+            Ok(json)
+        })?;
+
+        let mut projects = Vec::new();
+        for row in rows {
+            let json = row?;
+            let project: Project = serde_json::from_str(&json)
+                .map_err(|e| DatabaseError::Migration(format!("Failed to parse project: {e}")))?;
+
+            if project.assigned_profile_id == Some(profile_id) {
+                projects.push(project);
+            }
+        }
+
+        Ok(projects)
+    }
+
+    /// Count projects with a specific profile assigned
+    ///
+    /// # Errors
+    /// Returns an error if the count cannot be performed
+    pub fn count_by_profile(&self, profile_id: Uuid) -> Result<usize, DatabaseError> {
+        // For now, use list_by_profile and count
+        // Could be optimized if needed
+        Ok(self.list_by_profile(profile_id)?.len())
+    }
 }
 
 /// Project summary (without full data)

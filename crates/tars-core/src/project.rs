@@ -5,6 +5,42 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+use crate::profile::ToolRef;
+
+/// Project-specific tool additions that persist through profile sync
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LocalOverrides {
+    /// Local MCP server references
+    #[serde(default)]
+    pub mcp_servers: Vec<ToolRef>,
+    /// Local skill references
+    #[serde(default)]
+    pub skills: Vec<ToolRef>,
+    /// Local agent references
+    #[serde(default)]
+    pub agents: Vec<ToolRef>,
+    /// Local hook references
+    #[serde(default)]
+    pub hooks: Vec<ToolRef>,
+}
+
+impl LocalOverrides {
+    /// Returns true if there are no local overrides
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.mcp_servers.is_empty()
+            && self.skills.is_empty()
+            && self.agents.is_empty()
+            && self.hooks.is_empty()
+    }
+
+    /// Returns the total count of all local overrides
+    #[must_use]
+    pub fn total_count(&self) -> usize {
+        self.mcp_servers.len() + self.skills.len() + self.agents.len() + self.hooks.len()
+    }
+}
+
 /// A registered project
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
@@ -20,6 +56,9 @@ pub struct Project {
     pub last_scanned: Option<DateTime<Utc>>,
     /// Assigned profile ID
     pub assigned_profile_id: Option<Uuid>,
+    /// Project-specific tool additions
+    #[serde(default)]
+    pub local_overrides: LocalOverrides,
     /// When registered
     pub created_at: DateTime<Utc>,
     /// When last updated
@@ -44,6 +83,7 @@ impl Project {
             git_info: None,
             last_scanned: None,
             assigned_profile_id: None,
+            local_overrides: LocalOverrides::default(),
             created_at: now,
             updated_at: now,
         }

@@ -227,12 +227,127 @@ export interface ProfileDetails {
   id: string;
   name: string;
   description: string | null;
+  tool_refs: ToolRef[];
+  assigned_projects: ProjectRef[];
   skills_count: number;
   commands_count: number;
   agents_count: number;
   has_claude_md: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProfileSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  tool_count: number;
+  project_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectRef {
+  id: string;
+  name: string;
+  path: string;
+}
+
+// Tool reference types
+export type ToolType = 'mcp' | 'skill' | 'agent' | 'hook';
+
+export interface ToolPermissions {
+  allowed_directories: string[];
+  allowed_tools: string[];
+  disallowed_tools: string[];
+}
+
+export interface ToolRef {
+  name: string;
+  tool_type: ToolType;
+  source_scope: 'user' | 'project' | 'managed' | null;
+  permissions: ToolPermissions | null;
+}
+
+export interface ToolRefWithSource extends ToolRef {
+  source: 'profile' | 'local';
+}
+
+// Local overrides types
+export interface LocalOverrides {
+  mcp_servers: ToolRef[];
+  skills: ToolRef[];
+  agents: ToolRef[];
+  hooks: ToolRef[];
+}
+
+// Profile sync types
+export interface SyncResult {
+  affected_projects: number;
+  synced_at: string;
+}
+
+export interface UpdateProfileResponse {
+  profile: ProfileSummary;
+  sync_result: SyncResult;
+}
+
+export interface DeleteProfileResponse {
+  deleted: boolean;
+  converted_projects: number;
+}
+
+// Profile assignment types
+export interface AssignProfileResponse {
+  project_id: string;
+  profile_id: string;
+  assigned_at: string;
+}
+
+export interface UnassignProfileResponse {
+  project_id: string;
+  unassigned_at: string;
+}
+
+export interface ProjectToolsResponse {
+  project_id: string;
+  profile: { id: string; name: string } | null;
+  profile_tools: ToolRefWithSource[];
+  local_tools: ToolRefWithSource[];
+}
+
+// Local tool types
+export interface AddLocalToolResponse {
+  project_id: string;
+  tool_name: string;
+  added_at: string;
+}
+
+export interface RemoveLocalToolResponse {
+  project_id: string;
+  removed: boolean;
+}
+
+// Profile export/import types
+export interface ExportProfileResponse {
+  path: string;
+  size_bytes: number;
+  exported_at: string;
+}
+
+export interface ImportProfileResponse {
+  profile: ProfileSummary;
+  imported_from: string;
+  collision_resolved: boolean;
+}
+
+export interface PreviewImportResponse {
+  name: string;
+  description: string | null;
+  tool_count: number;
+  has_name_collision: boolean;
+  existing_profile_id: string | null;
+  version: number;
 }
 
 // Apply types

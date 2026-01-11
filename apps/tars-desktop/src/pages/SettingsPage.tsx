@@ -1,7 +1,7 @@
 import { Sun, Moon, Monitor, FolderOpen, RotateCcw, Info } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import { appDataDir } from '@tauri-apps/api/path';
+import { homeDir } from '@tauri-apps/api/path';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
 import { getTarsVersion, getPlatformInfo } from '../lib/ipc';
@@ -24,8 +24,9 @@ export function SettingsPage() {
 
   const handleOpenDataDir = async () => {
     try {
-      const dataDir = await appDataDir();
-      await revealItemInDir(dataDir);
+      const home = await homeDir();
+      const tarsDir = `${home}.tars`;
+      await revealItemInDir(tarsDir);
     } catch (err) {
       console.error('Failed to open data directory:', err);
     }

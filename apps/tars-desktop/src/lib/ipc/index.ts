@@ -129,8 +129,33 @@ export async function createProfile(
   });
 }
 
+export async function createEmptyProfile(name: string, description?: string): Promise<ProfileInfo> {
+  return invoke('create_empty_profile', {
+    name,
+    description,
+  });
+}
+
 export async function getProfile(id: string): Promise<ProfileDetails> {
   return invoke('get_profile', { id });
+}
+
+import type { ToolRef, UpdateProfileResponse } from '../types';
+
+export interface UpdateProfileParams {
+  id: string;
+  name?: string;
+  description?: string;
+  toolRefs?: ToolRef[];
+}
+
+export async function updateProfile(params: UpdateProfileParams): Promise<UpdateProfileResponse> {
+  return invoke('update_profile', {
+    id: params.id,
+    name: params.name,
+    description: params.description,
+    tool_refs: params.toolRefs,
+  });
 }
 
 export async function deleteProfile(id: string): Promise<boolean> {

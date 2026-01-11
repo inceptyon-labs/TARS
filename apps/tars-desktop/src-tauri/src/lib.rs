@@ -60,7 +60,9 @@ pub fn run() {
             // Profile commands
             commands::list_profiles,
             commands::create_profile,
+            commands::create_empty_profile,
             commands::get_profile,
+            commands::update_profile,
             commands::delete_profile,
             commands::export_profile_as_plugin,
             // Apply commands

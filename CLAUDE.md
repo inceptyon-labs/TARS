@@ -169,6 +169,8 @@ This project uses the Speckit workflow. Available commands:
 ## Active Technologies
 - Rust 1.75+ (backend/CLI), TypeScript 5.x (frontend) + Tauri 2.x, React 18, Vite 5, shadcn/ui, Tailwind CSS (001-tars)
 - SQLite (embedded via rusqlite), file-based backups (001-tars)
+- Rust 1.75+ (backend), TypeScript 5.8+ (frontend) + Tauri 2.x, React 19, rusqlite, serde, uuid, chrono (003-profiles)
+- SQLite (embedded via rusqlite) - existing database with profiles/projects tables (003-profiles)
 
 ## Recent Changes
 - 001-tars: Added Rust 1.75+ (backend/CLI), TypeScript 5.x (frontend) + Tauri 2.x, React 18, Vite 5, shadcn/ui, Tailwind CSS
