@@ -555,3 +555,10 @@ export interface PlatformInfo {
 export async function getPlatformInfo(): Promise<PlatformInfo> {
   return invoke('get_platform_info');
 }
+
+// Claude Code usage stats
+import type { ClaudeUsageStats } from '../types';
+
+export async function getClaudeUsageStats(): Promise<ClaudeUsageStats> {
+  return invoke('get_claude_usage_stats');
+}

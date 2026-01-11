@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ChevronDown,
   Download,
+  BarChart3,
   Settings,
   GripVertical,
 } from 'lucide-react';
@@ -368,6 +369,24 @@ export function MainLayout() {
                         )}
                       </>
                     )}
+                  </NavLink>
+
+                  {/* Usage Link */}
+                  <NavLink
+                    to="/usage"
+                    title="Usage"
+                    className={({ isActive }) =>
+                      cn(
+                        'tars-nav-item flex items-center text-sm rounded transition-all',
+                        sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
+                        isActive
+                          ? 'active text-foreground font-medium'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )
+                    }
+                  >
+                    <BarChart3 className="h-4 w-4 shrink-0" />
+                    {!sidebarCollapsed && <span>Usage</span>}
                   </NavLink>
                 </div>
 

@@ -1,6 +1,6 @@
-import { Sun, Moon, Monitor, FolderOpen, RotateCcw, Info } from 'lucide-react';
+import { Sun, Moon, Monitor, FolderOpen, RotateCcw, Info, ExternalLink } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { revealItemInDir, openUrl } from '@tauri-apps/plugin-opener';
 import { homeDir } from '@tauri-apps/api/path';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
@@ -35,6 +35,14 @@ export function SettingsPage() {
   const handleResetSettings = () => {
     if (window.confirm('Are you sure you want to reset all settings to defaults?')) {
       useUIStore.getState().reset();
+    }
+  };
+
+  const handleOpenIssues = async () => {
+    try {
+      await openUrl('https://github.com/inceptyon-labs/TARS/issues');
+    } catch (err) {
+      console.error('Failed to open issues page:', err);
     }
   };
 
@@ -157,13 +165,22 @@ export function SettingsPage() {
                   <span className="text-muted-foreground">Platform</span>
                   <span className="font-mono">{platformInfo?.display ?? '...'}</span>
                 </div>
-                <div className="pt-3 border-t border-border">
-                  <p className="text-sm text-muted-foreground">
-                    TARS - Tooling, Agents, Roles, Skills
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    A configuration manager for Claude Code
-                  </p>
+                <div className="flex items-center justify-between pt-3 border-t border-border">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      TARS - Tooling, Agents, Roles, Skills
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">
+                      A configuration manager for Claude Code
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleOpenIssues}
+                    className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors flex items-center gap-2"
+                  >
+                    Report Issue
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             </div>

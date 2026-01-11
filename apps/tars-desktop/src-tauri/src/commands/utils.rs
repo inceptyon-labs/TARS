@@ -3,6 +3,7 @@
 //! Commands for file dialogs, path operations, etc.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Directory info for frontend display
@@ -138,4 +139,173 @@ pub async fn get_platform_info() -> PlatformInfo {
         arch: arch.to_string(),
         display,
     }
+}
+
+// ============================================================================
+// Claude Code Usage Stats
+// ============================================================================
+
+/// Daily activity from Claude Code stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyActivity {
+    pub date: String,
+    pub message_count: u64,
+    pub session_count: u64,
+    pub tool_call_count: u64,
+}
+
+/// Daily token usage by model
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyModelTokens {
+    pub date: String,
+    pub tokens_by_model: HashMap<String, u64>,
+}
+
+/// Lifetime usage stats for a model
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_input_tokens: u64,
+    pub cache_creation_input_tokens: u64,
+}
+
+/// Claude Code usage statistics from ~/.claude/stats-cache.json
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeUsageStats {
+    pub total_sessions: u64,
+    pub total_messages: u64,
+    pub first_session_date: Option<String>,
+    pub last_computed_date: Option<String>,
+    pub daily_activity: Vec<DailyActivity>,
+    pub daily_model_tokens: Vec<DailyModelTokens>,
+    pub model_usage: HashMap<String, ModelUsage>,
+    pub hour_counts: HashMap<String, u64>,
+}
+
+/// Raw stats cache format (matches the JSON file structure)
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawStatsCache {
+    #[serde(default)]
+    #[allow(dead_code)]
+    version: u32,
+    last_computed_date: Option<String>,
+    #[serde(default)]
+    daily_activity: Vec<RawDailyActivity>,
+    #[serde(default)]
+    daily_model_tokens: Vec<RawDailyModelTokens>,
+    #[serde(default)]
+    model_usage: HashMap<String, RawModelUsage>,
+    #[serde(default)]
+    total_sessions: u64,
+    #[serde(default)]
+    total_messages: u64,
+    first_session_date: Option<String>,
+    #[serde(default)]
+    hour_counts: HashMap<String, u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawDailyActivity {
+    date: String,
+    #[serde(default)]
+    message_count: u64,
+    #[serde(default)]
+    session_count: u64,
+    #[serde(default)]
+    tool_call_count: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawDailyModelTokens {
+    date: String,
+    #[serde(default)]
+    tokens_by_model: HashMap<String, u64>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct RawModelUsage {
+    #[serde(default)]
+    input_tokens: u64,
+    #[serde(default)]
+    output_tokens: u64,
+    #[serde(default)]
+    cache_read_input_tokens: u64,
+    #[serde(default)]
+    cache_creation_input_tokens: u64,
+}
+
+/// Get Claude Code usage statistics from the local stats cache
+#[tauri::command]
+pub async fn get_claude_usage_stats() -> Result<ClaudeUsageStats, String> {
+    let home = std::env::var("HOME").map_err(|_| "HOME environment variable not set")?;
+    let stats_path = PathBuf::from(&home)
+        .join(".claude")
+        .join("stats-cache.json");
+
+    if !stats_path.exists() {
+        return Err("Claude Code stats file not found. Have you used Claude Code yet?".to_string());
+    }
+
+    let content = std::fs::read_to_string(&stats_path)
+        .map_err(|e| format!("Failed to read stats file: {e}"))?;
+
+    let raw: RawStatsCache =
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse stats file: {e}"))?;
+
+    // Convert raw format to our output format
+    let daily_activity: Vec<DailyActivity> = raw
+        .daily_activity
+        .into_iter()
+        .map(|d| DailyActivity {
+            date: d.date,
+            message_count: d.message_count,
+            session_count: d.session_count,
+            tool_call_count: d.tool_call_count,
+        })
+        .collect();
+
+    let daily_model_tokens: Vec<DailyModelTokens> = raw
+        .daily_model_tokens
+        .into_iter()
+        .map(|d| DailyModelTokens {
+            date: d.date,
+            tokens_by_model: d.tokens_by_model,
+        })
+        .collect();
+
+    let model_usage: HashMap<String, ModelUsage> = raw
+        .model_usage
+        .into_iter()
+        .map(|(k, v)| {
+            (
+                k,
+                ModelUsage {
+                    input_tokens: v.input_tokens,
+                    output_tokens: v.output_tokens,
+                    cache_read_input_tokens: v.cache_read_input_tokens,
+                    cache_creation_input_tokens: v.cache_creation_input_tokens,
+                },
+            )
+        })
+        .collect();
+
+    Ok(ClaudeUsageStats {
+        total_sessions: raw.total_sessions,
+        total_messages: raw.total_messages,
+        first_session_date: raw.first_session_date,
+        last_computed_date: raw.last_computed_date,
+        daily_activity,
+        daily_model_tokens,
+        model_usage,
+        hour_counts: raw.hour_counts,
+    })
 }

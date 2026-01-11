@@ -35,6 +35,7 @@ const UpdatesPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 );
+const UsagePage = lazy(() => import('./pages/UsagePage').then((m) => ({ default: m.UsagePage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -188,6 +189,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <SettingsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="usage"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <UsagePage />
                   </Suspense>
                 }
               />

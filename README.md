@@ -81,11 +81,39 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 - **Cache management** - View and clean plugin cache
 
 ### Profiles
-- **Snapshot projects** - Save complete project configuration as a profile
-- **Apply profiles** - Apply saved configurations to other projects
-- **Diff preview** - Review changes before applying
-- **Rollback support** - Restore from automatic backups
-- **Plugin export** - Convert profiles to shareable Claude Code plugin format
+Profiles let you create reusable configuration bundles that can be shared across multiple projects. Think of them as "presets" for your Claude Code setup.
+
+**Creation Wizard**
+- **Guided setup** - Step-by-step wizard for creating profiles
+- **Multiple source options**:
+  - **Single project** - Import tools from one specific project
+  - **Registered projects** - Pick tools from projects already added to TARS
+  - **Development folder** - Scan an entire folder for all Claude-configured projects
+  - **Start empty** - Create a blank profile and add tools later
+- **Tool discovery** - Automatically finds MCP servers, skills, and agents from project `.claude/` directories and `.mcp.json` files
+
+**Tool Management**
+- **Visual tool picker** - Browse and select tools with descriptions and source info
+- **Categorized view** - Filter by MCP servers, skills, or agents
+- **Bulk selection** - Select all or clear selections quickly
+- **Search** - Find specific tools across all discovered projects
+
+**Profile Assignment**
+- **Project binding** - Assign profiles to one or more projects
+- **Auto-sync** - Profile changes automatically propagate to assigned projects
+- **Local overrides** - Projects can have local tools that supplement the profile
+- **Unassign** - Remove profile from a project while keeping local configurations
+
+**Import/Export**
+- **Portable format** - Export profiles as `.tars-profile.json` files
+- **Share configurations** - Import profiles from teammates or community
+- **Collision handling** - Detect and resolve name conflicts on import
+- **Plugin export** - Convert profiles to Claude Code plugin format for distribution
+
+**Safety Features**
+- **Diff preview** - Review all changes before applying to a project
+- **Automatic backups** - Every apply creates a backup for easy rollback
+- **Deterministic rollback** - Restore exact previous state byte-for-byte
 
 ### Knowledge Center (CASE)
 - **Documentation** - Built-in reference for all Claude Code features
@@ -164,11 +192,28 @@ bun run tauri dev
 
 ### Managing Profiles
 
-1. Go to **Profiles** page
-2. Click **"New Profile"** to snapshot a project
-3. Select source project and provide a name/description
-4. To apply: select profile, choose target, preview diff, apply
-5. Use rollback if needed to restore previous state
+**Creating a Profile:**
+1. Go to **Profiles** page and click **"Create Profile"**
+2. Enter a name and optional description
+3. Choose where to discover tools:
+   - **Single project** - Select a specific project folder
+   - **Registered projects** - Pick from projects already in TARS
+   - **Development folder** - Scan a parent folder (e.g., `~/Development`)
+   - **Empty** - Start blank and add tools later
+4. Select the MCP servers, skills, and agents you want in the profile
+5. Click **"Create Profile"** to save
+
+**Assigning to Projects:**
+1. Select a profile from the list
+2. In the detail panel, click **"Assign to Project"**
+3. Choose which registered project should use this profile
+4. The profile's tools will be available in that project
+
+**Sharing Profiles:**
+1. Select the profile to export
+2. Click **"Export"** and choose a save location
+3. Share the `.tars-profile.json` file with teammates
+4. They can import via **"Import Profile"** button
 
 ### Configuring Hooks
 
@@ -294,10 +339,12 @@ Your skill prompt here with $ARGUMENTS placeholder.
 ## Roadmap
 
 - [ ] Windows and Linux support
-- [ ] Profile sharing via Claude Code plugin format
+- [x] Profile sharing via Claude Code plugin format
 - [ ] Diff visualization improvements
 - [ ] Bulk operations
-- [ ] Import/export configurations
+- [x] Import/export configurations
+- [ ] Usage analytics dashboard
+- [ ] Profile templates gallery
 
 ## Contributing
 

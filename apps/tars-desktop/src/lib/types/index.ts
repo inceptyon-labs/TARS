@@ -531,3 +531,34 @@ export interface TarsUpdateInfo {
   release_notes: string | null;
   download_url: string | null;
 }
+
+// Claude Code usage stats types
+export interface DailyActivity {
+  date: string;
+  messageCount: number;
+  sessionCount: number;
+  toolCallCount: number;
+}
+
+export interface DailyModelTokens {
+  date: string;
+  tokensByModel: Record<string, number>;
+}
+
+export interface ModelUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+}
+
+export interface ClaudeUsageStats {
+  totalSessions: number;
+  totalMessages: number;
+  firstSessionDate: string | null;
+  lastComputedDate: string | null;
+  dailyActivity: DailyActivity[];
+  dailyModelTokens: DailyModelTokens[];
+  modelUsage: Record<string, ModelUsage>;
+  hourCounts: Record<string, number>;
+}

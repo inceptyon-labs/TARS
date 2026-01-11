@@ -147,7 +147,7 @@ impl<'a> ProfileStore<'a> {
                 id,
                 name,
                 description,
-                tool_count: tool_count as usize,
+                tool_count: usize::try_from(tool_count).unwrap_or(0),
                 created_at,
                 updated_at,
             });

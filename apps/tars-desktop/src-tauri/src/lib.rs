@@ -146,6 +146,7 @@ pub fn run() {
             commands::list_subdirectories,
             commands::get_app_version,
             commands::get_platform_info,
+            commands::get_claude_usage_stats,
             // Update commands
             commands::get_installed_claude_version,
             commands::fetch_claude_changelog,
