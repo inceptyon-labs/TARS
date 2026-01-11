@@ -32,6 +32,9 @@ const PromptsPage = lazy(() =>
 const UpdatesPage = lazy(() =>
   import('./pages/UpdatesPage').then((m) => ({ default: m.UpdatesPage }))
 );
+const SettingsPage = lazy(() =>
+  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -177,6 +180,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <UpdatesPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="settings"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <SettingsPage />
                   </Suspense>
                 }
               />

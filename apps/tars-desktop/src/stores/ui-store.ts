@@ -46,6 +46,9 @@ interface UIState {
   // Sidebar width (for resizing)
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
+
+  // Reset to defaults
+  reset: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -89,6 +92,22 @@ export const useUIStore = create<UIState>()(
       // Sidebar width - default 256px (w-64)
       sidebarWidth: 256,
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
+
+      // Reset to defaults
+      reset: () =>
+        set({
+          theme: 'dark',
+          selectedProjectId: null,
+          selectedProjectPath: null,
+          selectedProfileId: null,
+          isAddProjectDialogOpen: false,
+          isCreateProfileDialogOpen: false,
+          isApplyDialogOpen: false,
+          isExportDialogOpen: false,
+          currentView: 'projects',
+          sidebarCollapsed: false,
+          sidebarWidth: 256,
+        }),
     }),
     {
       name: 'tars-ui-settings',

@@ -5,9 +5,6 @@ import {
   FolderGit2,
   Layers,
   Cpu,
-  Sun,
-  Moon,
-  Monitor,
   Server,
   Plug,
   Bot,
@@ -19,10 +16,11 @@ import {
   ChevronRight,
   ChevronDown,
   Download,
+  Settings,
   GripVertical,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useUIStore, type Theme } from '../stores/ui-store';
+import { useUIStore } from '../stores/ui-store';
 import {
   getClaudeVersionInfo,
   checkPluginUpdates,
@@ -50,8 +48,6 @@ const SIDEBAR_MAX_WIDTH = 400;
 const SIDEBAR_COLLAPSED_WIDTH = 80;
 
 export function MainLayout() {
-  const theme = useUIStore((state) => state.theme);
-  const setTheme = useUIStore((state) => state.setTheme);
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((state) => state.setSidebarCollapsed);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
@@ -375,36 +371,23 @@ export function MainLayout() {
                   </NavLink>
                 </div>
 
-                {/* Theme Switcher */}
-                <div
-                  className={cn(
-                    'flex items-center justify-between px-3',
-                    sidebarCollapsed && 'flex-col gap-2 px-2'
-                  )}
+                {/* Settings Link */}
+                <NavLink
+                  to="/settings"
+                  title="Settings"
+                  className={({ isActive }) =>
+                    cn(
+                      'tars-nav-item flex items-center text-sm rounded transition-all',
+                      sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
+                      isActive
+                        ? 'active text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )
+                  }
                 >
-                  {!sidebarCollapsed && (
-                    <span className="text-sm text-muted-foreground">Theme</span>
-                  )}
-                  <div className={cn('flex items-center gap-1', sidebarCollapsed && 'flex-col')}>
-                    {(['system', 'light', 'dark'] as Theme[]).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setTheme(t)}
-                        className={cn(
-                          'h-7 w-7 grid place-items-center rounded transition-all',
-                          theme === t
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                        )}
-                        title={t.charAt(0).toUpperCase() + t.slice(1)}
-                      >
-                        {t === 'system' && <Monitor className="h-3.5 w-3.5" />}
-                        {t === 'light' && <Sun className="h-3.5 w-3.5" />}
-                        {t === 'dark' && <Moon className="h-3.5 w-3.5" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  <Settings className="h-4 w-4 shrink-0" />
+                  {!sidebarCollapsed && <span>Settings</span>}
+                </NavLink>
               </div>
             )}
           </div>
