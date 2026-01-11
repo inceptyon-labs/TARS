@@ -25,7 +25,7 @@ fn create_test_profile(name: &str) -> Profile {
 }
 
 fn create_test_project(name: &str) -> Project {
-    Project::new(PathBuf::from(format!("/test/projects/{}", name))).with_name(name.to_string())
+    Project::new(PathBuf::from(format!("/test/projects/{name}"))).with_name(name.to_string())
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn test_count_projects_by_profile() {
 
     // Add 3 projects
     for i in 1..=3 {
-        let mut project = create_test_project(&format!("project{}", i));
+        let mut project = create_test_project(&format!("project{i}"));
         project.assigned_profile_id = Some(profile_id);
         project_store
             .create(&project)

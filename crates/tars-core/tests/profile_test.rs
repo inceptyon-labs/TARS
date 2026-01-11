@@ -493,7 +493,7 @@ fn test_tool_ref_all_tool_types() {
 
     for tool_type in tool_types {
         let tool_ref = ToolRef {
-            name: format!("test-{}", tool_type),
+            name: format!("test-{tool_type}"),
             tool_type,
             source_scope: None,
             permissions: None,

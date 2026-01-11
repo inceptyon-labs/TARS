@@ -343,8 +343,9 @@ Your skill prompt here with $ARGUMENTS placeholder.
 - [ ] Diff visualization improvements
 - [ ] Bulk operations
 - [x] Import/export configurations
-- [ ] Usage analytics dashboard
+- [x] Usage analytics dashboard
 - [ ] Profile templates gallery
+- [ ] Model provider switching (swap API endpoints, keys, and models for OpenAI-compatible LLMs)
 
 ## Contributing
 
