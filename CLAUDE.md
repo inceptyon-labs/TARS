@@ -23,20 +23,20 @@ bun run tauri dev                     # Development mode
 bun run tauri build                   # Production build
 ```
 
-## Linting
+## Linting & Formatting
 
-**IMPORTANT**: After making significant changes to Rust code, always run clippy before committing to catch issues that would fail CI:
+**IMPORTANT**: Before committing ANY code changes, always run the following to ensure CI passes:
 
 ```bash
+cargo fmt --all                      # Format all Rust code
 cargo clippy --all -- -D warnings    # Run clippy on all crates (must pass with no warnings)
-```
 
-For TypeScript/frontend changes:
-
-```bash
 cd apps/tars-desktop
+bun run format                       # Format all TypeScript/frontend code
 bun tsc --noEmit                     # Type-check frontend code
 ```
+
+The pre-commit hooks will verify these, but running them first prevents commit rejection.
 
 ## Setup
 
