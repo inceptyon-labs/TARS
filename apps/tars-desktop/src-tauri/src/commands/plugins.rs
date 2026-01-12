@@ -287,6 +287,17 @@ pub async fn plugin_uninstall(
         validate_scope(s)?;
     }
 
+    let scope_str = scope.as_deref().unwrap_or("user");
+
+    // Workaround for Claude CLI bug #14202: CLI doesn't properly handle
+    // project-scoped plugin uninstall - it removes ALL installations instead of
+    // just the one for the specified project. Use direct JSON editing for
+    // project and local scopes to ensure only the correct installation is removed.
+    if (scope_str == "project" || scope_str == "local") && project_path.is_some() {
+        return uninstall_plugin_directly(&plugin, Some(scope_str), project_path.as_deref());
+    }
+
+    // For user scope, use CLI as it works correctly
     // Extract plugin name (without marketplace) for uninstall
     // Format may be "pluginName@marketplace" - uninstall only wants pluginName
     let plugin_name = plugin.split('@').next().unwrap_or(&plugin);
@@ -327,8 +338,7 @@ pub async fn plugin_uninstall(
             "Unknown error".to_string()
         };
 
-        // Workaround for Claude CLI bug #14202: CLI doesn't properly handle
-        // project-scoped plugin uninstall. Fall back to direct JSON editing.
+        // Fall back to direct JSON editing if CLI fails
         if error_msg.contains("not found in installed plugins") {
             return uninstall_plugin_directly(&plugin, scope.as_deref(), project_path.as_deref());
         }

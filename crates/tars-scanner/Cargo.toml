@@ -10,7 +10,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 gray_matter = { workspace = true }
-serde_yml = { workspace = true }
 walkdir = { workspace = true }
 rayon = { workspace = true }
 sha2 = { workspace = true }

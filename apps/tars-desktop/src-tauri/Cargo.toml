@@ -3,7 +3,7 @@ name = "tars-app"
 version.workspace = true
 edition.workspace = true
 description = "TARS - Claude Code Configuration Manager"
-authors = ["Jason Goodwin"]
+authors = ["Inceptyon Labs LLC"]
 
 [lib]
 name = "tars_app_lib"

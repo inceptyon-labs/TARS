@@ -346,12 +346,10 @@ fn parse_changelog(content: &str) -> Vec<ChangelogEntry> {
 pub async fn get_claude_version_info() -> Result<ClaudeVersionInfo, String> {
     let installed = get_installed_claude_version().await?;
 
-    // Fetch changelog to get latest version
-    let changelog = fetch_claude_changelog().await.ok();
-    let latest = changelog
-        .as_ref()
-        .and_then(|c| c.entries.first())
-        .map(|e| e.version.clone());
+    // Fetch latest version from npm registry (more reliable than changelog)
+    let latest = fetch_npm_latest_version("@anthropic-ai/claude-code")
+        .await
+        .ok();
 
     let update_available = match (&installed, &latest) {
         (Some(inst), Some(lat)) => {
@@ -366,6 +364,29 @@ pub async fn get_claude_version_info() -> Result<ClaudeVersionInfo, String> {
         latest_version: latest,
         update_available,
     })
+}
+
+/// Fetch the latest version of an npm package from the registry
+async fn fetch_npm_latest_version(package: &str) -> Result<String, String> {
+    let url = format!("https://registry.npmjs.org/{package}/latest");
+
+    let response = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("Failed to fetch npm registry: {e}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!("npm registry returned HTTP {}", response.status()));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse npm response: {e}"))?;
+
+    json.get("version")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .ok_or_else(|| "No version field in npm response".to_string())
 }
 
 /// Compare semantic versions

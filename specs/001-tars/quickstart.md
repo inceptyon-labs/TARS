@@ -42,7 +42,7 @@ claude --version
 ### 1. Clone and Initialize
 
 ```bash
-cd /Users/Jason/Development/tars
+cd /path/to/tars
 
 # Initialize Rust workspace
 cat > Cargo.toml << 'EOF'

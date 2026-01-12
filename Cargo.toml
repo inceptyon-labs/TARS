@@ -27,7 +27,6 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # YAML frontmatter parsing
 gray_matter = { version = "0.2", features = ["yaml"] }
-serde_yml = "0.0.12"
 
 # Database
 rusqlite = { version = "0.31", features = ["bundled"] }

@@ -109,6 +109,15 @@ export function PluginsPage() {
   // Sort marketplaces by name for stable ordering
   const sortedMarketplaces = [...plugins.marketplaces].sort((a, b) => a.name.localeCompare(b.name));
 
+  // Sort installed plugins by name, then marketplace, then project for stable ordering
+  const sortedInstalledPlugins = [...plugins.installed].sort((a, b) => {
+    const nameCompare = a.id.localeCompare(b.id);
+    if (nameCompare !== 0) return nameCompare;
+    const marketplaceCompare = (a.marketplace || '').localeCompare(b.marketplace || '');
+    if (marketplaceCompare !== 0) return marketplaceCompare;
+    return (a.project_path || '').localeCompare(b.project_path || '');
+  });
+
   async function handleAddMarketplace() {
     if (!marketplaceSource.trim()) return;
 
@@ -579,7 +588,7 @@ export function PluginsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {plugins.installed.length === 0 ? (
+            {sortedInstalledPlugins.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Box className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No plugins installed</p>
@@ -599,14 +608,13 @@ export function PluginsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plugins.installed.map((plugin) => {
+                  {sortedInstalledPlugins.map((plugin, index) => {
                     const skills = plugin.manifest.parsed_skills || [];
+                    // Include project_path in key to distinguish same plugin installed to multiple projects
+                    const uniqueKey = `${plugin.id}-${plugin.marketplace}-${plugin.scope.type}-${plugin.project_path || index}`;
 
                     return (
-                      <TableRow
-                        key={`${plugin.id}-${plugin.marketplace}`}
-                        className={!plugin.enabled ? 'opacity-60' : ''}
-                      >
+                      <TableRow key={uniqueKey} className={!plugin.enabled ? 'opacity-60' : ''}>
                         <TableCell>
                           <div>
                             <span className="font-medium">{plugin.id}</span>
@@ -652,20 +660,30 @@ export function PluginsPage() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <span
-                            className="text-xs px-2 py-0.5 bg-muted rounded"
-                            title={
-                              plugin.scope.type === 'User'
-                                ? 'User scope - available everywhere'
-                                : plugin.scope.type === 'Project'
-                                  ? 'Project scope - specific to a project'
-                                  : plugin.scope.type === 'Local'
-                                    ? 'Local scope - project-specific, not tracked by git'
-                                    : 'Managed scope - controlled by system admin'
-                            }
-                          >
-                            {plugin.scope.type.toLowerCase()}
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span
+                              className="text-xs px-2 py-0.5 bg-muted rounded w-fit"
+                              title={
+                                plugin.scope.type === 'User'
+                                  ? 'User scope - available everywhere'
+                                  : plugin.scope.type === 'Project'
+                                    ? `Project scope - ${plugin.project_path || 'specific to a project'}`
+                                    : plugin.scope.type === 'Local'
+                                      ? `Local scope - ${plugin.project_path || 'project-specific, not tracked by git'}`
+                                      : 'Managed scope - controlled by system admin'
+                              }
+                            >
+                              {plugin.scope.type.toLowerCase()}
+                            </span>
+                            {plugin.project_path && (
+                              <span
+                                className="text-[10px] text-muted-foreground truncate max-w-[150px]"
+                                title={plugin.project_path}
+                              >
+                                {plugin.project_path.split('/').pop() || plugin.project_path}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {plugin.enabled ? (

@@ -337,58 +337,56 @@ export function MainLayout() {
             )}
 
             {(systemExpanded || sidebarCollapsed) && (
-              <div>
+              <div className="space-y-1">
                 {/* Updates Link */}
-                <div className="space-y-1 mb-3">
-                  <NavLink
-                    to="/updates"
-                    title="Updates"
-                    className={({ isActive }) =>
-                      cn(
-                        'tars-nav-item flex items-center text-sm rounded transition-all relative',
-                        sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
-                        isActive
-                          ? 'active text-foreground font-medium'
-                          : 'text-muted-foreground hover:text-foreground'
-                      )
-                    }
-                  >
-                    <div className="relative">
-                      <Download className="h-4 w-4 shrink-0" />
-                      {hasUpdates && (
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full" />
-                      )}
-                    </div>
-                    {!sidebarCollapsed && (
-                      <>
-                        <span>Updates</span>
-                        {hasUpdates && (
-                          <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
-                            {totalUpdates}
-                          </span>
-                        )}
-                      </>
+                <NavLink
+                  to="/updates"
+                  title="Updates"
+                  className={({ isActive }) =>
+                    cn(
+                      'tars-nav-item flex items-center text-sm rounded transition-all relative',
+                      sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
+                      isActive
+                        ? 'active text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )
+                  }
+                >
+                  <div className="relative">
+                    <Download className="h-4 w-4 shrink-0" />
+                    {hasUpdates && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full" />
                     )}
-                  </NavLink>
+                  </div>
+                  {!sidebarCollapsed && (
+                    <>
+                      <span>Updates</span>
+                      {hasUpdates && (
+                        <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
+                          {totalUpdates}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
 
-                  {/* Usage Link */}
-                  <NavLink
-                    to="/usage"
-                    title="Usage"
-                    className={({ isActive }) =>
-                      cn(
-                        'tars-nav-item flex items-center text-sm rounded transition-all',
-                        sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
-                        isActive
-                          ? 'active text-foreground font-medium'
-                          : 'text-muted-foreground hover:text-foreground'
-                      )
-                    }
-                  >
-                    <BarChart3 className="h-4 w-4 shrink-0" />
-                    {!sidebarCollapsed && <span>Usage</span>}
-                  </NavLink>
-                </div>
+                {/* Usage Link */}
+                <NavLink
+                  to="/usage"
+                  title="Usage"
+                  className={({ isActive }) =>
+                    cn(
+                      'tars-nav-item flex items-center text-sm rounded transition-all',
+                      sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
+                      isActive
+                        ? 'active text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )
+                  }
+                >
+                  <BarChart3 className="h-4 w-4 shrink-0" />
+                  {!sidebarCollapsed && <span>Usage</span>}
+                </NavLink>
 
                 {/* Settings Link */}
                 <NavLink

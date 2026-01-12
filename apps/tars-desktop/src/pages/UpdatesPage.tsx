@@ -153,10 +153,18 @@ export function UpdatesPage() {
 
   // Find which versions are newer than installed
   const installedVersion = versionInfo?.installed_version;
+  const latestVersion = versionInfo?.latest_version;
   const isNewerVersion = (version: string) => {
     if (!installedVersion) return false;
     return compareVersions(version, installedVersion) > 0;
   };
+
+  // Check if changelog is missing entry for latest/installed version
+  const latestChangelogVersion = changelog?.entries[0]?.version;
+  const changelogMissingLatest =
+    latestVersion &&
+    latestChangelogVersion &&
+    compareVersions(latestVersion, latestChangelogVersion) > 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -286,6 +294,14 @@ export function UpdatesPage() {
                 </div>
               ) : changelogEntries.length > 0 ? (
                 <>
+                  {changelogMissingLatest && (
+                    <div className="px-4 py-3 bg-muted/30 border-b border-border">
+                      <p className="text-sm text-muted-foreground">
+                        Release notes for v{latestVersion} not yet available.
+                        <span className="ml-1 text-xs">(Will appear when published)</span>
+                      </p>
+                    </div>
+                  )}
                   <div className="divide-y divide-border">
                     {changelogEntries.map((entry) => (
                       <ChangelogEntryItem
