@@ -105,6 +105,64 @@ jobs:
 
           echo "CHANGELOG_FILE=/tmp/release_notes.md" >> $GITHUB_OUTPUT
 
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          DATE=$(date +%Y-%m-%d)
+
+          # Get the previous tag to determine commit range
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            COMMIT_RANGE="${PREV_TAG}..HEAD"
+          else
+            COMMIT_RANGE="HEAD"
+          fi
+
+          # Generate changelog content for CHANGELOG.md
+          echo "" > /tmp/changelog_entry.md
+          echo "## [${VERSION}] - ${DATE}" >> /tmp/changelog_entry.md
+          echo "" >> /tmp/changelog_entry.md
+
+          # Get features (feat:)
+          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:" | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
+          if [ -n "$FEATURES" ]; then
+            echo "### Added" >> /tmp/changelog_entry.md
+            echo "$FEATURES" >> /tmp/changelog_entry.md
+            echo "" >> /tmp/changelog_entry.md
+          fi
+
+          # Get fixes (fix:)
+          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:" | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
+          if [ -n "$FIXES" ]; then
+            echo "### Fixed" >> /tmp/changelog_entry.md
+            echo "$FIXES" >> /tmp/changelog_entry.md
+            echo "" >> /tmp/changelog_entry.md
+          fi
+
+          # Get performance improvements (perf:)
+          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:" | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
+          if [ -n "$PERF" ]; then
+            echo "### Performance" >> /tmp/changelog_entry.md
+            echo "$PERF" >> /tmp/changelog_entry.md
+            echo "" >> /tmp/changelog_entry.md
+          fi
+
+          # Insert new entry after the header (line 7 in CHANGELOG.md)
+          head -n 7 CHANGELOG.md > /tmp/changelog_new.md
+          cat /tmp/changelog_entry.md >> /tmp/changelog_new.md
+          tail -n +8 CHANGELOG.md >> /tmp/changelog_new.md
+          mv /tmp/changelog_new.md CHANGELOG.md
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit and push
+          git add CHANGELOG.md
+          git commit -m "chore: update CHANGELOG.md for v${VERSION}" || echo "No changes to commit"
+          git push origin HEAD:main || echo "Nothing to push"
+
       - name: Create Release
         id: create-release
         uses: actions/create-release@v1
