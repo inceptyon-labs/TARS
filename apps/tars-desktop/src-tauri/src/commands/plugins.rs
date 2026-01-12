@@ -326,8 +326,169 @@ pub async fn plugin_uninstall(
         } else {
             "Unknown error".to_string()
         };
+
+        // Workaround for Claude CLI bug #14202: CLI doesn't properly handle
+        // project-scoped plugin uninstall. Fall back to direct JSON editing.
+        if error_msg.contains("not found in installed plugins") {
+            return uninstall_plugin_directly(&plugin, scope.as_deref(), project_path.as_deref());
+        }
+
         Err(format!("Failed to uninstall plugin: {error_msg}"))
     }
+}
+
+/// Direct uninstall by editing JSON files (workaround for Claude CLI bug #14202)
+fn uninstall_plugin_directly(
+    plugin: &str,
+    scope: Option<&str>,
+    project_path: Option<&str>,
+) -> Result<String, String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let installed_file = home
+        .join(".claude")
+        .join("plugins")
+        .join("installed_plugins.json");
+
+    if !installed_file.exists() {
+        return Err("No installed plugins file found".to_string());
+    }
+
+    // Read installed_plugins.json
+    let content = std::fs::read_to_string(&installed_file)
+        .map_err(|e| format!("Failed to read installed plugins: {e}"))?;
+    let mut json: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse installed plugins: {e}"))?;
+
+    let plugins = json
+        .get_mut("plugins")
+        .and_then(|p| p.as_object_mut())
+        .ok_or("Invalid installed plugins format")?;
+
+    // Find the plugin key (could be "plugin" or "plugin@marketplace")
+    let plugin_key = if plugin.contains('@') {
+        plugin.to_string()
+    } else {
+        // Find key that starts with the plugin name
+        plugins
+            .keys()
+            .find(|k| {
+                k.starts_with(plugin)
+                    && (k.len() == plugin.len() || k.chars().nth(plugin.len()) == Some('@'))
+            })
+            .cloned()
+            .unwrap_or_else(|| plugin.to_string())
+    };
+
+    let scope_str = scope.unwrap_or("user");
+    let mut removed = false;
+
+    if let Some(installations) = plugins.get_mut(&plugin_key).and_then(|v| v.as_array_mut()) {
+        let original_len = installations.len();
+
+        // Filter out the installation matching scope and project_path
+        installations.retain(|install| {
+            let install_scope = install
+                .get("scope")
+                .and_then(|s| s.as_str())
+                .unwrap_or("user");
+            let install_project = install.get("projectPath").and_then(|p| p.as_str());
+
+            // Keep if scope doesn't match
+            if install_scope != scope_str {
+                return true;
+            }
+
+            // For project scope, also check project path
+            if scope_str == "project" {
+                if let (Some(install_proj), Some(target_proj)) = (install_project, project_path) {
+                    // Normalize paths for comparison
+                    let install_normalized = install_proj.replace('\\', "/").to_lowercase();
+                    let target_normalized = target_proj.replace('\\', "/").to_lowercase();
+                    if install_normalized != target_normalized {
+                        return true; // Keep - different project
+                    }
+                }
+            }
+
+            false // Remove this installation
+        });
+
+        removed = installations.len() < original_len;
+
+        // If no installations left, remove the entire plugin entry
+        if installations.is_empty() {
+            plugins.remove(&plugin_key);
+        }
+    }
+
+    if !removed {
+        return Err(format!("Plugin {plugin} not found for scope {scope_str}"));
+    }
+
+    // Write back installed_plugins.json
+    let updated = serde_json::to_string_pretty(&json)
+        .map_err(|e| format!("Failed to serialize installed plugins: {e}"))?;
+    std::fs::write(&installed_file, updated)
+        .map_err(|e| format!("Failed to write installed plugins: {e}"))?;
+
+    // Also remove from project settings.json if project scope
+    if scope_str == "project" {
+        if let Some(proj_path) = project_path {
+            let settings_file = std::path::PathBuf::from(proj_path)
+                .join(".claude")
+                .join("settings.json");
+            if settings_file.exists() {
+                if let Ok(settings_content) = std::fs::read_to_string(&settings_file) {
+                    if let Ok(mut settings_json) =
+                        serde_json::from_str::<serde_json::Value>(&settings_content)
+                    {
+                        if let Some(enabled) = settings_json
+                            .get_mut("enabledPlugins")
+                            .and_then(|e| e.as_object_mut())
+                        {
+                            enabled.remove(&plugin_key);
+                            // Also try without marketplace suffix
+                            let plugin_name = plugin.split('@').next().unwrap_or(plugin);
+                            for key in enabled.keys().cloned().collect::<Vec<_>>() {
+                                if key.starts_with(plugin_name) {
+                                    enabled.remove(&key);
+                                }
+                            }
+                            if let Ok(updated_settings) =
+                                serde_json::to_string_pretty(&settings_json)
+                            {
+                                let _ = std::fs::write(&settings_file, updated_settings);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Also remove from user settings.json if user scope
+    if scope_str == "user" {
+        let user_settings = home.join(".claude").join("settings.json");
+        if user_settings.exists() {
+            if let Ok(settings_content) = std::fs::read_to_string(&user_settings) {
+                if let Ok(mut settings_json) =
+                    serde_json::from_str::<serde_json::Value>(&settings_content)
+                {
+                    if let Some(enabled) = settings_json
+                        .get_mut("enabledPlugins")
+                        .and_then(|e| e.as_object_mut())
+                    {
+                        enabled.remove(&plugin_key);
+                        if let Ok(updated_settings) = serde_json::to_string_pretty(&settings_json) {
+                            let _ = std::fs::write(&user_settings, updated_settings);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(format!("Uninstalled {plugin} (via direct edit workaround)"))
 }
 
 /// Move a plugin to a different scope (uninstall + reinstall)
