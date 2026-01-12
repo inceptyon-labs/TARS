@@ -279,38 +279,38 @@ export function PluginsPage() {
           return;
         }
 
-        const results = await Promise.allSettled(
-          selectedProjects.map(async (projectPath) => {
+        // Install sequentially to avoid cache race conditions
+        // (Claude CLI uses shared cache directory)
+        const successfulProjects: string[] = [];
+        const failedResults: { project: string; error: string }[] = [];
+
+        for (const projectPath of selectedProjects) {
+          try {
             await invoke('plugin_install', {
               plugin: pluginSpec,
               scope: installScope,
               projectPath,
             });
-            return projectPath;
-          })
-        );
-
-        const successfulProjects = results
-          .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
-          .map((r) => r.value);
-        const failedResults = results.filter(
-          (r): r is PromiseRejectedResult => r.status === 'rejected'
-        );
+            successfulProjects.push(projectPath);
+          } catch (err) {
+            failedResults.push({
+              project: projectPath,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
 
         if (failedResults.length === 0) {
           toast.success(`Installed ${pluginId}`, {
             description: `Added to ${successfulProjects.length} project${successfulProjects.length > 1 ? 's' : ''} (${installScope} scope)`,
           });
         } else if (successfulProjects.length > 0) {
-          // Get the first error message for context
-          const firstError = String(failedResults[0].reason);
           toast.warning(`Partially installed ${pluginId}`, {
-            description: `${successfulProjects.length} succeeded, ${failedResults.length} failed: ${firstError}`,
+            description: `${successfulProjects.length} succeeded, ${failedResults.length} failed: ${failedResults[0].error}`,
           });
         } else {
-          const firstError = String(failedResults[0].reason);
           toast.error(`Failed to install ${pluginId}`, {
-            description: firstError,
+            description: failedResults[0].error,
           });
         }
       }
