@@ -136,6 +136,122 @@ impl PluginInventory {
         marketplace_name: &str,
         installed_plugins: &HashMap<String, Vec<String>>,
     ) -> Vec<AvailablePlugin> {
+        // First, check if marketplace.json index exists (used by Claude CLI)
+        // This is the authoritative source for what plugins are actually available
+        let marketplace_json_path = marketplace_dir
+            .join(".claude-plugin")
+            .join("marketplace.json");
+        if marketplace_json_path.exists() {
+            if let Some(plugins) = Self::parse_marketplace_json(
+                &marketplace_json_path,
+                marketplace_name,
+                installed_plugins,
+            ) {
+                return plugins;
+            }
+        }
+
+        // Fall back to filesystem scanning for marketplaces without marketplace.json
+        Self::scan_available_plugins_from_filesystem(
+            marketplace_dir,
+            marketplace_name,
+            installed_plugins,
+        )
+    }
+
+    /// Parse marketplace.json index file to get available plugins
+    fn parse_marketplace_json(
+        marketplace_json_path: &Path,
+        marketplace_name: &str,
+        installed_plugins: &HashMap<String, Vec<String>>,
+    ) -> Option<Vec<AvailablePlugin>> {
+        let content = fs::read_to_string(marketplace_json_path).ok()?;
+        let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+
+        let plugins_array = json.get("plugins")?.as_array()?;
+        let mut available = Vec::new();
+
+        for plugin in plugins_array {
+            let name = plugin.get("name")?.as_str()?.to_string();
+            let description = plugin
+                .get("description")
+                .and_then(|d| d.as_str())
+                .unwrap_or("")
+                .to_string();
+            let version = plugin
+                .get("version")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let author = plugin.get("author").and_then(|a| {
+                a.get("name").and_then(|n| n.as_str()).map(|n| Author {
+                    name: n.to_string(),
+                    email: a.get("email").and_then(|e| e.as_str()).map(String::from),
+                })
+            });
+
+            let is_installed = installed_plugins
+                .get(marketplace_name)
+                .is_some_and(|ids| ids.contains(&name));
+
+            available.push(AvailablePlugin {
+                id: name.clone(),
+                name: name.clone(),
+                description,
+                version,
+                author,
+                installed: is_installed,
+            });
+        }
+
+        // Also check external_plugins array if present
+        if let Some(external_array) = json.get("external_plugins").and_then(|e| e.as_array()) {
+            for plugin in external_array {
+                let name = match plugin.get("name").and_then(|n| n.as_str()) {
+                    Some(n) => n.to_string(),
+                    None => continue,
+                };
+                let description = plugin
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let version = plugin
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                let author = plugin.get("author").and_then(|a| {
+                    a.get("name").and_then(|n| n.as_str()).map(|n| Author {
+                        name: n.to_string(),
+                        email: a.get("email").and_then(|e| e.as_str()).map(String::from),
+                    })
+                });
+
+                let is_installed = installed_plugins
+                    .get(marketplace_name)
+                    .is_some_and(|ids| ids.contains(&name));
+
+                available.push(AvailablePlugin {
+                    id: name.clone(),
+                    name: name.clone(),
+                    description,
+                    version,
+                    author,
+                    installed: is_installed,
+                });
+            }
+        }
+
+        // Sort by name
+        available.sort_by(|a, b| a.name.cmp(&b.name));
+        Some(available)
+    }
+
+    /// Scan filesystem for available plugins (fallback when no marketplace.json)
+    fn scan_available_plugins_from_filesystem(
+        marketplace_dir: &Path,
+        marketplace_name: &str,
+        installed_plugins: &HashMap<String, Vec<String>>,
+    ) -> Vec<AvailablePlugin> {
         let mut available = Vec::new();
 
         // First, check if the marketplace root itself is a single-plugin marketplace
