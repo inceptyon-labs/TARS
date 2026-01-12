@@ -9,6 +9,14 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/inceptyon-labs/TARS/releases/latest"><img src="https://img.shields.io/github/v/release/inceptyon-labs/TARS?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/inceptyon-labs/TARS/actions"><img src="https://img.shields.io/github/actions/workflow/status/inceptyon-labs/TARS/ci.yml?style=flat-square" alt="Build"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Platform">
+  <a href="https://github.com/inceptyon-labs/TARS/releases"><img src="https://img.shields.io/github/downloads/inceptyon-labs/TARS/total?style=flat-square" alt="Downloads"></a>
+</p>
+
+<p align="center">
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
