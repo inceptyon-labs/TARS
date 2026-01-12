@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
@@ -25,67 +25,26 @@ bun run tauri build                   # Production build
 
 ## Linting & Formatting
 
-**IMPORTANT**: Before committing ANY code changes, always run the following to ensure CI passes:
+**Run before committing** to ensure CI passes:
 
 ```bash
-cargo fmt --all                      # Format all Rust code
-cargo clippy --all -- -D warnings    # Run clippy on all crates (must pass with no warnings)
+cargo fmt --all                       # Format Rust code
+cargo clippy --all -- -D warnings     # Lint Rust (must pass with no warnings)
 
 cd apps/tars-desktop
-bun run format                       # Format all TypeScript/frontend code
-bun tsc --noEmit                     # Type-check frontend code
+bun run format                        # Format TypeScript/frontend
+bun tsc --noEmit                      # Type-check frontend
 ```
-
-The pre-commit hooks will verify these, but running them first prevents commit rejection.
 
 ## Setup
 
-After cloning, enable the pre-commit hooks:
+After cloning, enable pre-commit hooks:
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-This runs `cargo fmt` checks before each commit.
-
-## Commit Message Convention
-
-This project uses [Conventional Commits](https://www.conventionalcommits.org/). **All commits MUST follow this format:**
-
-```
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Types
-
-| Type | Description | In Changelog? |
-|------|-------------|---------------|
-| `feat` | New feature for users | Yes |
-| `fix` | Bug fix for users | Yes |
-| `perf` | Performance improvement | Yes |
-| `docs` | Documentation only | No |
-| `style` | Formatting, whitespace | No |
-| `refactor` | Code restructuring (no behavior change) | No |
-| `test` | Adding/updating tests | No |
-| `chore` | Maintenance, deps, config | No |
-| `ci` | CI/CD changes | No |
-| `build` | Build system changes | No |
-
-### Rules
-
-1. **Type is required** - Must be one of the types above
-2. **Description is required** - Imperative mood, lowercase, no period at end
-3. **Scope is optional** - Use for clarity (e.g., `scanner`, `ui`, `cli`, `core`)
-4. **Breaking changes** - Add `!` after type or `BREAKING CHANGE:` in footer
-5. **Only `feat`, `fix`, `perf`** appear in the auto-generated changelog
-
 ## Architecture
-
-### Structure
 
 ```
 apps/tars-desktop/     # Tauri app (React + TypeScript + Vite)
@@ -94,7 +53,7 @@ crates/tars-cli/       # CLI wrapper for scanner
 crates/tars-core/      # Profiles, diff, apply, rollback engine
 ```
 
-### Key Rust Modules
+### Key Modules
 
 - `scanner`: Non-destructive discovery of skills, commands, agents, hooks, MCP, plugins
 - `parser`: Frontmatter parsing for SKILL.md, agent definitions, commands
@@ -104,38 +63,76 @@ crates/tars-core/      # Profiles, diff, apply, rollback engine
 
 ### Configuration Scopes (precedence high to low)
 
-**macOS/Linux:**
-1. **Managed**: `/Library/Application Support/ClaudeCode/managed-*.json` (macOS) or `/etc/claude-code/` (Linux)
-2. **Local**: `<repo>/.claude/settings.local.json`
+**macOS:**
+1. **Managed**: `/Library/Application Support/ClaudeCode/managed-*.json`
+2. **Local**: `<repo>/.claude/settings.local.json` (gitignored)
+3. **Project**: `<repo>/.claude/settings.json`, `<repo>/.mcp.json`
+4. **User**: `~/.claude/settings.json`, `~/.claude.json`
+
+**Linux:**
+1. **Managed**: `/etc/claude-code/`
+2. **Local**: `<repo>/.claude/settings.local.json` (gitignored)
 3. **Project**: `<repo>/.claude/settings.json`, `<repo>/.mcp.json`
 4. **User**: `~/.claude/settings.json`, `~/.claude.json`
 
 **Windows:**
 1. **Managed**: `%ProgramData%\ClaudeCode\managed-*.json`
-2. **Local**: `<repo>\.claude\settings.local.json`
+2. **Local**: `<repo>\.claude\settings.local.json` (gitignored)
 3. **Project**: `<repo>\.claude\settings.json`, `<repo>\.mcp.json`
 4. **User**: `%USERPROFILE%\.claude\settings.json`, `%USERPROFILE%\.claude.json`
+
+## Code Style
+
+### Rust
+
+- Prefer `?` operator over `.unwrap()` - propagate errors up
+- Use `thiserror` for library error types, `anyhow` for CLI/commands
+- Async with Tokio - use `async fn`, avoid `block_on`
+- No `unsafe` code (enforced by `#![forbid(unsafe_code)]`)
+
+### TypeScript / React
+
+- Functional components only, no classes
+- TanStack Query for server state (fetching, caching)
+- Zustand for UI state (sidebar, dialogs)
+- Tailwind for styling - no separate CSS files
+- shadcn/ui components as base
+
+## Error Handling
+
+- **Tauri commands**: Return `Result<T, String>` - errors become frontend exceptions
+- **Frontend**: Use `toast.error()` from Sonner for user-facing errors
+- **Never panic** in library code - always return `Result`
+- **Log errors** with context before returning
+
+## Testing
+
+- Run `cargo test` before committing
+- New features should include tests when practical
+- Frontend tests: Vitest + React Testing Library
+- Test files: `*.test.ts` / `*.test.tsx`
+
+## Security
+
+This app manages configuration files - security is critical:
+
+- **Never execute** code from scanned configs
+- **Validate paths** to prevent directory traversal
+- **Sanitize input** before any shell commands
+- **No secrets** in config files - warn users if detected
+
+## Commit Convention
+
+Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description`
+
+Types: `feat`, `fix`, `perf` (appear in changelog) | `docs`, `style`, `refactor`, `test`, `chore`, `ci`
 
 ## Key Principles
 
 1. **Discovery-First**: Always scan before modifying
 2. **Safe-by-Default**: Diff preview, backups, rollback for all changes
-3. **Plugin-First**: Export as Claude Code plugin format
-4. **Profile Determinism**: Apply+rollback = byte-for-byte original
-5. **Cross-Platform**: All paths and operations work on Windows, macOS, and Linux
-6. Use Bun for JS tooling
-7. If anything is unclear, ask via AskUserQuestionTool before proceeding
-
-## Claude Code File Formats
-
-The scanner parses:
-
-- **SKILL.md**: Frontmatter with `name`, `description`, optional `allowed-tools`, `model`, `hooks`
-- **Agent definitions**: Frontmatter with `name`, `description`, optional `tools`, `model`, `skills`
-- **Commands**: Frontmatter with optional `description`, `thinking`; body uses `$ARGUMENTS`
-- **plugin.json**: Manifest in `.claude-plugin/` directories
-- **settings.json**: Hooks, permissions, enabled plugins
-- **.mcp.json**: MCP server configurations (stdio/http/sse types)
+3. **Cross-Platform**: All paths/operations work on Windows, macOS, Linux
+4. **Ask if unclear**: Use AskUserQuestionTool before making assumptions
 
 ## Tech Stack
 
