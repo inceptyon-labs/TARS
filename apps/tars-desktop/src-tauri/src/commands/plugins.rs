@@ -138,12 +138,21 @@ pub async fn plugin_marketplace_add(source: String) -> Result<String, String> {
     let output = Command::new("claude")
         .args(["plugin", "marketplace", "add", &source])
         .output()
-        .map_err(|_| "Failed to run claude CLI".to_string())?;
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err("Failed to add marketplace".to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+        Err(format!("Failed to add marketplace: {error_msg}"))
     }
 }
 
@@ -155,12 +164,21 @@ pub async fn plugin_marketplace_remove(name: String) -> Result<String, String> {
     let output = Command::new("claude")
         .args(["plugin", "marketplace", "remove", &name])
         .output()
-        .map_err(|_| "Failed to run claude CLI".to_string())?;
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err("Failed to remove marketplace".to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+        Err(format!("Failed to remove marketplace: {error_msg}"))
     }
 }
 
@@ -179,12 +197,21 @@ pub async fn plugin_marketplace_update(name: Option<String>) -> Result<String, S
     let output = Command::new("claude")
         .args(&args)
         .output()
-        .map_err(|_| "Failed to run claude CLI".to_string())?;
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err("Failed to update marketplace".to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+        Err(format!("Failed to update marketplace: {error_msg}"))
     }
 }
 
@@ -225,12 +252,21 @@ pub async fn plugin_install(
 
     let output = cmd
         .output()
-        .map_err(|_| "Failed to run claude CLI".to_string())?;
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err("Failed to install plugin".to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+        Err(format!("Failed to install plugin: {error_msg}"))
     }
 }
 
@@ -320,23 +356,44 @@ pub async fn plugin_move_scope(
             plugin_name,
         ])
         .output()
-        .map_err(|_| "Failed to run claude CLI".to_string())?;
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
 
     if !uninstall_output.status.success() {
-        return Err(format!("Failed to uninstall from {from_scope} scope"));
+        let stderr = String::from_utf8_lossy(&uninstall_output.stderr);
+        let stdout = String::from_utf8_lossy(&uninstall_output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+        return Err(format!(
+            "Failed to uninstall from {from_scope} scope: {error_msg}"
+        ));
     }
 
     // Then reinstall at new scope (uses full plugin@marketplace)
     let install_output = Command::new("claude")
         .args(["plugin", "install", &format!("--scope={to_scope}"), &plugin])
         .output()
-        .map_err(|_| "Failed to run claude CLI".to_string())?;
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
 
     if install_output.status.success() {
         Ok(format!(
             "Moved {plugin_name} from {from_scope} to {to_scope} scope"
         ))
     } else {
+        let stderr = String::from_utf8_lossy(&install_output.stderr);
+        let stdout = String::from_utf8_lossy(&install_output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+
         // Try to restore original installation if reinstall fails
         let _ = Command::new("claude")
             .args([
@@ -347,7 +404,9 @@ pub async fn plugin_move_scope(
             ])
             .output();
 
-        Err(format!("Failed to install at {to_scope} scope"))
+        Err(format!(
+            "Failed to install at {to_scope} scope: {error_msg}"
+        ))
     }
 }
 
