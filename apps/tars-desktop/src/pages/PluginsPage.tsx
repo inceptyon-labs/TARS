@@ -710,7 +710,9 @@ export function PluginsPage() {
                               className="text-destructive hover:text-destructive"
                               onClick={() =>
                                 handleUninstallPlugin(
-                                  plugin.id,
+                                  plugin.marketplace
+                                    ? `${plugin.id}@${plugin.marketplace}`
+                                    : plugin.id,
                                   plugin.scope.type.toLowerCase(),
                                   plugin.project_path
                                 )

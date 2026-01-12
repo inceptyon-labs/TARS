@@ -400,12 +400,23 @@ fn uninstall_plugin_directly(
 
             // For project scope, also check project path
             if scope_str == "project" {
-                if let (Some(install_proj), Some(target_proj)) = (install_project, project_path) {
-                    // Normalize paths for comparison
-                    let install_normalized = install_proj.replace('\\', "/").to_lowercase();
-                    let target_normalized = target_proj.replace('\\', "/").to_lowercase();
-                    if install_normalized != target_normalized {
-                        return true; // Keep - different project
+                match (install_project, project_path) {
+                    (Some(install_proj), Some(target_proj)) => {
+                        // Normalize paths for comparison
+                        let install_normalized = install_proj.replace('\\', "/").to_lowercase();
+                        let target_normalized = target_proj.replace('\\', "/").to_lowercase();
+                        if install_normalized != target_normalized {
+                            return true; // Keep - different project
+                        }
+                        // Paths match - remove this one
+                    }
+                    (Some(_), None) => {
+                        // Project path not provided but entry has one - keep it
+                        // (we don't know which project to uninstall from)
+                        return true;
+                    }
+                    (None, _) => {
+                        // Entry has no project path - shouldn't happen for project scope, but remove it
                     }
                 }
             }
