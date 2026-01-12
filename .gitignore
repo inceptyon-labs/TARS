@@ -62,3 +62,10 @@ tars-inventory.csv
 inventory.json
 inventory.md
 inventory_new.json
+.claude/
+
+# Claude Code local settings
+.claude/settings.json
+.claude/settings.local.json
+**/.claude/settings.json
+**/.claude/settings.local.json
