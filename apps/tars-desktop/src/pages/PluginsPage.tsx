@@ -290,19 +290,28 @@ export function PluginsPage() {
           })
         );
 
-        const successes = results.filter((r) => r.status === 'fulfilled').length;
-        const failures = results.filter((r) => r.status === 'rejected').length;
+        const successfulProjects = results
+          .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+          .map((r) => r.value);
+        const failedResults = results.filter(
+          (r): r is PromiseRejectedResult => r.status === 'rejected'
+        );
 
-        if (failures === 0) {
+        if (failedResults.length === 0) {
           toast.success(`Installed ${pluginId}`, {
-            description: `Added to ${successes} project${successes > 1 ? 's' : ''} (${installScope} scope)`,
+            description: `Added to ${successfulProjects.length} project${successfulProjects.length > 1 ? 's' : ''} (${installScope} scope)`,
           });
-        } else if (successes > 0) {
+        } else if (successfulProjects.length > 0) {
+          // Get the first error message for context
+          const firstError = String(failedResults[0].reason);
           toast.warning(`Partially installed ${pluginId}`, {
-            description: `${successes} succeeded, ${failures} failed`,
+            description: `${successfulProjects.length} succeeded, ${failedResults.length} failed: ${firstError}`,
           });
         } else {
-          toast.error(`Failed to install ${pluginId}`);
+          const firstError = String(failedResults[0].reason);
+          toast.error(`Failed to install ${pluginId}`, {
+            description: firstError,
+          });
         }
       }
       await refetch();
