@@ -2,6 +2,7 @@
 //!
 //! Commands for managing Claude Code plugins via the CLI.
 
+use super::utils::find_claude_binary;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use tars_scanner::plugins::PluginInventory;
@@ -135,7 +136,8 @@ pub async fn plugin_list() -> Result<Vec<InstalledPluginInfo>, String> {
 pub async fn plugin_marketplace_add(source: String) -> Result<String, String> {
     validate_plugin_source(&source)?;
 
-    let output = Command::new("claude")
+    let claude = find_claude_binary()?;
+    let output = Command::new(&claude)
         .args(["plugin", "marketplace", "add", &source])
         .output()
         .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
@@ -161,7 +163,8 @@ pub async fn plugin_marketplace_add(source: String) -> Result<String, String> {
 pub async fn plugin_marketplace_remove(name: String) -> Result<String, String> {
     validate_plugin_name(&name)?;
 
-    let output = Command::new("claude")
+    let claude = find_claude_binary()?;
+    let output = Command::new(&claude)
         .args(["plugin", "marketplace", "remove", &name])
         .output()
         .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
@@ -194,7 +197,8 @@ pub async fn plugin_marketplace_update(name: Option<String>) -> Result<String, S
         args.push(n);
     }
 
-    let output = Command::new("claude")
+    let claude = find_claude_binary()?;
+    let output = Command::new(&claude)
         .args(&args)
         .output()
         .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
@@ -242,7 +246,8 @@ pub async fn plugin_install(
 
     args.push(&plugin);
 
-    let mut cmd = Command::new("claude");
+    let claude = find_claude_binary()?;
+    let mut cmd = Command::new(&claude);
     cmd.args(&args);
 
     // For project/local scope, run from the project directory
@@ -313,7 +318,8 @@ pub async fn plugin_uninstall(
 
     args.push(plugin_name);
 
-    let mut cmd = Command::new("claude");
+    let claude = find_claude_binary()?;
+    let mut cmd = Command::new(&claude);
     cmd.args(&args);
 
     // For project scope, run from the project directory
@@ -529,8 +535,10 @@ pub async fn plugin_move_scope(
     // Format is "pluginName@marketplace" - uninstall only wants pluginName
     let plugin_name = plugin.split('@').next().unwrap_or(&plugin);
 
+    let claude = find_claude_binary()?;
+
     // First uninstall from current scope (uses just plugin name)
-    let uninstall_output = Command::new("claude")
+    let uninstall_output = Command::new(&claude)
         .args([
             "plugin",
             "uninstall",
@@ -556,7 +564,7 @@ pub async fn plugin_move_scope(
     }
 
     // Then reinstall at new scope (uses full plugin@marketplace)
-    let install_output = Command::new("claude")
+    let install_output = Command::new(&claude)
         .args(["plugin", "install", &format!("--scope={to_scope}"), &plugin])
         .output()
         .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
@@ -577,7 +585,7 @@ pub async fn plugin_move_scope(
         };
 
         // Try to restore original installation if reinstall fails
-        let _ = Command::new("claude")
+        let _ = Command::new(&claude)
             .args([
                 "plugin",
                 "install",

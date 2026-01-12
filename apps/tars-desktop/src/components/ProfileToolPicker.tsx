@@ -351,26 +351,42 @@ export function ProfileToolPicker({
         </div>
 
         {/* Development Folder Selector */}
-        <div className="px-4 py-3 border-b bg-muted/30">
-          <div className="flex items-center gap-3">
-            <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div className="flex-1 min-w-0">
-              {developmentFolder ? (
+        {!developmentFolder ? (
+          <div className="px-4 py-6 border-b bg-muted/30">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="p-3 rounded-full bg-primary/10">
+                <FolderOpen className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium text-sm">Select a Development Folder</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose a folder containing your projects to discover available tools
+                </p>
+              </div>
+              <Button onClick={handleSelectFolder} className="mt-1">
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Select Folder
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-4 py-3 border-b bg-muted/30">
+            <div className="flex items-center gap-3">
+              <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm truncate">{developmentFolder}</span>
                   <span className="text-xs text-muted-foreground">
                     ({discoveredProjects?.length || 0} projects found)
                   </span>
                 </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">No development folder set</span>
-              )}
+              </div>
+              <Button variant="outline" size="sm" onClick={handleSelectFolder}>
+                Change
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={handleSelectFolder}>
-              {developmentFolder ? 'Change' : 'Select Folder'}
-            </Button>
           </div>
-        </div>
+        )}
 
         {/* Tabs */}
         <div className="flex border-b px-4">

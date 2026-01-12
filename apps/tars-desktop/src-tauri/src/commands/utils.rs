@@ -6,6 +6,77 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// Find the claude CLI binary path.
+///
+/// GUI apps on Linux/macOS often don't inherit the shell's PATH from .bashrc/.profile,
+/// so we need to search common installation locations.
+pub fn find_claude_binary() -> Result<PathBuf, String> {
+    // First, try the PATH (works if set system-wide or in GUI environment)
+    if let Ok(path) = which::which("claude") {
+        return Ok(path);
+    }
+
+    // Get home directory for user-specific paths
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+
+    // Common installation locations to check
+    let candidates = [
+        // Standard Linux/macOS user bin
+        home.join(".local/bin/claude"),
+        // npm global without prefix change
+        home.join(".npm-global/bin/claude"),
+        // Homebrew on macOS
+        PathBuf::from("/usr/local/bin/claude"),
+        PathBuf::from("/opt/homebrew/bin/claude"),
+        // Volta (JavaScript toolchain manager)
+        home.join(".volta/bin/claude"),
+        // pnpm global
+        home.join(".local/share/pnpm/claude"),
+        // yarn global
+        home.join(".yarn/bin/claude"),
+        // Cargo bin (in case installed via cargo)
+        home.join(".cargo/bin/claude"),
+    ];
+
+    for candidate in &candidates {
+        if candidate.exists() && candidate.is_file() {
+            return Ok(candidate.clone());
+        }
+    }
+
+    // Try nvm paths (version directories vary)
+    let nvm_dir = home.join(".nvm/versions/node");
+    if nvm_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+            for entry in entries.flatten() {
+                let claude_path = entry.path().join("bin/claude");
+                if claude_path.exists() {
+                    return Ok(claude_path);
+                }
+            }
+        }
+    }
+
+    // Try fnm paths (Fast Node Manager)
+    let fnm_dir = home.join(".local/share/fnm/node-versions");
+    if fnm_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&fnm_dir) {
+            for entry in entries.flatten() {
+                let claude_path = entry.path().join("installation/bin/claude");
+                if claude_path.exists() {
+                    return Ok(claude_path);
+                }
+            }
+        }
+    }
+
+    Err(
+        "Claude CLI not found. Please ensure Claude Code is installed and in your PATH. \
+         Common install: npm install -g @anthropic-ai/claude-code"
+            .to_string(),
+    )
+}
+
 /// Directory info for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectoryInfo {

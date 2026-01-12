@@ -200,11 +200,11 @@ export function MainLayout() {
 
             {/* Title with metallic effect */}
             {!sidebarCollapsed && (
-              <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase text-center leading-tight">
-                <span className="font-semibold">T</span>ooling,{' '}
-                <span className="font-semibold">A</span>gents,{' '}
-                <span className="font-semibold">R</span>oles,{' '}
-                <span className="font-semibold">S</span>kills
+              <p className="tars-acronym text-[9px] tracking-[0.2em] uppercase text-center leading-tight">
+                <span className="text-[10px] font-bold">T</span>ooling,{' '}
+                <span className="text-[10px] font-bold">A</span>gents,{' '}
+                <span className="text-[10px] font-bold">R</span>oles,{' '}
+                <span className="text-[10px] font-bold">S</span>kills
               </p>
             )}
           </div>
@@ -415,12 +415,12 @@ export function MainLayout() {
 
         {/* Version */}
         <div className="p-4 flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground/50 font-mono">
+          <span className="tars-version-text text-[10px] font-mono">
             v{appVersion ?? '...'}
           </span>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500/80" />
-            <span className="text-[10px] text-muted-foreground/50">Ready</span>
+            <span className="tars-version-text text-[10px]">Ready</span>
           </div>
         </div>
 

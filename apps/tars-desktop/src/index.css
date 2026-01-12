@@ -62,9 +62,12 @@
   /* Sidebar - Brushed Steel Panel */
   --sidebar-bg: linear-gradient(180deg, #e8eaed 0%, #d1d5db 100%);
   --sidebar-foreground: #1a1d21;
+  --sidebar-text: #374151;
   --sidebar-border: #b8bcc4;
   --sidebar-highlight: rgba(255, 255, 255, 0.7);
   --sidebar-shadow: rgba(0, 0, 0, 0.1);
+  --sidebar-dot: rgba(0, 0, 0, 0.08);
+  --sidebar-divider: rgba(0, 0, 0, 0.15);
 
   /* Metallic effects */
   --metal-highlight: rgba(255, 255, 255, 0.9);
@@ -109,10 +112,13 @@
 
   /* Sidebar - Dark Steel Panel */
   --sidebar-bg: linear-gradient(180deg, #1a1e23 0%, #12151a 100%);
-  --sidebar-foreground: #e4e6e9;
+  --sidebar-foreground: #f3f4f6;
+  --sidebar-text: #d1d5db;
   --sidebar-border: #2a2f36;
   --sidebar-highlight: rgba(255, 255, 255, 0.05);
   --sidebar-shadow: rgba(0, 0, 0, 0.4);
+  --sidebar-dot: rgba(255, 255, 255, 0.06);
+  --sidebar-divider: rgba(255, 255, 255, 0.12);
 
   /* Metallic effects */
   --metal-highlight: rgba(255, 255, 255, 0.08);
@@ -173,21 +179,24 @@
   background: var(--sidebar-bg);
   position: relative;
   overflow: hidden;
+  /* Override muted-foreground for better contrast in sidebar */
+  --muted-foreground: var(--sidebar-text);
+  --foreground: var(--sidebar-foreground);
 }
 
-/* Brushed metal horizontal lines texture */
+/* Robotic panel texture - subtle dot grid pattern */
 .tars-sidebar::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    var(--metal-highlight) 2px,
-    var(--metal-highlight) 3px
+  /* Dot grid pattern - fixed size, won't scale with window */
+  background-image: radial-gradient(
+    circle at center,
+    var(--sidebar-dot) 1px,
+    transparent 1px
   );
-  opacity: 0.3;
+  background-size: 12px 12px;
+  background-position: 0 0;
   pointer-events: none;
 }
 
@@ -479,6 +488,16 @@
   font-size: 16px;
 }
 
+/* TARS Acronym text */
+.tars-acronym {
+  color: var(--sidebar-text);
+}
+
+/* Version text in sidebar footer */
+.tars-version-text {
+  color: color-mix(in srgb, var(--sidebar-text) 70%, transparent);
+}
+
 /* ============================================
    METALLIC PANEL EFFECTS
    ============================================ */
@@ -581,14 +600,18 @@
   position: relative;
   border-radius: var(--radius);
   transition: all 0.15s ease;
+  /* Better contrast for sidebar text */
+  color: var(--sidebar-text);
 }
 
 .tars-nav-item:hover {
   background: var(--metal-highlight);
+  color: var(--sidebar-foreground);
 }
 
 .tars-nav-item.active {
   background: linear-gradient(90deg, var(--tars-glow-soft) 0%, transparent 100%);
+  color: var(--sidebar-foreground);
 }
 
 /* Active indicator bar */
@@ -792,8 +815,8 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--border) 15%,
-    var(--border) 85%,
+    var(--sidebar-divider) 15%,
+    var(--sidebar-divider) 85%,
     transparent 100%
   );
   position: relative;
@@ -831,7 +854,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.3em;
-  color: color-mix(in srgb, var(--sidebar-foreground) 65%, transparent);
+  color: var(--sidebar-text);
 }
 
 .tars-section-title::before {
