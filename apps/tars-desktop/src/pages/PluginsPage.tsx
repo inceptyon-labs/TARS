@@ -874,8 +874,8 @@ export function PluginsPage() {
                           key={`${plugin.id}-${plugin.marketplace}`}
                           className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium">{plugin.name}</span>
                               <span className="text-xs px-2 py-0.5 bg-muted rounded">
                                 {plugin.marketplace}
@@ -888,7 +888,7 @@ export function PluginsPage() {
                               )}
                             </div>
                             {plugin.description && (
-                              <p className="text-sm text-muted-foreground mt-1 truncate">
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                                 {plugin.description}
                               </p>
                             )}
