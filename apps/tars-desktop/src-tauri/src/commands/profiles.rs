@@ -2,13 +2,18 @@
 //!
 //! Commands for creating and managing profiles.
 
+use super::utils::find_claude_binary;
 use crate::state::AppState;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use tars_core::export::export_as_plugin;
 use tars_core::profile::snapshot::snapshot_from_project;
-use tars_core::profile::sync::{convert_profile_to_local_overrides, sync_profile_to_projects};
+use tars_core::profile::storage::{list_plugin_manifests, save_project_state, ProjectProfileState};
+use tars_core::profile::sync::{
+    apply_profile_to_project, convert_profile_to_local_overrides, sync_profile_to_projects,
+};
 use tars_core::profile::{PluginRef, ToolPermissions, ToolRef, ToolType};
 use tars_core::storage::projects::ProjectStore;
 use tars_core::storage::ProfileStore;
@@ -716,6 +721,10 @@ pub struct AssignProfileResponse {
     pub project_id: String,
     pub profile_id: String,
     pub assigned_at: String,
+    /// Number of plugins that were installed by this assignment
+    pub plugins_installed: usize,
+    /// Plugins that failed to install (name, error message)
+    pub plugin_errors: Vec<(String, String)>,
 }
 
 /// Assign a profile to a project
@@ -730,12 +739,13 @@ pub async fn assign_profile(
     let profile_uuid =
         uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
 
-    state.with_db(|db| {
+    // Get profile and project info from database
+    let (_profile, project_path) = state.with_db(|db| {
         let profile_store = ProfileStore::new(db.connection());
         let project_store = ProjectStore::new(db.connection());
 
-        // Verify profile exists
-        profile_store
+        // Get the profile (we need its content for applying)
+        let profile = profile_store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
             .ok_or_else(|| "Profile not found".to_string())?;
@@ -746,7 +756,11 @@ pub async fn assign_profile(
             .map_err(|e| format!("Database error: {e}"))?
             .ok_or_else(|| "Project not found".to_string())?;
 
-        // Assign the profile
+        // Apply the profile overlays to the project directory
+        let _apply_result = apply_profile_to_project(&profile, &project.path)
+            .map_err(|e| format!("Failed to apply profile: {e}"))?;
+
+        // Assign the profile in the database
         project.assigned_profile_id = Some(profile_uuid);
         project.updated_at = Utc::now();
 
@@ -754,11 +768,91 @@ pub async fn assign_profile(
             .update(&project)
             .map_err(|e| format!("Failed to update project: {e}"))?;
 
-        Ok(AssignProfileResponse {
-            project_id: project_uuid.to_string(),
-            profile_id: profile_uuid.to_string(),
-            assigned_at: project.updated_at.to_rfc3339(),
-        })
+        Ok((profile, project.path.clone()))
+    })?;
+
+    // Install plugins from the profile's central storage
+    let mut plugins_installed = 0usize;
+    let mut plugin_errors: Vec<(String, String)> = Vec::new();
+    let mut project_state = ProjectProfileState::new(profile_uuid);
+
+    // Get plugins from profile storage
+    let plugin_manifests = list_plugin_manifests(profile_uuid).unwrap_or_default();
+
+    if !plugin_manifests.is_empty() {
+        // Find Claude binary for plugin installation
+        let claude_binary = find_claude_binary();
+
+        for manifest in &plugin_manifests {
+            if !manifest.enabled {
+                continue; // Skip disabled plugins
+            }
+
+            // Build plugin identifier (plugin@marketplace format if marketplace is known)
+            let plugin_identifier = match &manifest.marketplace {
+                Some(marketplace) => format!("{}@{}", manifest.id, marketplace),
+                None => manifest.id.clone(),
+            };
+
+            match &claude_binary {
+                Ok(claude) => {
+                    // Install plugin with project scope
+                    let output = Command::new(claude)
+                        .args(["plugin", "install", "--scope=project", &plugin_identifier])
+                        .current_dir(&project_path)
+                        .output();
+
+                    match output {
+                        Ok(result) if result.status.success() => {
+                            plugins_installed += 1;
+                            project_state.add_installed_plugin(manifest.id.clone());
+                        }
+                        Ok(result) => {
+                            let stderr = String::from_utf8_lossy(&result.stderr);
+                            let stdout = String::from_utf8_lossy(&result.stdout);
+                            let error_msg = if !stderr.is_empty() {
+                                stderr.to_string()
+                            } else if !stdout.is_empty() {
+                                stdout.to_string()
+                            } else {
+                                "Unknown error".to_string()
+                            };
+
+                            // Check if already installed (not an error)
+                            if error_msg.contains("already installed") {
+                                // Plugin already exists, not an error
+                                project_state.add_installed_plugin(manifest.id.clone());
+                            } else {
+                                plugin_errors.push((manifest.id.clone(), error_msg));
+                            }
+                        }
+                        Err(e) => {
+                            plugin_errors
+                                .push((manifest.id.clone(), format!("Failed to run CLI: {e}")));
+                        }
+                    }
+                }
+                Err(e) => {
+                    plugin_errors.push((manifest.id.clone(), format!("Claude CLI not found: {e}")));
+                }
+            }
+        }
+    }
+
+    // Save project state for cleanup tracking
+    if let Err(e) = save_project_state(project_uuid, &project_state) {
+        // Log warning but don't fail the assignment
+        eprintln!("Warning: Failed to save project state: {e}");
+    }
+
+    let assigned_at = Utc::now();
+
+    Ok(AssignProfileResponse {
+        project_id: project_uuid.to_string(),
+        profile_id: profile_uuid.to_string(),
+        assigned_at: assigned_at.to_rfc3339(),
+        plugins_installed,
+        plugin_errors,
     })
 }
 
@@ -1101,6 +1195,341 @@ pub async fn remove_local_tool(
             removed,
         })
     })
+}
+
+// ============================================================================
+// Add Tools from Source Commands
+// ============================================================================
+
+use tars_core::profile::storage;
+
+/// Input for adding tools from a source project
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddToolsFromSourceInput {
+    pub profile_id: String,
+    pub source_project_path: String,
+    pub tools: Vec<ToolFromSource>,
+}
+
+/// Tool to add from source project
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolFromSource {
+    pub name: String,
+    pub tool_type: String,
+}
+
+/// Response for adding tools from source
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddToolsFromSourceResponse {
+    pub added_count: usize,
+    pub mcp_servers_added: usize,
+    pub skills_added: usize,
+    pub agents_added: usize,
+    pub commands_added: usize,
+}
+
+/// Add tools to a profile by copying them to central profile storage
+///
+/// Tools are copied from the source project to ~/.tars/profiles/<profile-id>/
+/// This ensures profiles remain valid even if the source project is deleted.
+#[tauri::command]
+pub async fn add_tools_from_source(
+    input: AddToolsFromSourceInput,
+    state: State<'_, AppState>,
+) -> Result<AddToolsFromSourceResponse, String> {
+    let profile_uuid =
+        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+    let source_path = PathBuf::from(&input.source_project_path);
+
+    if !source_path.exists() {
+        return Err(format!(
+            "Source project path does not exist: {}",
+            input.source_project_path
+        ));
+    }
+
+    // Verify profile exists
+    state.with_db(|db| {
+        let store = ProfileStore::new(db.connection());
+        store
+            .get(profile_uuid)
+            .map_err(|e| format!("Database error: {e}"))?
+            .ok_or_else(|| "Profile not found".to_string())
+    })?;
+
+    // Scan the source project
+    let inventory = tars_scanner::scope::scan_project(&source_path)
+        .map_err(|e| format!("Failed to scan source project: {e}"))?;
+
+    let mut mcp_servers_added = 0usize;
+    let mut skills_added = 0usize;
+    let mut agents_added = 0usize;
+    let commands_added = 0usize;
+    let mut tool_refs: Vec<ToolRef> = Vec::new();
+
+    for tool in &input.tools {
+        let tool_type = match tool.tool_type.to_lowercase().as_str() {
+            "mcp" => ToolType::Mcp,
+            "skill" => ToolType::Skill,
+            "agent" => ToolType::Agent,
+            "hook" => ToolType::Hook,
+            other => return Err(format!("Invalid tool type: {other}")),
+        };
+
+        match tool_type {
+            ToolType::Mcp => {
+                // Find MCP server in inventory and store config as JSON
+                if let Some(mcp_config) = &inventory.mcp {
+                    if let Some(server) = mcp_config.servers.iter().find(|s| s.name == tool.name) {
+                        let transport = match server.transport {
+                            tars_scanner::settings::McpTransport::Stdio => "stdio",
+                            tars_scanner::settings::McpTransport::Http => "http",
+                            tars_scanner::settings::McpTransport::Sse => "sse",
+                        };
+
+                        // Build the server config JSON
+                        let mut config = serde_json::Map::new();
+                        config.insert("type".to_string(), serde_json::json!(transport));
+                        if let Some(ref cmd) = server.command {
+                            config.insert("command".to_string(), serde_json::json!(cmd));
+                        }
+                        if !server.args.is_empty() {
+                            config.insert("args".to_string(), serde_json::json!(server.args));
+                        }
+                        if !server.env.is_empty() {
+                            config.insert("env".to_string(), serde_json::json!(server.env));
+                        }
+                        if let Some(ref url) = server.url {
+                            config.insert("url".to_string(), serde_json::json!(url));
+                        }
+
+                        storage::store_mcp_server(
+                            profile_uuid,
+                            &server.name,
+                            &serde_json::Value::Object(config),
+                        )
+                        .map_err(|e| format!("Failed to store MCP server: {e}"))?;
+
+                        tool_refs.push(ToolRef {
+                            name: tool.name.clone(),
+                            tool_type: ToolType::Mcp,
+                            source_scope: Some(Scope::Project),
+                            permissions: None,
+                        });
+                        mcp_servers_added += 1;
+                    }
+                }
+            }
+            ToolType::Skill => {
+                // Find skill in inventory and copy the entire skill directory
+                if let Some(skill) = inventory.skills.iter().find(|s| s.name == tool.name) {
+                    // skill.path is the skill directory (contains SKILL.md)
+                    if skill.path.exists() {
+                        storage::copy_skill_to_profile(profile_uuid, &skill.name, &skill.path)
+                            .map_err(|e| format!("Failed to copy skill: {e}"))?;
+
+                        tool_refs.push(ToolRef {
+                            name: tool.name.clone(),
+                            tool_type: ToolType::Skill,
+                            source_scope: Some(Scope::Project),
+                            permissions: None,
+                        });
+                        skills_added += 1;
+                    }
+                }
+            }
+            ToolType::Agent => {
+                // Find agent in inventory and copy the file
+                if let Some(agent) = inventory.agents.iter().find(|a| a.name == tool.name) {
+                    if agent.path.exists() {
+                        storage::copy_agent_to_profile(profile_uuid, &agent.name, &agent.path)
+                            .map_err(|e| format!("Failed to copy agent: {e}"))?;
+
+                        tool_refs.push(ToolRef {
+                            name: tool.name.clone(),
+                            tool_type: ToolType::Agent,
+                            source_scope: Some(Scope::Project),
+                            permissions: None,
+                        });
+                        agents_added += 1;
+                    }
+                }
+            }
+            ToolType::Hook => {
+                // Hooks are handled via settings, not as file-based copies
+                // Just add the reference for now
+                tool_refs.push(ToolRef {
+                    name: tool.name.clone(),
+                    tool_type: ToolType::Hook,
+                    source_scope: Some(Scope::Project),
+                    permissions: None,
+                });
+            }
+        }
+    }
+
+    // Update the profile's tool_refs in the database
+    state.with_db(|db| {
+        let store = ProfileStore::new(db.connection());
+
+        let mut profile = store
+            .get(profile_uuid)
+            .map_err(|e| format!("Database error: {e}"))?
+            .ok_or_else(|| "Profile not found".to_string())?;
+
+        // Add tool refs (avoiding duplicates)
+        for tool_ref in tool_refs {
+            if !profile
+                .tool_refs
+                .iter()
+                .any(|t| t.name == tool_ref.name && t.tool_type == tool_ref.tool_type)
+            {
+                profile.tool_refs.push(tool_ref);
+            }
+        }
+
+        profile.updated_at = Utc::now();
+
+        store
+            .update(&profile)
+            .map_err(|e| format!("Failed to update profile: {e}"))?;
+
+        Ok(AddToolsFromSourceResponse {
+            added_count: mcp_servers_added + skills_added + agents_added + commands_added,
+            mcp_servers_added,
+            skills_added,
+            agents_added,
+            commands_added,
+        })
+    })
+}
+
+// ============================================================================
+// Add Plugin to Profile Commands
+// ============================================================================
+
+use tars_core::profile::PluginManifest;
+
+/// Input for adding a plugin to a profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddPluginToProfileInput {
+    pub profile_id: String,
+    pub plugin_id: String,
+    pub marketplace: Option<String>,
+    pub version: Option<String>,
+}
+
+/// Response for adding a plugin to a profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddPluginToProfileResponse {
+    pub profile_id: String,
+    pub plugin_id: String,
+    pub added: bool,
+}
+
+/// Add a plugin to a profile's central storage
+///
+/// Plugins are stored as manifests in ~/.tars/profiles/<profile-id>/plugins/
+/// When the profile is assigned to a project, these plugins will be installed.
+#[tauri::command]
+pub async fn add_plugin_to_profile(
+    input: AddPluginToProfileInput,
+    state: State<'_, AppState>,
+) -> Result<AddPluginToProfileResponse, String> {
+    let profile_uuid =
+        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+
+    // Verify profile exists
+    state.with_db(|db| {
+        let store = ProfileStore::new(db.connection());
+        store
+            .get(profile_uuid)
+            .map_err(|e| format!("Database error: {e}"))?
+            .ok_or_else(|| "Profile not found".to_string())
+    })?;
+
+    // Create and store the plugin manifest
+    let manifest = PluginManifest::new(input.plugin_id.clone(), input.marketplace, input.version);
+
+    storage::store_plugin_manifest(profile_uuid, &manifest)
+        .map_err(|e| format!("Failed to store plugin manifest: {e}"))?;
+
+    Ok(AddPluginToProfileResponse {
+        profile_id: profile_uuid.to_string(),
+        plugin_id: input.plugin_id,
+        added: true,
+    })
+}
+
+/// Response for removing a plugin from a profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemovePluginFromProfileResponse {
+    pub profile_id: String,
+    pub plugin_id: String,
+    pub removed: bool,
+}
+
+/// Remove a plugin from a profile's central storage
+#[tauri::command]
+pub async fn remove_plugin_from_profile(
+    profile_id: String,
+    plugin_id: String,
+    state: State<'_, AppState>,
+) -> Result<RemovePluginFromProfileResponse, String> {
+    let profile_uuid =
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+
+    // Verify profile exists
+    state.with_db(|db| {
+        let store = ProfileStore::new(db.connection());
+        store
+            .get(profile_uuid)
+            .map_err(|e| format!("Database error: {e}"))?
+            .ok_or_else(|| "Profile not found".to_string())
+    })?;
+
+    let removed = storage::delete_plugin_manifest(profile_uuid, &plugin_id)
+        .map_err(|e| format!("Failed to remove plugin: {e}"))?;
+
+    Ok(RemovePluginFromProfileResponse {
+        profile_id: profile_uuid.to_string(),
+        plugin_id,
+        removed,
+    })
+}
+
+/// List plugins stored in a profile
+#[tauri::command]
+pub async fn list_profile_plugins(
+    profile_id: String,
+    _state: State<'_, AppState>,
+) -> Result<Vec<PluginManifestInfo>, String> {
+    let profile_uuid =
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+
+    let manifests = storage::list_plugin_manifests(profile_uuid)
+        .map_err(|e| format!("Failed to list plugins: {e}"))?;
+
+    Ok(manifests
+        .into_iter()
+        .map(|m| PluginManifestInfo {
+            id: m.id,
+            marketplace: m.marketplace,
+            version: m.version,
+            enabled: m.enabled,
+            added_at: m.added_at.to_rfc3339(),
+        })
+        .collect())
+}
+
+/// Plugin manifest info for frontend display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginManifestInfo {
+    pub id: String,
+    pub marketplace: Option<String>,
+    pub version: Option<String>,
+    pub enabled: bool,
+    pub added_at: String,
 }
 
 // ============================================================================

@@ -50,7 +50,6 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
-import { ConfirmDialog } from '../components/config/ConfirmDialog';
 
 export function PluginsPage() {
   const [showAddMarketplace, setShowAddMarketplace] = useState(false);
@@ -58,6 +57,7 @@ export function PluginsPage() {
   const [addingMarketplace, setAddingMarketplace] = useState(false);
   const [marketplaceToRemove, setMarketplaceToRemove] = useState<string | null>(null);
   const [removingMarketplace, setRemovingMarketplace] = useState(false);
+  const [alsoUninstallPlugins, setAlsoUninstallPlugins] = useState(false);
   const [updatingMarketplaces, setUpdatingMarketplaces] = useState(false);
   const [selectedMarketplace, setSelectedMarketplace] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,14 +139,37 @@ export function PluginsPage() {
     }
   }
 
+  // Get plugins installed from a specific marketplace
+  function getPluginsFromMarketplace(marketplaceName: string) {
+    return sortedInstalledPlugins.filter((p) => p.marketplace === marketplaceName);
+  }
+
   async function handleRemoveMarketplace() {
     if (!marketplaceToRemove) return;
 
     setRemovingMarketplace(true);
     try {
+      // If user wants to uninstall plugins too, do that first
+      if (alsoUninstallPlugins) {
+        const pluginsToRemove = getPluginsFromMarketplace(marketplaceToRemove);
+        for (const plugin of pluginsToRemove) {
+          try {
+            await invoke('plugin_uninstall', {
+              plugin: `${plugin.id}@${plugin.marketplace}`,
+              scope: plugin.scope.type.toLowerCase(),
+              projectPath: plugin.project_path ?? undefined,
+            });
+          } catch {
+            // Continue even if individual plugin uninstall fails
+          }
+        }
+      }
+
       await invoke('plugin_marketplace_remove', { name: marketplaceToRemove });
       toast.success('Marketplace removed', {
-        description: `Removed ${marketplaceToRemove}`,
+        description: alsoUninstallPlugins
+          ? `Removed ${marketplaceToRemove} and its plugins`
+          : `Removed ${marketplaceToRemove}`,
       });
       await refetch();
     } catch (err) {
@@ -156,6 +179,7 @@ export function PluginsPage() {
     } finally {
       setRemovingMarketplace(false);
       setMarketplaceToRemove(null);
+      setAlsoUninstallPlugins(false);
     }
   }
 
@@ -458,7 +482,7 @@ export function PluginsPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 brushed-metal relative z-10">
+      <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Plugins</h2>
@@ -524,7 +548,10 @@ export function PluginsPage() {
                           <span className="text-xs px-2 py-0.5 bg-muted rounded">
                             {marketplace.source_type.type}
                           </span>
-                          <span className="text-sm text-muted-foreground truncate max-w-[300px]">
+                          <span
+                            className="text-sm text-muted-foreground truncate max-w-[300px]"
+                            title={getSourceDisplay(marketplace)}
+                          >
                             {getSourceDisplay(marketplace)}
                           </span>
                           {marketplace.source_type.type === 'GitHub' && (
@@ -533,10 +560,23 @@ export function PluginsPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-muted-foreground hover:text-foreground"
+                              title="View on GitHub"
                             >
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           )}
+                          {marketplace.source_type.type === 'Url' &&
+                            marketplace.source_type.url.includes('github.com') && (
+                              <a
+                                href={marketplace.source_type.url.replace(/\.git$/, '')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground"
+                                title="View on GitHub"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -995,16 +1035,105 @@ export function PluginsPage() {
       </Dialog>
 
       {/* Remove Marketplace Confirmation */}
-      <ConfirmDialog
+      <Dialog
         open={!!marketplaceToRemove}
-        onOpenChange={(open) => !open && setMarketplaceToRemove(null)}
-        title="Remove Marketplace"
-        description={`Are you sure you want to remove "${marketplaceToRemove}"? Plugins installed from this marketplace will remain installed.`}
-        confirmLabel="Remove"
-        confirmVariant="destructive"
-        onConfirm={handleRemoveMarketplace}
-        loading={removingMarketplace}
-      />
+        onOpenChange={(open) => {
+          if (!open) {
+            setMarketplaceToRemove(null);
+            setAlsoUninstallPlugins(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove Marketplace</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove "{marketplaceToRemove}"?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {(() => {
+              const affectedPlugins = marketplaceToRemove
+                ? getPluginsFromMarketplace(marketplaceToRemove)
+                : [];
+              if (affectedPlugins.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    No plugins are installed from this marketplace.
+                  </p>
+                );
+              }
+              return (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      {affectedPlugins.length} plugin{affectedPlugins.length !== 1 ? 's' : ''}{' '}
+                      installed from this marketplace:
+                    </p>
+                    <div className="max-h-[120px] overflow-auto border rounded-lg divide-y">
+                      {affectedPlugins.map((plugin, idx) => (
+                        <div
+                          key={`${plugin.id}-${plugin.scope.type}-${idx}`}
+                          className="px-3 py-2 text-sm flex items-center justify-between"
+                        >
+                          <span className="font-medium">{plugin.id}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {plugin.scope.type.toLowerCase()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={alsoUninstallPlugins}
+                      onChange={(e) => setAlsoUninstallPlugins(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <div className="font-medium text-sm">Also uninstall plugins</div>
+                      <div className="text-xs text-muted-foreground">
+                        Remove all {affectedPlugins.length} plugin
+                        {affectedPlugins.length !== 1 ? 's' : ''} from this marketplace
+                      </div>
+                    </div>
+                  </label>
+                </>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMarketplaceToRemove(null);
+                setAlsoUninstallPlugins(false);
+              }}
+              disabled={removingMarketplace}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveMarketplace}
+              disabled={removingMarketplace}
+            >
+              {removingMarketplace ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove{alsoUninstallPlugins ? ' & Uninstall' : ''}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Install Plugin Dialog */}
       <Dialog

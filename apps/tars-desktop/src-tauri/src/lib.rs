@@ -73,6 +73,12 @@ pub fn run() {
             // Local override commands
             commands::add_local_tool,
             commands::remove_local_tool,
+            // Add tools from source
+            commands::add_tools_from_source,
+            // Plugin profile commands
+            commands::add_plugin_to_profile,
+            commands::remove_plugin_from_profile,
+            commands::list_profile_plugins,
             // Profile export/import commands
             commands::export_profile_json,
             commands::preview_profile_import,

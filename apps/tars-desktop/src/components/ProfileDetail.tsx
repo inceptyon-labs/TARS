@@ -13,6 +13,7 @@ import {
   Plus,
   Download,
   Puzzle,
+  X,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ProfileToolPicker } from './ProfileToolPicker';
@@ -23,7 +24,11 @@ interface ProfileDetailProps {
   profile: ProfileDetails;
   onAddTools?: (tools: ToolRef[]) => void;
   onAddPlugins?: (plugins: ProfilePluginRef[]) => void;
+  onRemoveTool?: (toolIndex: number) => void;
+  onRemovePlugin?: (pluginIndex: number) => void;
   onExportProfile?: () => void;
+  /** Called when tools are added via addToolsFromSource (to refresh profile) */
+  onToolsAdded?: () => void;
 }
 
 function getToolIcon(toolType: string) {
@@ -60,7 +65,10 @@ export function ProfileDetail({
   profile,
   onAddTools,
   onAddPlugins,
+  onRemoveTool,
+  onRemovePlugin,
   onExportProfile,
+  onToolsAdded,
 }: ProfileDetailProps) {
   const [isToolPickerOpen, setIsToolPickerOpen] = useState(false);
 
@@ -136,7 +144,7 @@ export function ProfileDetail({
               return (
                 <div
                   key={`${tool.tool_type}-${tool.name}-${index}`}
-                  className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
+                  className="flex items-center justify-between p-2 rounded-lg border bg-muted/30 group"
                 >
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-muted-foreground" />
@@ -145,11 +153,23 @@ export function ProfileDetail({
                       {getToolTypeLabel(tool.tool_type)}
                     </span>
                   </div>
-                  <ToolPermissionsEditor
-                    permissions={tool.permissions}
-                    onChange={() => {}}
-                    compact
-                  />
+                  <div className="flex items-center gap-2">
+                    <ToolPermissionsEditor
+                      permissions={tool.permissions}
+                      onChange={() => {}}
+                      compact
+                    />
+                    {onRemoveTool && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveTool(index)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                        title="Remove tool"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -162,7 +182,7 @@ export function ProfileDetail({
             {profile.plugin_refs.map((plugin, index) => (
               <div
                 key={`plugin-${plugin.id}-${index}`}
-                className="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
+                className="flex items-center justify-between p-2 rounded-lg border bg-muted/30 group"
               >
                 <div className="flex items-center gap-2">
                   <Puzzle className="h-4 w-4 text-muted-foreground" />
@@ -174,11 +194,23 @@ export function ProfileDetail({
                     {plugin.scope}
                   </span>
                 </div>
-                <span
-                  className={`text-xs px-1.5 py-0.5 rounded ${plugin.enabled ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}
-                >
-                  {plugin.enabled ? 'Enabled' : 'Disabled'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded ${plugin.enabled ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}
+                  >
+                    {plugin.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  {onRemovePlugin && (
+                    <button
+                      type="button"
+                      onClick={() => onRemovePlugin(index)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                      title="Remove plugin"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -253,6 +285,8 @@ export function ProfileDetail({
         onAddPlugins={handleAddPlugins}
         existingTools={profile.tool_refs || []}
         existingPlugins={profile.plugin_refs || []}
+        profileId={profile.id}
+        onToolsAdded={onToolsAdded}
       />
     </div>
   );

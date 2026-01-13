@@ -5,11 +5,13 @@
 //! - .claude/ directory with settings, skills, commands, agents, hooks
 //! - .claude.json MCP configuration
 //! - Git repository information
+//! - Project-scoped plugins (skills, agents, MCP, commands from plugins installed for this project)
 
-use crate::artifacts::HookInfo;
+use crate::artifacts::{AgentInfo, CommandInfo, HookInfo, SkillInfo};
 use crate::error::{ScanError, ScanResult};
 use crate::inventory::{GitInfo, ProjectScope, ProjectSettings};
 use crate::parser::{parse_mcp_config, parse_settings};
+use crate::plugins::PluginInventory;
 use crate::scope::user::{scan_agents_directory, scan_commands_directory, scan_skills_directory};
 use crate::settings::{McpConfig, SettingsFile};
 use crate::types::{FileInfo, Scope};
@@ -19,9 +21,27 @@ use std::process::Command;
 
 /// Scan a project directory for Claude Code configuration
 ///
+/// This is a standalone scan that does not include project-scoped plugins.
+/// Use `scan_project_with_plugins` when you have a pre-scanned plugin inventory.
+///
 /// # Errors
 /// Returns an error if scanning fails
 pub fn scan_project(path: &Path) -> ScanResult<ProjectScope> {
+    // For standalone usage, scan plugins and pass to the shared function
+    let plugin_inventory = PluginInventory::scan()?;
+    scan_project_with_plugins(path, &plugin_inventory)
+}
+
+/// Scan a project directory for Claude Code configuration with pre-scanned plugin inventory
+///
+/// This includes tools from plugins installed at project scope for this specific project.
+///
+/// # Errors
+/// Returns an error if scanning fails
+pub fn scan_project_with_plugins(
+    path: &Path,
+    plugin_inventory: &PluginInventory,
+) -> ScanResult<ProjectScope> {
     if !path.exists() {
         return Err(ScanError::InvalidPath(format!(
             "Project path does not exist: {}",
@@ -47,22 +67,39 @@ pub fn scan_project(path: &Path) -> ScanResult<ProjectScope> {
     let git = scan_git_info(path);
     let claude_md = scan_claude_md(path)?;
     let settings = scan_project_settings(&claude_dir)?;
-    let mcp = scan_project_mcp(path)?;
-    let skills = if claude_dir_exists {
+
+    // Scan project MCP config and merge with project-scoped plugin MCP configs
+    let mut mcp = scan_project_mcp(path)?;
+    let plugin_mcp = extract_project_plugin_mcp(plugin_inventory, path)?;
+    mcp = merge_mcp_configs(mcp, plugin_mcp);
+
+    // Scan project skills and merge with project-scoped plugin skills
+    let mut skills = if claude_dir_exists {
         scan_skills_directory(&claude_dir.join("skills"), Scope::Project)?
     } else {
         Vec::new()
     };
-    let commands = if claude_dir_exists {
+    let plugin_skills = extract_project_plugin_skills(plugin_inventory, path)?;
+    skills.extend(plugin_skills);
+
+    // Scan project commands and merge with project-scoped plugin commands
+    let mut commands = if claude_dir_exists {
         scan_commands_directory(&claude_dir.join("commands"), Scope::Project)?
     } else {
         Vec::new()
     };
-    let agents = if claude_dir_exists {
+    let plugin_commands = extract_project_plugin_commands(plugin_inventory, path)?;
+    commands.extend(plugin_commands);
+
+    // Scan project agents and merge with project-scoped plugin agents
+    let mut agents = if claude_dir_exists {
         scan_agents_directory(&claude_dir.join("agents"), Scope::Project)?
     } else {
         Vec::new()
     };
+    let plugin_agents = extract_project_plugin_agents(plugin_inventory, path)?;
+    agents.extend(plugin_agents);
+
     let hooks = if claude_dir_exists {
         scan_hooks_directory(&claude_dir.join("hooks"))?
     } else {
@@ -86,6 +123,175 @@ pub fn scan_project(path: &Path) -> ScanResult<ProjectScope> {
         agents,
         hooks,
     })
+}
+
+/// Check if a plugin is scoped to a specific project
+fn is_plugin_for_project(plugin: &crate::plugins::InstalledPlugin, project_path: &Path) -> bool {
+    // Plugin must be project-scoped or local-scoped
+    if !matches!(plugin.scope, Scope::Project | Scope::Local) {
+        return false;
+    }
+
+    // Plugin must be enabled
+    if !plugin.enabled {
+        return false;
+    }
+
+    // Plugin must have a project_path that matches this project
+    match &plugin.project_path {
+        Some(pp) => {
+            // Normalize paths for comparison
+            let plugin_project = std::path::Path::new(pp);
+            plugin_project == project_path
+                || plugin_project
+                    .canonicalize()
+                    .ok()
+                    .zip(project_path.canonicalize().ok())
+                    .is_some_and(|(a, b)| a == b)
+        }
+        None => false,
+    }
+}
+
+/// Extract skills from plugins installed at project scope for a specific project
+fn extract_project_plugin_skills(
+    plugin_inventory: &PluginInventory,
+    project_path: &Path,
+) -> ScanResult<Vec<SkillInfo>> {
+    let mut all_skills = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !is_plugin_for_project(plugin, project_path) {
+            continue;
+        }
+
+        let skills_dir = plugin.path.join("skills");
+        if skills_dir.exists() {
+            let plugin_id = match &plugin.marketplace {
+                Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                None => plugin.id.clone(),
+            };
+            let scope = Scope::Plugin(plugin_id);
+            let dir_skills = scan_skills_directory(&skills_dir, scope)?;
+            all_skills.extend(dir_skills);
+        }
+    }
+
+    Ok(all_skills)
+}
+
+/// Extract commands from plugins installed at project scope for a specific project
+fn extract_project_plugin_commands(
+    plugin_inventory: &PluginInventory,
+    project_path: &Path,
+) -> ScanResult<Vec<CommandInfo>> {
+    let mut all_commands = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !is_plugin_for_project(plugin, project_path) {
+            continue;
+        }
+
+        let commands_dir = plugin.path.join("commands");
+        if commands_dir.exists() {
+            let plugin_id = match &plugin.marketplace {
+                Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                None => plugin.id.clone(),
+            };
+            let scope = Scope::Plugin(plugin_id);
+            let dir_commands = scan_commands_directory(&commands_dir, scope)?;
+            all_commands.extend(dir_commands);
+        }
+    }
+
+    Ok(all_commands)
+}
+
+/// Extract agents from plugins installed at project scope for a specific project
+fn extract_project_plugin_agents(
+    plugin_inventory: &PluginInventory,
+    project_path: &Path,
+) -> ScanResult<Vec<AgentInfo>> {
+    let mut all_agents = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !is_plugin_for_project(plugin, project_path) {
+            continue;
+        }
+
+        let agents_dir = plugin.path.join("agents");
+        if agents_dir.exists() {
+            let plugin_id = match &plugin.marketplace {
+                Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                None => plugin.id.clone(),
+            };
+            let scope = Scope::Plugin(plugin_id);
+            let dir_agents = scan_agents_directory(&agents_dir, scope)?;
+            all_agents.extend(dir_agents);
+        }
+    }
+
+    Ok(all_agents)
+}
+
+/// Extract MCP configs from plugins installed at project scope for a specific project
+fn extract_project_plugin_mcp(
+    plugin_inventory: &PluginInventory,
+    project_path: &Path,
+) -> ScanResult<Vec<McpConfig>> {
+    let mut all_mcp = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !is_plugin_for_project(plugin, project_path) {
+            continue;
+        }
+
+        let mcp_path = plugin.path.join(".mcp.json");
+        if mcp_path.exists() {
+            if let Ok(content) = fs::read_to_string(&mcp_path) {
+                if let Ok(mut mcp) = parse_mcp_config(&mcp_path, &content) {
+                    // Tag the MCP servers with their plugin source
+                    let plugin_id = match &plugin.marketplace {
+                        Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+                        None => plugin.id.clone(),
+                    };
+                    mcp.source_plugin = Some(plugin_id);
+                    all_mcp.push(mcp);
+                }
+            }
+        }
+    }
+
+    Ok(all_mcp)
+}
+
+/// Merge multiple MCP configs into a single Option<McpConfig>
+fn merge_mcp_configs(base: Option<McpConfig>, plugin_configs: Vec<McpConfig>) -> Option<McpConfig> {
+    if plugin_configs.is_empty() {
+        return base;
+    }
+
+    let mut merged = base.unwrap_or_default();
+
+    // Get existing server names to avoid duplicates
+    let existing_names: std::collections::HashSet<_> =
+        merged.servers.iter().map(|s| s.name.clone()).collect();
+
+    for config in plugin_configs {
+        // Merge servers from plugin configs
+        for server in config.servers {
+            // Don't overwrite project-defined servers
+            if !existing_names.contains(&server.name) {
+                merged.servers.push(server);
+            }
+        }
+    }
+
+    if merged.servers.is_empty() && merged.path.as_os_str().is_empty() {
+        None
+    } else {
+        Some(merged)
+    }
 }
 
 fn scan_claude_md(project_path: &Path) -> ScanResult<Option<FileInfo>> {

@@ -214,6 +214,10 @@ impl McpOps {
                 })
                 .unwrap_or_default(),
             url: value.get("url").and_then(|v| v.as_str()).map(String::from),
+            docs_url: value
+                .get("docsUrl")
+                .and_then(|v| v.as_str())
+                .map(String::from),
         };
 
         // Skip invalid configs
@@ -619,7 +623,7 @@ impl McpOps {
         name: &str,
         config: &McpServerConfig,
         file_path: &PathBuf,
-        scope: ConfigScope,
+        _scope: ConfigScope,
     ) -> ConfigResult<()> {
         // Read existing or create new
         let mut json: Value = if file_path.exists() {
@@ -646,35 +650,18 @@ impl McpOps {
                 message: "Expected JSON object".into(),
             })?;
 
-        // For user scope (~/.claude.json), servers go inside "mcpServers"
-        // For project scope (.mcp.json), check if mcpServers exists, otherwise use root
-        if scope == ConfigScope::User {
-            // Ensure mcpServers object exists
-            if !root.contains_key("mcpServers") {
-                root.insert("mcpServers".to_string(), json!({}));
-            }
-            root.get_mut("mcpServers")
-                .and_then(|v| v.as_object_mut())
-                .ok_or_else(|| ConfigError::JsonParseError {
-                    path: file_path.clone(),
-                    message: "mcpServers is not an object".into(),
-                })?
-                .insert(name.to_string(), config_value);
-        } else {
-            // For project scope, check if mcpServers wrapper exists
-            if root.contains_key("mcpServers") {
-                root.get_mut("mcpServers")
-                    .and_then(|v| v.as_object_mut())
-                    .ok_or_else(|| ConfigError::JsonParseError {
-                        path: file_path.clone(),
-                        message: "mcpServers is not an object".into(),
-                    })?
-                    .insert(name.to_string(), config_value);
-            } else {
-                // Add at root level for flat .mcp.json format
-                root.insert(name.to_string(), config_value);
-            }
+        // Both user scope (~/.claude.json) and project scope (.mcp.json) use mcpServers wrapper
+        // Ensure mcpServers object exists
+        if !root.contains_key("mcpServers") {
+            root.insert("mcpServers".to_string(), json!({}));
         }
+        root.get_mut("mcpServers")
+            .and_then(|v| v.as_object_mut())
+            .ok_or_else(|| ConfigError::JsonParseError {
+                path: file_path.clone(),
+                message: "mcpServers is not an object".into(),
+            })?
+            .insert(name.to_string(), config_value);
 
         // Write back
         self.write_json_file(file_path, &json)

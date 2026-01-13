@@ -190,11 +190,7 @@
   position: absolute;
   inset: 0;
   /* Dot grid pattern - fixed size, won't scale with window */
-  background-image: radial-gradient(
-    circle at center,
-    var(--sidebar-dot) 1px,
-    transparent 1px
-  );
+  background-image: radial-gradient(circle at center, var(--sidebar-dot) 1px, transparent 1px);
   background-size: 12px 12px;
   background-position: 0 0;
   pointer-events: none;
@@ -599,7 +595,10 @@
 .tars-nav-item {
   position: relative;
   border-radius: var(--radius);
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
   /* Better contrast for sidebar text */
   color: var(--sidebar-text);
 }
@@ -640,7 +639,10 @@
   font-size: 0.875rem;
   font-weight: 500;
   border-radius: var(--radius);
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
   cursor: pointer;
 }
 
@@ -699,7 +701,10 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--foreground);
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
   box-shadow: inset 0 1px 2px var(--metal-shadow);
   /* Hide browser/system icons */
   -webkit-appearance: none;
@@ -750,6 +755,14 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
+}
+
+/* GPU-accelerated smooth scrolling for all scrollable containers */
+.overflow-auto,
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-scroll {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ============================================
@@ -913,7 +926,10 @@
   box-shadow:
     inset 0 1px 0 var(--metal-highlight),
     0 1px 2px var(--metal-shadow);
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .tars-sidebar-toggle:hover {
@@ -960,7 +976,10 @@
   font-size: 0.875rem;
   font-weight: 500;
   border-radius: var(--radius);
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
   cursor: pointer;
   background: var(--secondary);
   border: 1px solid var(--border);
@@ -984,7 +1003,10 @@
   font-size: 0.875rem;
   font-weight: 500;
   border-radius: var(--radius);
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
   cursor: pointer;
   background: linear-gradient(
     180deg,
@@ -1010,6 +1032,24 @@
 .tars-button-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* TARS Header - dot pattern matching sidebar */
+.tars-header {
+  background: var(--sidebar-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.tars-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Dot grid pattern - same as sidebar */
+  background-image: radial-gradient(circle at center, var(--sidebar-dot) 1px, transparent 1px);
+  background-size: 12px 12px;
+  background-position: 0 0;
+  pointer-events: none;
 }
 
 /* Brushed metal background - legacy support */

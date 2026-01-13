@@ -124,6 +124,7 @@ impl McpAddArgs {
             args: self.args.clone(),
             env,
             url: self.url.clone(),
+            docs_url: None, // CLI doesn't support docs_url yet
         };
 
         config.validate()?;

@@ -279,59 +279,61 @@ export function HooksPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 brushed-metal relative z-10">
+      <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Hooks</h2>
           <HelpButton section="HOOKS" />
         </div>
-        <Button
-          onClick={() => setShowAddDialog(true)}
-          size="sm"
-          disabled={availableEvents.length === 0}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Event
-        </Button>
       </header>
 
-      {/* Scope selector */}
+      {/* Controls bar */}
       <div className="p-4 border-b border-border bg-muted/30">
-        <div className="flex items-center gap-4">
-          <Label className="text-sm font-medium">Scope:</Label>
-          <div className="flex gap-2">
-            <Button
-              variant={selectedScope === 'user' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setSelectedScope('user');
-                setSelectedProject(null);
-              }}
-            >
-              User (~/.claude/)
-            </Button>
-            <Button
-              variant={selectedScope === 'project' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedScope('project')}
-            >
-              Project
-            </Button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Label className="text-sm font-medium">Scope:</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={selectedScope === 'user' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setSelectedScope('user');
+                  setSelectedProject(null);
+                }}
+              >
+                User (~/.claude/)
+              </Button>
+              <Button
+                variant={selectedScope === 'project' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedScope('project')}
+              >
+                Project
+              </Button>
+            </div>
+            {selectedScope === 'project' && (
+              <select
+                value={selectedProject || ''}
+                onChange={(e) => setSelectedProject(e.target.value || null)}
+                className="tars-input px-3 py-1.5 text-sm rounded"
+              >
+                <option value="">Select project...</option>
+                {projects.map((p) => (
+                  <option key={p.path} value={p.path}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-          {selectedScope === 'project' && (
-            <select
-              value={selectedProject || ''}
-              onChange={(e) => setSelectedProject(e.target.value || null)}
-              className="tars-input px-3 py-1.5 text-sm rounded"
-            >
-              <option value="">Select project...</option>
-              {projects.map((p) => (
-                <option key={p.path} value={p.path}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <Button
+            onClick={() => setShowAddDialog(true)}
+            size="sm"
+            disabled={availableEvents.length === 0}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Event
+          </Button>
         </div>
         {hooksConfig?.path && (
           <p className="text-xs text-muted-foreground mt-2">{hooksConfig.path}</p>

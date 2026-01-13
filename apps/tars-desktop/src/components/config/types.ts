@@ -20,6 +20,8 @@ export interface McpServer {
   filePath: string;
   /** If set, this server comes from a plugin and is read-only */
   sourcePlugin?: string;
+  /** Optional documentation/project page URL */
+  docsUrl?: string;
 }
 
 /** Skill configuration */

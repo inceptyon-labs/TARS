@@ -415,9 +415,7 @@ export function MainLayout() {
 
         {/* Version */}
         <div className="p-4 flex items-center justify-between">
-          <span className="tars-version-text text-[10px] font-mono">
-            v{appVersion ?? '...'}
-          </span>
+          <span className="tars-version-text text-[10px] font-mono">v{appVersion ?? '...'}</span>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500/80" />
             <span className="tars-version-text text-[10px]">Ready</span>

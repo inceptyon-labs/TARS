@@ -8,9 +8,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { HelpButton } from '../HelpButton';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ export function McpPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [serverToEdit, setServerToEdit] = useState<McpServer | null>(null);
   const [serverToRemove, setServerToRemove] = useState<McpServer | null>(null);
   const [removing, setRemoving] = useState(false);
   const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(null);
@@ -106,11 +108,6 @@ export function McpPanel() {
       setRemoving(false);
       setServerToRemove(null);
     }
-  };
-
-  const handleAdd = async () => {
-    setShowAddForm(false);
-    await loadServers();
   };
 
   const handleMove = async () => {
@@ -187,16 +184,11 @@ export function McpPanel() {
 
   return (
     <div className="p-4 space-y-4">
+      {/* Controls bar */}
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">MCP Servers</h2>
-            <HelpButton section="MCP" />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Manage Model Context Protocol servers for Claude Code
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Manage Model Context Protocol servers for Claude Code
+        </p>
         <div className="flex items-center gap-3">
           <Select
             value={selectedProjectPath ?? 'global'}
@@ -264,6 +256,19 @@ export function McpPanel() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             {server.name}
+                            {server.docsUrl && (
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                title="View documentation"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openUrl(server.docsUrl!);
+                                }}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             {server.sourcePlugin && (
                               <span
                                 className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs"
@@ -287,6 +292,13 @@ export function McpPanel() {
                             <span className="text-xs text-muted-foreground">Managed by plugin</span>
                           ) : (
                             <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setServerToEdit(server)}
+                              >
+                                Edit
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -315,12 +327,20 @@ export function McpPanel() {
         })
       )}
 
-      {/* Add Server Dialog */}
+      {/* Add/Edit Server Dialog */}
       <McpForm
-        open={showAddForm}
-        onClose={() => setShowAddForm(false)}
-        onSuccess={handleAdd}
+        open={showAddForm || !!serverToEdit}
+        onClose={() => {
+          setShowAddForm(false);
+          setServerToEdit(null);
+        }}
+        onSuccess={() => {
+          setShowAddForm(false);
+          setServerToEdit(null);
+          loadServers();
+        }}
         projectPath={selectedProjectPath}
+        editServer={serverToEdit}
       />
 
       {/* Remove Confirmation Dialog */}

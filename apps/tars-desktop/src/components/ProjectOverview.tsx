@@ -128,17 +128,18 @@ function checkToolAvailability(
   projectPath: string
 ): { available: boolean; reason?: string } {
   const { name, tool_type, source_scope } = tool;
+  const nameLower = name.toLowerCase();
   const userScope = inventory.user_scope;
   const projectData = inventory.projects.find((p) => p.path === projectPath);
   const managedScope = inventory.managed_scope;
 
-  // Check based on tool type and source scope
+  // Check based on tool type and source scope (case-insensitive matching)
   switch (tool_type) {
     case 'mcp': {
       // Check all relevant scopes based on source_scope
-      const inUser = userScope.mcp?.servers.some((s) => s.name === name);
-      const inProject = projectData?.mcp?.servers.some((s) => s.name === name);
-      const inManaged = managedScope?.mcp?.servers.some((s) => s.name === name);
+      const inUser = userScope.mcp?.servers.some((s) => s.name.toLowerCase() === nameLower);
+      const inProject = projectData?.mcp?.servers.some((s) => s.name.toLowerCase() === nameLower);
+      const inManaged = managedScope?.mcp?.servers.some((s) => s.name.toLowerCase() === nameLower);
 
       if (source_scope === 'user' && inUser) return { available: true };
       if (source_scope === 'project' && inProject) return { available: true };
@@ -149,11 +150,13 @@ function checkToolAvailability(
       return { available: false, reason: `MCP server not found in ${source_scope || 'any'} scope` };
     }
     case 'skill': {
-      const inUser = userScope.skills.some((s) => s.name === name);
-      const inProject = projectData?.skills.some((s) => s.name === name);
+      const inUser = userScope.skills.some((s) => s.name.toLowerCase() === nameLower);
+      const inProject = projectData?.skills.some((s) => s.name.toLowerCase() === nameLower);
       // Also check plugins
       const inPlugin = inventory.plugins.installed.some((p) =>
-        p.manifest.parsed_skills?.some((s) => s.name === name || s.invocation === name)
+        p.manifest.parsed_skills?.some(
+          (s) => s.name.toLowerCase() === nameLower || s.invocation?.toLowerCase() === nameLower
+        )
       );
 
       if (source_scope === 'user' && inUser) return { available: true };
@@ -163,8 +166,8 @@ function checkToolAvailability(
       return { available: false, reason: `Skill not found in ${source_scope || 'any'} scope` };
     }
     case 'agent': {
-      const inUser = userScope.agents.some((a) => a.name === name);
-      const inProject = projectData?.agents.some((a) => a.name === name);
+      const inUser = userScope.agents.some((a) => a.name.toLowerCase() === nameLower);
+      const inProject = projectData?.agents.some((a) => a.name.toLowerCase() === nameLower);
 
       if (source_scope === 'user' && inUser) return { available: true };
       if (source_scope === 'project' && inProject) return { available: true };

@@ -30,6 +30,9 @@ pub struct McpServerItem {
     /// If set, this server comes from a plugin and is read-only
     #[serde(rename = "sourcePlugin", skip_serializing_if = "Option::is_none")]
     pub source_plugin: Option<String>,
+    /// Optional documentation/project page URL
+    #[serde(rename = "docsUrl", skip_serializing_if = "Option::is_none")]
+    pub docs_url: Option<String>,
 }
 
 /// Result from `mcp_list` command
@@ -48,6 +51,8 @@ pub struct McpAddParams {
     pub args: Option<Vec<String>>,
     pub env: Option<HashMap<String, String>>,
     pub url: Option<String>,
+    #[serde(rename = "docsUrl")]
+    pub docs_url: Option<String>,
     #[serde(rename = "dryRun")]
     pub dry_run: Option<bool>,
 }
@@ -90,6 +95,7 @@ pub async fn mcp_list(
                     url: config.url,
                     file_path: item.file_path.display().to_string(),
                     source_plugin: item.source_plugin,
+                    docs_url: config.docs_url,
                 })
             } else {
                 None
@@ -125,6 +131,7 @@ pub async fn mcp_add(
         args: params.args.unwrap_or_default(),
         env: params.env.unwrap_or_default(),
         url: params.url,
+        docs_url: params.docs_url,
     };
 
     // Validate config

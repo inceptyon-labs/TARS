@@ -20,7 +20,7 @@ import {
   FolderOpen,
   Folder,
 } from 'lucide-react';
-import { discoverClaudeProjects, scanProjects } from '../lib/ipc';
+import { discoverClaudeProjects, scanProjects, addToolsFromSource } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { Button } from './ui/button';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
@@ -39,6 +39,10 @@ interface ProfileToolPickerProps {
   onAddPlugins: (plugins: ProfilePluginRef[]) => void;
   existingTools: ToolRef[];
   existingPlugins: ProfilePluginRef[];
+  /** If provided, tools will be added via addToolsFromSource (captures content) */
+  profileId?: string;
+  /** Callback for successful tool addition when using profileId mode */
+  onToolsAdded?: () => void;
 }
 
 type TabType = 'mcp' | 'skill' | 'agent' | 'plugin';
@@ -73,6 +77,8 @@ export function ProfileToolPicker({
   onAddPlugins,
   existingTools,
   existingPlugins,
+  profileId,
+  onToolsAdded,
 }: ProfileToolPickerProps) {
   const [activeTab, setActiveTab] = useState<TabType>('mcp');
   const [searchQuery, setSearchQuery] = useState('');
@@ -251,33 +257,64 @@ export function ProfileToolPicker({
     }
   };
 
-  const handleAddItems = () => {
-    // Add tools
-    if (selectedTools.length > 0) {
-      const toolRefs: ToolRef[] = selectedTools.map((t) => ({
-        name: t.name,
-        tool_type: t.toolType,
-        source_scope: 'project',
-        permissions: toolPermissions[getToolKey(t)] || null,
-      }));
-      onAddTools(toolRefs);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddItems = async () => {
+    setIsAdding(true);
+    try {
+      // Add tools - if profileId is provided, use addToolsFromSource to capture content
+      if (selectedTools.length > 0) {
+        if (profileId) {
+          // Group tools by source project path
+          const toolsByPath = new Map<string, typeof selectedTools>();
+          for (const tool of selectedTools) {
+            const existing = toolsByPath.get(tool.sourcePath) || [];
+            existing.push(tool);
+            toolsByPath.set(tool.sourcePath, existing);
+          }
+
+          // Add tools from each source project
+          for (const [sourcePath, tools] of toolsByPath) {
+            await addToolsFromSource(
+              profileId,
+              sourcePath,
+              tools.map((t) => ({ name: t.name, tool_type: t.toolType }))
+            );
+          }
+          // Notify parent that tools were added so it can refresh
+          onToolsAdded?.();
+        } else {
+          // Fall back to callback for profile creation flow
+          const toolRefs: ToolRef[] = selectedTools.map((t) => ({
+            name: t.name,
+            tool_type: t.toolType,
+            source_scope: 'project',
+            permissions: toolPermissions[getToolKey(t)] || null,
+          }));
+          onAddTools(toolRefs);
+        }
+      }
+      // Add plugins (unchanged - plugins don't need content capture)
+      if (selectedPlugins.length > 0) {
+        const pluginRefs: ProfilePluginRef[] = selectedPlugins.map((p) => ({
+          id: p.id,
+          marketplace: p.marketplace,
+          scope: p.scope.type.toLowerCase(),
+          enabled: true,
+        }));
+        onAddPlugins(pluginRefs);
+      }
+      setSelectedTools([]);
+      setSelectedPlugins([]);
+      setToolPermissions({});
+      setExpandedTool(null);
+      setSearchQuery('');
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Failed to add tools:', err);
+    } finally {
+      setIsAdding(false);
     }
-    // Add plugins
-    if (selectedPlugins.length > 0) {
-      const pluginRefs: ProfilePluginRef[] = selectedPlugins.map((p) => ({
-        id: p.id,
-        marketplace: p.marketplace,
-        scope: p.scope.type.toLowerCase(),
-        enabled: true,
-      }));
-      onAddPlugins(pluginRefs);
-    }
-    setSelectedTools([]);
-    setSelectedPlugins([]);
-    setToolPermissions({});
-    setExpandedTool(null);
-    setSearchQuery('');
-    onOpenChange(false);
   };
 
   const handleClose = () => {
@@ -622,12 +659,16 @@ export function ProfileToolPicker({
             {selectedCount} item{selectedCount === 1 ? '' : 's'} selected
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleClose}>
+            <Button variant="outline" onClick={handleClose} disabled={isAdding}>
               Cancel
             </Button>
-            <Button onClick={handleAddItems} disabled={selectedCount === 0}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add to Profile
+            <Button onClick={handleAddItems} disabled={selectedCount === 0 || isAdding}>
+              {isAdding ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              {isAdding ? 'Adding...' : 'Add to Profile'}
             </Button>
           </div>
         </div>

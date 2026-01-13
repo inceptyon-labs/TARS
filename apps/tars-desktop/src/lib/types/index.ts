@@ -314,6 +314,10 @@ export interface AssignProfileResponse {
   project_id: string;
   profile_id: string;
   assigned_at: string;
+  /** Number of plugins that were installed by this assignment */
+  plugins_installed: number;
+  /** Plugins that failed to install (name, error message) */
+  plugin_errors: [string, string][];
 }
 
 export interface UnassignProfileResponse {

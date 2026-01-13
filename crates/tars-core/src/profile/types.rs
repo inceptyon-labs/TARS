@@ -152,6 +152,9 @@ pub struct PluginRef {
 /// Repository-level overlays
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RepoOverlays {
+    /// MCP servers to add
+    #[serde(default)]
+    pub mcp_servers: Vec<McpServerOverlay>,
     /// Skills to add
     #[serde(default)]
     pub skills: Vec<SkillOverlay>,
@@ -174,6 +177,25 @@ pub struct UserOverlays {
     /// Commands to add
     #[serde(default)]
     pub commands: Vec<CommandOverlay>,
+}
+
+/// MCP server overlay content
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerOverlay {
+    /// Server name
+    pub name: String,
+    /// Transport type (stdio, http, sse)
+    pub transport: String,
+    /// Command for stdio transport
+    pub command: Option<String>,
+    /// Command arguments
+    #[serde(default)]
+    pub args: Vec<String>,
+    /// Environment variables
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
+    /// URL for http/sse transport
+    pub url: Option<String>,
 }
 
 /// Skill overlay content

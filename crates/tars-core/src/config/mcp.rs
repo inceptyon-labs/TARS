@@ -36,6 +36,10 @@ pub struct McpServerConfig {
     /// URL (for http/sse transport)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+
+    /// Documentation/project page URL (TARS-specific, ignored by Claude Code)
+    #[serde(rename = "docsUrl", skip_serializing_if = "Option::is_none", default)]
+    pub docs_url: Option<String>,
 }
 
 impl McpServerConfig {
@@ -47,6 +51,7 @@ impl McpServerConfig {
             args,
             env: HashMap::new(),
             url: None,
+            docs_url: None,
         }
     }
 
@@ -58,6 +63,7 @@ impl McpServerConfig {
             args: Vec::new(),
             env: HashMap::new(),
             url: Some(url.into()),
+            docs_url: None,
         }
     }
 
@@ -69,12 +75,19 @@ impl McpServerConfig {
             args: Vec::new(),
             env: HashMap::new(),
             url: Some(url.into()),
+            docs_url: None,
         }
     }
 
     /// Add an environment variable
     pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.env.insert(key.into(), value.into());
+        self
+    }
+
+    /// Add a documentation URL
+    pub fn with_docs_url(mut self, url: impl Into<String>) -> Self {
+        self.docs_url = Some(url.into());
         self
     }
 
@@ -124,6 +137,7 @@ impl Default for McpServerConfig {
             args: Vec::new(),
             env: HashMap::new(),
             url: None,
+            docs_url: None,
         }
     }
 }
@@ -156,6 +170,7 @@ mod tests {
             args: Vec::new(),
             env: HashMap::new(),
             url: None,
+            docs_url: None,
         };
         assert!(config.validate().is_err());
     }

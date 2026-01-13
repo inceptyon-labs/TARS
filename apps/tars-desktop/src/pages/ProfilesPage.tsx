@@ -135,6 +135,20 @@ export function ProfilesPage() {
     updateMutation.mutate({ id: selectedProfile.id, pluginRefs: mergedPlugins });
   }
 
+  async function handleRemoveTool(toolIndex: number) {
+    if (!selectedProfile) return;
+    const existingTools = selectedProfile.tool_refs || [];
+    const updatedTools = existingTools.filter((_, i) => i !== toolIndex);
+    updateMutation.mutate({ id: selectedProfile.id, toolRefs: updatedTools });
+  }
+
+  async function handleRemovePlugin(pluginIndex: number) {
+    if (!selectedProfile) return;
+    const existingPlugins = selectedProfile.plugin_refs || [];
+    const updatedPlugins = existingPlugins.filter((_, i) => i !== pluginIndex);
+    updateMutation.mutate({ id: selectedProfile.id, pluginRefs: updatedPlugins });
+  }
+
   async function handleExportProfile() {
     if (!selectedProfile) return;
 
@@ -165,10 +179,24 @@ export function ProfilesPage() {
     }
   }
 
+  async function handleToolsAdded() {
+    // Refresh the profile after tools are added via addToolsFromSource
+    if (selectedProfile) {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      try {
+        const details = await getProfile(selectedProfile.id);
+        setSelectedProfile(details);
+        toast.success('Tools added to profile');
+      } catch (err) {
+        console.error('Failed to refresh profile:', err);
+      }
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 brushed-metal relative z-10">
+      <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Profiles</h2>
@@ -255,7 +283,10 @@ export function ProfilesPage() {
               profile={selectedProfile}
               onAddTools={handleAddTools}
               onAddPlugins={handleAddPlugins}
+              onRemoveTool={handleRemoveTool}
+              onRemovePlugin={handleRemovePlugin}
               onExportProfile={handleExportProfile}
+              onToolsAdded={handleToolsAdded}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4">

@@ -51,16 +51,18 @@ impl Scanner {
             None
         };
 
-        // Scan projects in parallel using rayon
+        // Scan projects in parallel using rayon, passing plugins inventory
         let projects: Vec<ProjectScope> = project_paths
             .par_iter()
-            .filter_map(|path| match self.scan_project(path) {
-                Ok(proj) => Some(proj),
-                Err(e) => {
-                    eprintln!("Warning: Failed to scan project {path:?}: {e}");
-                    None
-                }
-            })
+            .filter_map(
+                |path| match project::scan_project_with_plugins(path, &plugins) {
+                    Ok(proj) => Some(proj),
+                    Err(e) => {
+                        eprintln!("Warning: Failed to scan project {path:?}: {e}");
+                        None
+                    }
+                },
+            )
             .collect();
 
         let collisions = self.detect_collisions(&user_scope, &managed_scope, &projects, &plugins);

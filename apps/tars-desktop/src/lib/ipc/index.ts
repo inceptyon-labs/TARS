@@ -234,6 +234,85 @@ export async function removeLocalTool(
   });
 }
 
+// Add tools from source project
+export interface ToolFromSource {
+  name: string;
+  tool_type: string;
+}
+
+export interface AddToolsFromSourceResponse {
+  added_count: number;
+  mcp_servers_added: number;
+  skills_added: number;
+  agents_added: number;
+  commands_added: number;
+}
+
+export async function addToolsFromSource(
+  profileId: string,
+  sourceProjectPath: string,
+  tools: ToolFromSource[]
+): Promise<AddToolsFromSourceResponse> {
+  return invoke('add_tools_from_source', {
+    input: {
+      profile_id: profileId,
+      source_project_path: sourceProjectPath,
+      tools,
+    },
+  });
+}
+
+// Profile plugin commands
+export interface PluginManifestInfo {
+  id: string;
+  marketplace: string | null;
+  version: string | null;
+  enabled: boolean;
+  added_at: string;
+}
+
+export interface AddPluginToProfileResponse {
+  profile_id: string;
+  plugin_id: string;
+  added: boolean;
+}
+
+export interface RemovePluginFromProfileResponse {
+  profile_id: string;
+  plugin_id: string;
+  removed: boolean;
+}
+
+export async function addPluginToProfile(
+  profileId: string,
+  pluginId: string,
+  marketplace?: string,
+  version?: string
+): Promise<AddPluginToProfileResponse> {
+  return invoke('add_plugin_to_profile', {
+    input: {
+      profile_id: profileId,
+      plugin_id: pluginId,
+      marketplace,
+      version,
+    },
+  });
+}
+
+export async function removePluginFromProfile(
+  profileId: string,
+  pluginId: string
+): Promise<RemovePluginFromProfileResponse> {
+  return invoke('remove_plugin_from_profile', {
+    profileId,
+    pluginId,
+  });
+}
+
+export async function listProfilePlugins(profileId: string): Promise<PluginManifestInfo[]> {
+  return invoke('list_profile_plugins', { profileId });
+}
+
 export async function exportProfileAsPlugin(
   profileId: string,
   outputPath: string,

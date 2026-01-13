@@ -19,27 +19,29 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import type { Scope, McpTransport, OperationResult } from './types';
+import type { Scope, McpTransport, OperationResult, McpServer } from './types';
 
 interface McpFormProps {
   /** Whether the dialog is open */
   open: boolean;
   /** Called when dialog is closed */
   onClose: () => void;
-  /** Called when server is successfully added */
+  /** Called when server is successfully added/updated */
   onSuccess: () => void;
   /** Project path for context (null = global/user scope only) */
   projectPath?: string | null;
+  /** Server to edit (if provided, form is in edit mode) */
+  editServer?: McpServer | null;
 }
 
 interface FormData {
   name: string;
   scope: Scope;
   transport: McpTransport;
-  command: string;
-  args: string;
+  command: string; // Full command with args, e.g. "npx -y @anthropic/mcp-server"
   url: string;
   env: string;
+  docsUrl: string;
 }
 
 const defaultFormData: FormData = {
@@ -47,25 +49,92 @@ const defaultFormData: FormData = {
   scope: 'project',
   transport: 'stdio',
   command: '',
-  args: '',
   url: '',
   env: '',
+  docsUrl: '',
 };
 
-export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFormProps) {
+/**
+ * Parse a command string into command and args, handling quoted strings
+ * e.g. "npx -y @foo/bar" -> { command: "npx", args: ["-y", "@foo/bar"] }
+ * e.g. 'node "path with spaces/server.js"' -> { command: "node", args: ["path with spaces/server.js"] }
+ */
+function parseCommand(input: string): { command: string; args: string[] } {
+  const parts: string[] = [];
+  let current = '';
+  let inQuote = false;
+  let quoteChar = '';
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if ((char === '"' || char === "'") && !inQuote) {
+      inQuote = true;
+      quoteChar = char;
+    } else if (char === quoteChar && inQuote) {
+      inQuote = false;
+      quoteChar = '';
+    } else if (char === ' ' && !inQuote) {
+      if (current) {
+        parts.push(current);
+        current = '';
+      }
+    } else {
+      current += char;
+    }
+  }
+
+  if (current) {
+    parts.push(current);
+  }
+
+  const [command, ...args] = parts;
+  return { command: command || '', args };
+}
+
+export function McpForm({
+  open,
+  onClose,
+  onSuccess,
+  projectPath = null,
+  editServer = null,
+}: McpFormProps) {
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Update default scope based on project context
+  const isEditMode = !!editServer;
+
+  // Initialize form data based on edit mode or project context
   useEffect(() => {
     if (open) {
-      setFormData((prev) => ({
-        ...prev,
-        scope: projectPath ? 'project' : 'user',
-      }));
+      if (editServer) {
+        // Reconstruct command string from command + args
+        const commandParts = [editServer.command, ...editServer.args].filter(Boolean);
+        const commandStr = commandParts.join(' ');
+
+        // Reconstruct env string from env object
+        const envStr = Object.entries(editServer.env)
+          .map(([k, v]) => `${k}=${v}`)
+          .join('\n');
+
+        setFormData({
+          name: editServer.name,
+          scope: editServer.scope as Scope,
+          transport: editServer.transport as McpTransport,
+          command: commandStr,
+          url: editServer.url || '',
+          env: envStr,
+          docsUrl: editServer.docsUrl || '',
+        });
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          scope: projectPath ? 'project' : 'user',
+        }));
+      }
     }
-  }, [open, projectPath]);
+  }, [open, projectPath, editServer]);
 
   const resetForm = () => {
     setFormData({
@@ -86,11 +155,8 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
     setLoading(true);
 
     try {
-      // Parse args from comma-separated string
-      const args = formData.args
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
+      // Parse command string into command and args
+      const { command, args } = parseCommand(formData.command);
 
       // Parse env from KEY=value format (one per line)
       const env: Record<string, string> = {};
@@ -103,35 +169,50 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
         });
       }
 
+      // If editing, remove the old server first
+      if (isEditMode && editServer) {
+        await invoke<OperationResult>('mcp_remove', {
+          params: {
+            name: editServer.name,
+            scope: editServer.scope,
+            dryRun: false,
+          },
+          projectPath,
+        });
+      }
+
       const result = await invoke<OperationResult>('mcp_add', {
         params: {
           name: formData.name,
           scope: formData.scope,
           transport: formData.transport,
-          command: formData.transport === 'stdio' ? formData.command || null : null,
-          args: formData.transport === 'stdio' ? args : null,
+          command: formData.transport === 'stdio' ? command || null : null,
+          args: formData.transport === 'stdio' && args.length > 0 ? args : null,
           env: Object.keys(env).length > 0 ? env : null,
           url: formData.transport !== 'stdio' ? formData.url || null : null,
+          docsUrl: formData.docsUrl.trim() || null,
           dryRun: false,
         },
         projectPath,
       });
 
       if (result.success) {
-        toast.success(`Added "${formData.name}"`, {
-          description: `MCP server added to ${formData.scope} scope`,
+        toast.success(isEditMode ? `Updated "${formData.name}"` : `Added "${formData.name}"`, {
+          description: `MCP server ${isEditMode ? 'updated in' : 'added to'} ${formData.scope} scope`,
         });
         resetForm();
         onSuccess();
       } else {
-        toast.error('Failed to add server', {
+        toast.error(isEditMode ? 'Failed to update server' : 'Failed to add server', {
           description: result.error || 'Unknown error',
         });
-        setError(result.error || 'Failed to add server');
+        setError(result.error || `Failed to ${isEditMode ? 'update' : 'add'} server`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error('Failed to add server', { description: message });
+      toast.error(isEditMode ? 'Failed to update server' : 'Failed to add server', {
+        description: message,
+      });
       setError(message);
     } finally {
       setLoading(false);
@@ -145,9 +226,11 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
       <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add MCP Server</DialogTitle>
+            <DialogTitle>{isEditMode ? 'Edit MCP Server' : 'Add MCP Server'}</DialogTitle>
             <DialogDescription>
-              Configure a new Model Context Protocol server for Claude Code.
+              {isEditMode
+                ? `Update configuration for "${editServer?.name}".`
+                : 'Configure a new Model Context Protocol server for Claude Code.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -228,31 +311,19 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
 
             {/* Command (stdio only) */}
             {isStdio && (
-              <>
-                <div className="grid gap-2">
-                  <Label htmlFor="command">Command *</Label>
-                  <Input
-                    id="command"
-                    value={formData.command}
-                    onChange={(e) => setFormData({ ...formData, command: e.target.value })}
-                    placeholder="node, npx, python, etc."
-                    required={isStdio}
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="args">Arguments (comma-separated)</Label>
-                  <Input
-                    id="args"
-                    value={formData.args}
-                    onChange={(e) => setFormData({ ...formData, args: e.target.value })}
-                    placeholder="-y, package-name@latest"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Each argument separated by comma. Example: -y, @anthropic/mcp-server
-                  </p>
-                </div>
-              </>
+              <div className="grid gap-2">
+                <Label htmlFor="command">Command *</Label>
+                <Input
+                  id="command"
+                  value={formData.command}
+                  onChange={(e) => setFormData({ ...formData, command: e.target.value })}
+                  placeholder="npx -y @anthropic/mcp-server"
+                  required={isStdio}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Full command with arguments, e.g. npx -y @modelcontextprotocol/server-memory
+                </p>
+              </div>
             )}
 
             {/* URL (http/sse only) */}
@@ -281,6 +352,21 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
               />
             </div>
 
+            {/* Documentation URL */}
+            <div className="grid gap-2">
+              <Label htmlFor="docsUrl">Documentation URL (optional)</Label>
+              <Input
+                id="docsUrl"
+                type="url"
+                value={formData.docsUrl}
+                onChange={(e) => setFormData({ ...formData, docsUrl: e.target.value })}
+                placeholder="https://github.com/org/mcp-server#readme"
+              />
+              <p className="text-xs text-muted-foreground">
+                Link to project page or docs for quick reference
+              </p>
+            </div>
+
             {/* Error display */}
             {error && (
               <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
@@ -294,7 +380,13 @@ export function McpForm({ open, onClose, onSuccess, projectPath = null }: McpFor
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Adding...' : 'Add Server'}
+              {loading
+                ? isEditMode
+                  ? 'Updating...'
+                  : 'Adding...'
+                : isEditMode
+                  ? 'Update Server'
+                  : 'Add Server'}
             </Button>
           </DialogFooter>
         </form>
