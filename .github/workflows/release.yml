@@ -290,7 +290,11 @@ jobs:
 
       - name: Merge latest.json and Prepare Assets
         run: |
+          mkdir -p artifacts
           mkdir -p release-assets
+          
+          echo "Content of artifacts directory:"
+          ls -R artifacts
           
           # Find and merge latest.json files
           find artifacts -name "latest.json" > json_files.txt
