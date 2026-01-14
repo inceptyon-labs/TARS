@@ -505,6 +505,7 @@ pub async fn delete_profile_cleanup(
                 .list_by_profile(uuid)
                 .map_err(|e| format!("Failed to list projects: {e}"))?;
 
+            let projects_count = projects.len();
             let mut removed_total = 0usize;
             let mut project_paths = Vec::new();
 
@@ -585,7 +586,7 @@ pub async fn delete_profile_cleanup(
                 profile.name,
                 project_paths,
                 deleted,
-                projects.len(),
+                projects_count,
                 removed_total,
             ))
         })?;

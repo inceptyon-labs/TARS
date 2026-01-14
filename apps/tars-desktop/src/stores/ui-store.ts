@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -120,6 +120,27 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'tars-ui-settings',
+      storage: createJSONStorage(() => {
+        const memoryStorage = new Map<string, string>();
+        const fallbackStorage = {
+          getItem: (name: string) => (memoryStorage.has(name) ? memoryStorage.get(name)! : null),
+          setItem: (name: string, value: string) => {
+            memoryStorage.set(name, value);
+          },
+          removeItem: (name: string) => {
+            memoryStorage.delete(name);
+          },
+        };
+        try {
+          const candidate = typeof window !== 'undefined' ? window.localStorage : undefined;
+          if (candidate && typeof candidate.setItem === 'function') {
+            return candidate;
+          }
+        } catch {
+          return fallbackStorage;
+        }
+        return fallbackStorage;
+      }),
       // Only persist user preferences, not transient state
       partialize: (state) => ({
         theme: state.theme,
