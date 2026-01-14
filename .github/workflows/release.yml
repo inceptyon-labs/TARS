@@ -253,9 +253,23 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: apps/tars-desktop
-          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target ${{ matrix.target }}
           updaterJsonKeepUniversal: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.name }}
+          path: |
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz*
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
+            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/latest.json
+          if-no-files-found: warn
 
   publish-release:
     needs: [create-release, build-tauri]
@@ -264,15 +278,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Publish release
-        uses: actions/github-script@v7
-        env:
-          release_id: ${{ needs.create-release.outputs.release_id }}
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          script: |
-            github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: process.env.release_id,
-              draft: false
-            })
+          pattern: artifacts-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Merge latest.json and Prepare Assets
+        run: |
+          mkdir -p release-assets
+          
+          # Find and merge latest.json files
+          find artifacts -name "latest.json" > json_files.txt
+          if [ -s json_files.txt ]; then
+            # Merge JSON files using jq, combining the 'platforms' object and keeping other fields from the last file
+            jq -s 'reduce .[] as $item ({}; . * $item | .platforms = ((.platforms // {}) + ($item.platforms // {})))' $(cat json_files.txt) > release-assets/latest.json
+            echo "Merged latest.json:"
+            cat release-assets/latest.json
+          else
+            echo "No latest.json files found"
+          fi
+          
+          # Copy all other assets to release-assets, flattening structure
+          find artifacts -type f ! -name "latest.json" -exec cp {} release-assets/ \;
+          
+          echo "Assets to upload:"
+          ls -lh release-assets/
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: release-assets/*
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+          draft: false
