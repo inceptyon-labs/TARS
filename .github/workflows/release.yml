@@ -65,7 +65,7 @@ jobs:
           echo "" >> /tmp/release_notes.md
 
           # Get features (feat:)
-          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:") | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
+          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:" | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FEATURES" ]; then
             echo "## Features" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -74,7 +74,7 @@ jobs:
           fi
 
           # Get fixes (fix:)
-          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:") | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
+          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:" | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FIXES" ]; then
             echo "## Bug Fixes" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -83,7 +83,7 @@ jobs:
           fi
 
           # Get performance improvements (perf:)
-          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:") | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
+          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:" | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
           if [ -n "$PERF" ]; then
             echo "## Performance" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -92,7 +92,7 @@ jobs:
           fi
 
           # Get breaking changes (anything with !)
-          BREAKING=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^[a-z]+(\(.+\))?!:") | sed -E 's/^[a-z]+(\([^)]+\))?!: /- **BREAKING:** /' || true)
+          BREAKING=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^[a-z]+(\(.+\))?!:" | sed -E 's/^[a-z]+(\([^)]+\))?!: /- **BREAKING:** /' || true)
           if [ -n "$BREAKING" ]; then
             echo "## Breaking Changes" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -122,7 +122,7 @@ jobs:
           echo "" >> /tmp/changelog_entry.md
 
           # Get features (feat:)
-          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:") | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
+          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:" | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FEATURES" ]; then
             echo "### Added" >> /tmp/changelog_entry.md
             echo "$FEATURES" >> /tmp/changelog_entry.md
@@ -130,7 +130,7 @@ jobs:
           fi
 
           # Get fixes (fix:)
-          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:") | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
+          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:" | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FIXES" ]; then
             echo "### Fixed" >> /tmp/changelog_entry.md
             echo "$FIXES" >> /tmp/changelog_entry.md
@@ -138,7 +138,7 @@ jobs:
           fi
 
           # Get performance improvements (perf:)
-          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:") | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
+          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:" | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
           if [ -n "$PERF" ]; then
             echo "### Performance" >> /tmp/changelog_entry.md
             echo "$PERF" >> /tmp/changelog_entry.md
