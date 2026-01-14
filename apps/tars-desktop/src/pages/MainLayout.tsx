@@ -19,6 +19,7 @@ import {
   BarChart3,
   Settings,
   GripVertical,
+  FileCog,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/ui-store';
@@ -41,6 +42,7 @@ const navigation = [
   { name: 'Hooks', href: '/hooks', icon: Webhook },
   { name: 'MCP Servers', href: '/mcp', icon: Server },
   { name: 'Plugins', href: '/plugins', icon: Plug },
+  { name: 'Claude Settings', href: '/claude-settings', icon: FileCog },
 ];
 
 // Sidebar constraints

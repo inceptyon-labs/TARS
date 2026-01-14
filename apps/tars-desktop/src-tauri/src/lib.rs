@@ -172,6 +172,9 @@ pub fn run() {
             commands::get_app_version,
             commands::get_platform_info,
             commands::get_claude_usage_stats,
+            // Settings commands
+            commands::read_settings_file,
+            commands::save_settings_file,
             // Update commands
             commands::get_installed_claude_version,
             commands::fetch_claude_changelog,

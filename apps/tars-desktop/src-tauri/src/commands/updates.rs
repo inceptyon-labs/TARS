@@ -486,7 +486,7 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
             Scope::Project => "Project",
             Scope::Local => "Local",
             Scope::Managed => "Managed",
-            _ => "User",
+            Scope::Plugin(_) => "Plugin",
         }
         .to_string();
 

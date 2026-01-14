@@ -137,6 +137,41 @@ export async function getContextStats(projectPath: string): Promise<ContextStats
   return invoke('get_context_stats', { projectPath });
 }
 
+export type SettingsScope = 'user' | 'project' | 'local';
+
+export interface SettingsFile {
+  path: string;
+  content: string | null;
+  exists: boolean;
+  scope: SettingsScope;
+}
+
+export interface SettingsFileParams {
+  scope: SettingsScope;
+  projectPath?: string | null;
+}
+
+export async function readSettingsFile(params: SettingsFileParams): Promise<SettingsFile> {
+  return invoke('read_settings_file', {
+    params: {
+      scope: params.scope,
+      projectPath: params.projectPath ?? null,
+    },
+  });
+}
+
+export async function saveSettingsFile(
+  params: SettingsFileParams & { content: string }
+): Promise<void> {
+  return invoke('save_settings_file', {
+    params: {
+      scope: params.scope,
+      projectPath: params.projectPath ?? null,
+      content: params.content,
+    },
+  });
+}
+
 // Profile commands
 export async function listProfiles(): Promise<ProfileInfo[]> {
   return invoke('list_profiles');

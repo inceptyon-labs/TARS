@@ -36,6 +36,9 @@ const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 );
 const UsagePage = lazy(() => import('./pages/UsagePage').then((m) => ({ default: m.UsagePage })));
+const ClaudeSettingsPage = lazy(() =>
+  import('./pages/ClaudeSettingsPage').then((m) => ({ default: m.ClaudeSettingsPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -189,6 +192,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <SettingsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="claude-settings"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <ClaudeSettingsPage />
                   </Suspense>
                 }
               />
