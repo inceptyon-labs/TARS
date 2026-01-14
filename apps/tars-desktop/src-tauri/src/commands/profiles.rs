@@ -960,7 +960,7 @@ pub async fn export_profile_as_plugin(
     let ext = output
         .extension()
         .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase());
+        .map(str::to_lowercase);
     if ext.as_deref() != Some("zip") {
         output.set_extension("zip");
     }
@@ -1507,7 +1507,7 @@ fn skill_source_dir(path: &Path) -> Option<PathBuf> {
     if path.is_dir() {
         Some(path.to_path_buf())
     } else {
-        path.parent().map(|p| p.to_path_buf())
+        path.parent().map(Path::to_path_buf)
     }
 }
 
@@ -2680,12 +2680,12 @@ pub async fn assign_profile_as_plugin(
             .ok_or("Profile not found")?;
 
         let old_profile = if let Some(old_profile_id) = project.assigned_profile_id {
-            if old_profile_id != profile_uuid {
+            if old_profile_id == profile_uuid {
+                None
+            } else {
                 profile_store
                     .get(old_profile_id)
                     .map_err(|e| format!("Database error loading previous profile: {e}"))?
-            } else {
-                None
             }
         } else {
             None
