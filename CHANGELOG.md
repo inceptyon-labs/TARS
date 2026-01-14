@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.2.13] - 2026-01-14
+
+### Added
+- add 'keep' option to release script to re-trigger CI without bumping version
+
+### Fixed
+- correct syntax in release workflow grep/sed pipelines
+- fix quoting in release notes generation to prevent command execution
+
+
 ## [0.2.11] - 2026-01-14
 
 ### Fixed
