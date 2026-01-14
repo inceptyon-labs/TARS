@@ -311,6 +311,16 @@ jobs:
           # Find and merge latest.json files
           find artifacts -name "latest.json" > json_files.txt
           if [ -s json_files.txt ]; then
+            echo "Found latest.json files:"
+            cat json_files.txt
+            
+            echo "--- Content of found JSON files ---"
+            for f in $(cat json_files.txt); do
+              echo "File: $f"
+              cat "$f"
+              echo "---------------------------------"
+            done
+            
             # Merge JSON files using jq, combining the 'platforms' object 
             # and rewriting the URLs to point to the GitHub Release
             jq -s --arg base_url "$BASE_URL" '
@@ -320,8 +330,15 @@ jobs:
             
             echo "Merged latest.json:"
             cat release-assets/latest.json
+            
+            # Verify JSON validity
+            if ! jq empty release-assets/latest.json; then
+              echo "Error: Generated latest.json is invalid JSON"
+              exit 1
+            fi
           else
-            echo "No latest.json files found"
+            echo "Error: No latest.json files found!"
+            exit 1
           fi
           
           # Copy all other assets to release-assets, flattening structure
