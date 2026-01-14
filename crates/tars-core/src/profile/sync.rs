@@ -1226,7 +1226,7 @@ mod tests {
             .and_then(|p| p.as_object())
             .expect("enabledPlugins map");
         assert_eq!(
-            enabled_plugins.get(plugin_name).and_then(|v| v.as_bool()),
+            enabled_plugins.get(plugin_name).and_then(Value::as_bool),
             Some(true)
         );
 
