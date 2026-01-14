@@ -289,62 +289,124 @@ jobs:
           path: artifacts
           merge-multiple: false
 
-      - name: Merge latest.json and Prepare Assets
+      - name: Generate latest.json and Prepare Assets
         run: |
-          mkdir -p artifacts
           mkdir -p release-assets
           
-          echo "Content of artifacts directory:"
-          ls -R artifacts
-
-          # Determine TAG_NAME for URL construction
+          # Determine TAG_NAME and Version
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG_NAME="v${{ inputs.version }}"
+            VERSION="${{ inputs.version }}"
           else
             TAG_NAME="${{ github.ref_name }}"
+            VERSION="${TAG_NAME#v}"
           fi
           
           REPO="${{ github.repository }}"
           BASE_URL="https://github.com/$REPO/releases/download/$TAG_NAME/"
-          echo "Base URL for updater: $BASE_URL"
+          echo "Base URL: $BASE_URL"
+          echo "Version: $VERSION"
           
-          # Find and merge latest.json files
-          find artifacts -name "latest.json" > json_files.txt
-          if [ -s json_files.txt ]; then
-            echo "Found latest.json files:"
-            cat json_files.txt
+          # Initialize platforms object
+          echo "{}" > platforms.json
+          
+          # Function to process updater artifacts
+          # Usage: process_artifact <dir_pattern> <platform_key> <file_extension> <rename_suffix>
+          process_artifact() {
+            local dir_pattern=$1
+            local platform_key=$2
+            local ext=$3
+            local suffix=$4
             
-            echo "--- Content of found JSON files ---"
-            for f in $(cat json_files.txt); do
-              echo "File: $f"
-              cat "$f"
-              echo "---------------------------------"
-            done
+            # Find the directory matching the pattern
+            local source_dir=$(find artifacts -type d -name "$dir_pattern" | head -n 1)
             
-            # Merge JSON files using jq, combining the 'platforms' object 
-            # and rewriting the URLs to point to the GitHub Release
-            jq -s --arg base_url "$BASE_URL" '
-              reduce .[] as $item ({}; . * $item | .platforms = ((.platforms // {}) + ($item.platforms // {}))) |
-              .platforms |= map_values(.url |= $base_url + (split("/") | last))
-            ' $(cat json_files.txt) > release-assets/latest.json
-            
-            echo "Merged latest.json:"
-            cat release-assets/latest.json
-            
-            # Verify JSON validity
-            if ! jq empty release-assets/latest.json; then
-              echo "Error: Generated latest.json is invalid JSON"
-              exit 1
+            if [ -z "$source_dir" ]; then
+              echo "Warning: Directory matching '$dir_pattern' not found."
+              return
             fi
-          else
-            echo "Error: No latest.json files found!"
-            exit 1
+            
+            echo "Processing $platform_key from $source_dir..."
+            
+            # Find signature file
+            local sig_file=$(find "$source_dir" -name "*${ext}.sig" | head -n 1)
+            
+            if [ -n "$sig_file" ]; then
+              local asset_file="${sig_file%.sig}"
+              local filename=$(basename "$asset_file")
+              local sig_content=$(cat "$sig_file")
+              
+              # Rename logic
+              if [ -n "$suffix" ]; then
+                # Assume filename format TARS.ext or TARS_ver.ext
+                # We want TARS_suffix.ext or TARS_ver_suffix.ext
+                # Simple approach: Prepend suffix to extension? 
+                # Or just construct TARS_${suffix}${ext} if it matches TARS${ext}
+                # Let's use a safe rename: insert suffix before first dot or append?
+                # For macOS .app.tar.gz, we want TARS_${suffix}.app.tar.gz
+                
+                if [[ "$filename" == "TARS.app.tar.gz" ]]; then
+                   local new_filename="TARS_${suffix}.app.tar.gz"
+                else
+                   # Fallback: append suffix
+                   local new_filename="${filename%.*}_${suffix}.${filename##*.}"
+                fi
+                
+                cp "$asset_file" "release-assets/$new_filename"
+                cp "$sig_file" "release-assets/$new_filename.sig"
+                filename="$new_filename"
+              else
+                cp "$asset_file" "release-assets/"
+                cp "$sig_file" "release-assets/"
+              fi
+              
+              local url="$BASE_URL$filename"
+              
+              # Add to platforms.json
+              jq --arg k "$platform_key" --arg s "$sig_content" --arg u "$url" \
+                 '.[$k] = {signature: $s, url: $u}' platforms.json > platforms.tmp && mv platforms.tmp platforms.json
+            else
+              echo "No .sig file found in $source_dir"
+            fi
+          }
+          
+          # Process artifacts for each platform
+          # Note: Adjust extensions based on what build-tauri outputs. 
+          # Assuming standard Tauri v2 outputs.
+          
+          process_artifact "artifacts-macOS-arm64" "darwin-aarch64" ".app.tar.gz" "aarch64"
+          process_artifact "artifacts-macOS-x64" "darwin-x86_64" ".app.tar.gz" "x64"
+          process_artifact "artifacts-Linux-x64" "linux-x86_64" ".AppImage.tar.gz" "" # Check if AppImage is gzipped? Usually .tar.gz for updater
+          process_artifact "artifacts-Windows-x64" "windows-x86_64" ".msi.zip" "" # Usually zipped for updater
+          
+          # Fallback check: Tauri might output just .AppImage.sig or .msi.sig if configured differently?
+          # If previous calls failed, try alternative extensions
+          if ! jq -e '.["linux-x86_64"]' platforms.json >/dev/null; then
+             process_artifact "artifacts-Linux-x64" "linux-x86_64" ".AppImage" ""
+          fi
+          if ! jq -e '.["windows-x86_64"]' platforms.json >/dev/null; then
+             process_artifact "artifacts-Windows-x64" "windows-x86_64" ".msi" ""
+             # And check for .nsis.zip
+             if ! jq -e '.["windows-x86_64"]' platforms.json >/dev/null; then
+                process_artifact "artifacts-Windows-x64" "windows-x86_64" ".nsis.zip" ""
+             fi
           fi
           
-          # Copy all other assets to release-assets, flattening structure
-          find artifacts -type f ! -name "latest.json" -exec cp {} release-assets/ \;
+          # Generate latest.json
+          jq -n --arg v "$VERSION" \
+                --arg n "See release notes" \
+                --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                --slurpfile p platforms.json \
+                '{version: $v, notes: $n, pub_date: $d, platforms: $p[0]}' > release-assets/latest.json
           
-          echo "Assets to upload:"
+          echo "Generated latest.json:"
+          cat release-assets/latest.json
+          
+          # Copy all other assets (DMGs, EXEs, etc) to release-assets
+          # Use -n (no clobber) to avoid overwriting the renamed files
+          find artifacts -type f ! -name "latest.json" -exec cp -n {} release-assets/ \; || true
+          
+          echo "Final Assets:"
           ls -lh release-assets/
 
       - name: Upload Release Assets
