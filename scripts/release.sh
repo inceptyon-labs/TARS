@@ -1,12 +1,13 @@
 #!/bin/bash
 #
 # TARS Release Script
-# Usage: ./scripts/release.sh [major|minor|patch]
+# Usage: ./scripts/release.sh [major|minor|patch|keep]
 #
 # Examples:
 #   ./scripts/release.sh patch   # 0.1.0 -> 0.1.1
 #   ./scripts/release.sh minor   # 0.1.0 -> 0.2.0
 #   ./scripts/release.sh major   # 0.1.0 -> 1.0.0
+#   ./scripts/release.sh keep    # 0.1.0 -> 0.1.0 (re-tag and re-release)
 #
 
 set -e
@@ -76,16 +77,18 @@ if [[ -z "$BUMP_TYPE" ]]; then
     echo -e "  ${GREEN}1)${NC} patch  ($CURRENT_VERSION -> $MAJOR.$MINOR.$((PATCH + 1)))"
     echo -e "  ${GREEN}2)${NC} minor  ($CURRENT_VERSION -> $MAJOR.$((MINOR + 1)).0)"
     echo -e "  ${GREEN}3)${NC} major  ($CURRENT_VERSION -> $((MAJOR + 1)).0.0)"
-    echo -e "  ${GREEN}4)${NC} custom (enter version manually)"
+    echo -e "  ${GREEN}4)${NC} keep   ($CURRENT_VERSION -> $CURRENT_VERSION)"
+    echo -e "  ${GREEN}5)${NC} custom (enter version manually)"
     echo ""
-    read -p "Choice [1-4]: " -n 1 -r CHOICE
+    read -p "Choice [1-5]: " -n 1 -r CHOICE
     echo ""
 
     case $CHOICE in
         1) BUMP_TYPE="patch" ;;
         2) BUMP_TYPE="minor" ;;
         3) BUMP_TYPE="major" ;;
-        4) BUMP_TYPE="custom" ;;
+        4) BUMP_TYPE="keep" ;;
+        5) BUMP_TYPE="custom" ;;
         *)
             echo -e "${RED}Invalid choice${NC}"
             exit 1
@@ -95,6 +98,9 @@ fi
 
 # Calculate new version
 case $BUMP_TYPE in
+    keep)
+        NEW_VERSION="$CURRENT_VERSION"
+        ;;
     patch)
         NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
         ;;
@@ -114,7 +120,7 @@ case $BUMP_TYPE in
         ;;
     *)
         echo -e "${RED}Invalid bump type: $BUMP_TYPE${NC}"
-        echo "Usage: $0 [major|minor|patch|custom]"
+        echo "Usage: $0 [major|minor|patch|keep|custom]"
         exit 1
         ;;
 esac
@@ -131,55 +137,73 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-echo ""
-echo -e "${BLUE}Updating version in all config files...${NC}"
+if [[ "$BUMP_TYPE" != "keep" ]]; then
+    echo ""
+    echo -e "${BLUE}Updating version in all config files...${NC}"
 
-# Update version in tauri.conf.json using sed (macOS compatible)
-echo -e "  Updating $TAURI_CONF..."
-if [[ "$(uname)" == "Darwin" ]]; then
-    sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$TAURI_CONF"
+    # Update version in tauri.conf.json using sed (macOS compatible)
+    echo -e "  Updating $TAURI_CONF..."
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$TAURI_CONF"
+    else
+        sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$TAURI_CONF"
+    fi
+
+    # Verify tauri.conf.json update
+    UPDATED_VERSION=$(grep '"version"' "$TAURI_CONF" | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
+    if [[ "$UPDATED_VERSION" != "$NEW_VERSION" ]]; then
+        echo -e "${RED}Error: tauri.conf.json version update failed${NC}"
+        git checkout "$TAURI_CONF"
+        exit 1
+    fi
+    echo -e "${GREEN}  ✓ tauri.conf.json${NC}"
+
+    # Update version in root Cargo.toml (workspace.package section)
+    echo -e "  Updating $CARGO_TOML..."
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+    else
+        sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+    fi
+    echo -e "${GREEN}  ✓ Cargo.toml${NC}"
+
+    # Update version in package.json
+    echo -e "  Updating $PACKAGE_JSON..."
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$PACKAGE_JSON"
+    else
+        sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$PACKAGE_JSON"
+    fi
+    echo -e "${GREEN}  ✓ package.json${NC}"
+
+    echo -e "${GREEN}✓ All versions updated to $NEW_VERSION${NC}"
+
+    # Commit
+    echo -e "${BLUE}Creating commit...${NC}"
+    git add "$TAURI_CONF" "$CARGO_TOML" "$PACKAGE_JSON"
+    git commit -m "chore: bump version to $NEW_VERSION"
+    echo -e "${GREEN}✓ Commit created${NC}"
 else
-    sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$TAURI_CONF"
+    echo -e "${BLUE}Keeping version at v$CURRENT_VERSION. Skipping config updates and commit.${NC}"
 fi
-
-# Verify tauri.conf.json update
-UPDATED_VERSION=$(grep '"version"' "$TAURI_CONF" | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
-if [[ "$UPDATED_VERSION" != "$NEW_VERSION" ]]; then
-    echo -e "${RED}Error: tauri.conf.json version update failed${NC}"
-    git checkout "$TAURI_CONF"
-    exit 1
-fi
-echo -e "${GREEN}  ✓ tauri.conf.json${NC}"
-
-# Update version in root Cargo.toml (workspace.package section)
-echo -e "  Updating $CARGO_TOML..."
-if [[ "$(uname)" == "Darwin" ]]; then
-    sed -i '' "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
-else
-    sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
-fi
-echo -e "${GREEN}  ✓ Cargo.toml${NC}"
-
-# Update version in package.json
-echo -e "  Updating $PACKAGE_JSON..."
-if [[ "$(uname)" == "Darwin" ]]; then
-    sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$PACKAGE_JSON"
-else
-    sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" "$PACKAGE_JSON"
-fi
-echo -e "${GREEN}  ✓ package.json${NC}"
-
-echo -e "${GREEN}✓ All versions updated to $NEW_VERSION${NC}"
-
-# Commit
-echo -e "${BLUE}Creating commit...${NC}"
-git add "$TAURI_CONF" "$CARGO_TOML" "$PACKAGE_JSON"
-git commit -m "chore: bump version to $NEW_VERSION"
-echo -e "${GREEN}✓ Commit created${NC}"
 
 # Create tag
 TAG="v$NEW_VERSION"
 echo -e "${BLUE}Creating tag $TAG...${NC}"
+
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+    echo -e "${YELLOW}Warning: Tag $TAG already exists.${NC}"
+    read -p "Delete and recreate tag to re-trigger release? (y/N) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        git tag -d "$TAG"
+        git push origin :refs/tags/"$TAG" || echo -e "${YELLOW}Could not delete remote tag (might not exist)${NC}"
+    else
+        echo "Aborted."
+        exit 1
+    fi
+fi
+
 git tag -a "$TAG" -m "Release $TAG"
 echo -e "${GREEN}✓ Tag created${NC}"
 
