@@ -5,7 +5,7 @@
  * Checks on startup and polls periodically (every 10 minutes).
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   RefreshCw,
   Download,
@@ -26,6 +26,7 @@ import {
   checkPluginUpdates,
   checkTarsUpdate,
   installTarsUpdate,
+  installPlugin as installPluginByKey,
 } from '../lib/ipc';
 import type { ChangelogEntry, PluginUpdateInfo } from '../lib/types';
 import { Button } from '../components/ui/button';
@@ -131,6 +132,29 @@ export function UpdatesPage() {
       setIsRefreshing(false);
     }
   };
+
+  const updateMutation = useMutation({
+    mutationFn: (plugin: PluginUpdateInfo) => {
+      const pluginKey = plugin.marketplace
+        ? `${plugin.plugin_id}@${plugin.marketplace}`
+        : plugin.plugin_id;
+
+      return installPluginByKey(
+        pluginKey,
+        plugin.scope_type.toLowerCase(),
+        plugin.project_path ?? undefined
+      );
+    },
+    onSuccess: (_data, plugin) => {
+      toast.success(`Updated ${plugin.plugin_name}`);
+      void refetchPlugins();
+    },
+    onError: (err, plugin) => {
+      toast.error(`Failed to update ${plugin.plugin_name}`, {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    },
+  });
 
   const pluginsWithUpdates = pluginUpdates?.plugins_with_updates ?? 0;
 
@@ -462,12 +486,27 @@ export function UpdatesPage() {
             ) : pluginUpdates && pluginUpdates.updates.length > 0 ? (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="divide-y divide-border">
-                  {pluginUpdates.updates.map((plugin) => (
-                    <PluginUpdateItem
-                      key={`${plugin.plugin_id}@${plugin.marketplace}`}
-                      plugin={plugin}
-                    />
-                  ))}
+                  {pluginUpdates.updates.map((plugin) => {
+                    const pluginKey = plugin.marketplace
+                      ? `${plugin.plugin_id}@${plugin.marketplace}`
+                      : plugin.plugin_id;
+                    const activeUpdateKey = updateMutation.variables
+                      ? updateMutation.variables.marketplace
+                        ? `${updateMutation.variables.plugin_id}@${updateMutation.variables.marketplace}`
+                        : updateMutation.variables.plugin_id
+                      : null;
+
+                    return (
+                      <PluginUpdateItem
+                        key={pluginKey}
+                        plugin={plugin}
+                        onUpdate={() => updateMutation.mutate(plugin)}
+                        isUpdating={
+                          updateMutation.status === 'pending' && activeUpdateKey === pluginKey
+                        }
+                      />
+                    );
+                  })}
                 </div>
               </div>
             ) : pluginUpdates ? (
@@ -568,7 +607,15 @@ function ChangelogContent({ content }: { content: string }) {
   );
 }
 
-function PluginUpdateItem({ plugin }: { plugin: PluginUpdateInfo }) {
+function PluginUpdateItem({
+  plugin,
+  onUpdate,
+  isUpdating,
+}: {
+  plugin: PluginUpdateInfo;
+  onUpdate: () => void;
+  isUpdating: boolean;
+}) {
   return (
     <div className={`px-4 py-3 ${plugin.update_available ? 'bg-primary/5' : ''}`}>
       <div className="flex items-center justify-between">
@@ -586,7 +633,7 @@ function PluginUpdateItem({ plugin }: { plugin: PluginUpdateInfo }) {
             <div className="text-xs text-muted-foreground">from {plugin.marketplace}</div>
           </div>
         </div>
-        <div className="text-right">
+        <div className="flex flex-col items-end text-right gap-1">
           <div className="font-mono text-sm">
             {plugin.update_available ? (
               <>
@@ -598,7 +645,18 @@ function PluginUpdateItem({ plugin }: { plugin: PluginUpdateInfo }) {
               <span className="text-muted-foreground">{plugin.installed_version}</span>
             )}
           </div>
-          {!plugin.update_available && (
+          {plugin.update_available ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onUpdate}
+              disabled={isUpdating}
+              className="text-[10px]"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isUpdating ? 'animate-spin' : ''}`} />
+              {isUpdating ? 'Updating...' : 'Update'}
+            </Button>
+          ) : (
             <div className="text-xs text-green-600 dark:text-green-400">Up to date</div>
           )}
         </div>

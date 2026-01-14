@@ -709,6 +709,14 @@ export async function checkPluginUpdates(): Promise<PluginUpdatesResponse> {
   return invoke('check_plugin_updates');
 }
 
+export async function installPlugin(
+  plugin: string,
+  scope: string,
+  projectPath?: string | null
+): Promise<void> {
+  return invoke('plugin_install', { plugin, scope, projectPath });
+}
+
 // TARS app update commands
 export async function checkTarsUpdate(): Promise<TarsUpdateInfo> {
   return invoke('check_tars_update');

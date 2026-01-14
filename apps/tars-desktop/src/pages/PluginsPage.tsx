@@ -23,7 +23,13 @@ import { HelpButton } from '../components/HelpButton';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
-import { scanUserScope, listProfiles, listProjects, deleteProfileCleanup } from '../lib/ipc';
+import {
+  scanUserScope,
+  listProfiles,
+  listProjects,
+  deleteProfileCleanup,
+  installPlugin as installPluginByKey,
+} from '../lib/ipc';
 import type {
   AvailablePlugin,
   CacheStatusResponse,
@@ -177,11 +183,11 @@ export function PluginsPage() {
   }
 
   async function installPlugin(plugin: (typeof sortedInstalledPlugins)[number]) {
-    return invoke('plugin_install', {
-      plugin: getPluginInstallId(plugin),
-      scope: plugin.scope.type.toLowerCase(),
-      projectPath: plugin.project_path ?? undefined,
-    });
+    return installPluginByKey(
+      getPluginInstallId(plugin),
+      plugin.scope.type.toLowerCase(),
+      plugin.project_path ?? undefined
+    );
   }
 
   async function handleRemoveMarketplace() {
@@ -386,11 +392,7 @@ export function PluginsPage() {
     try {
       if (installScope === 'user') {
         // Install to user scope (global)
-        await invoke('plugin_install', {
-          plugin: pluginSpec,
-          scope: 'user',
-          projectPath: null,
-        });
+        await installPluginByKey(pluginSpec, 'user', null);
         toast.success(`Installed ${pluginId}`, {
           description: 'Available in all projects',
         });
@@ -410,11 +412,7 @@ export function PluginsPage() {
 
         for (const projectPath of selectedProjects) {
           try {
-            await invoke('plugin_install', {
-              plugin: pluginSpec,
-              scope: installScope,
-              projectPath,
-            });
+            await installPluginByKey(pluginSpec, installScope, projectPath);
             successfulProjects.push(projectPath);
           } catch (err) {
             failedResults.push({

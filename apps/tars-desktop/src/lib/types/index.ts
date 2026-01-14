@@ -552,6 +552,8 @@ export interface PluginUpdateInfo {
   installed_version: string;
   available_version: string;
   update_available: boolean;
+  scope_type: 'User' | 'Project' | 'Local' | 'Managed';
+  project_path?: string | null;
 }
 
 export interface PluginUpdatesResponse {

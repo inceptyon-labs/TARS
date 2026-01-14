@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;
 use tars_scanner::plugins::PluginInventory;
+use tars_scanner::types::Scope;
 use tauri::AppHandle;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -423,6 +424,8 @@ pub struct PluginUpdateInfo {
     pub installed_version: String,
     pub available_version: String,
     pub update_available: bool,
+    pub scope_type: String,
+    pub project_path: Option<String>,
 }
 
 /// Response for plugin updates check
@@ -478,6 +481,15 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
             false
         };
 
+        let scope_type = match installed.scope {
+            Scope::User => "User",
+            Scope::Project => "Project",
+            Scope::Local => "Local",
+            Scope::Managed => "Managed",
+            _ => "User",
+        }
+        .to_string();
+
         updates.push(PluginUpdateInfo {
             plugin_id: installed.id.clone(),
             plugin_name: installed.manifest.name.clone(),
@@ -485,6 +497,8 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
             installed_version,
             available_version,
             update_available,
+            scope_type,
+            project_path: installed.project_path.clone(),
         });
     }
 
