@@ -12,11 +12,26 @@ export const mockInvokeResponses: Record<string, unknown> = {
     mcp_servers: [],
     plugins: [],
   },
+  scan_profiles: {
+    skills: [],
+    commands: [],
+    agents: [],
+  },
   list_profiles: [],
   get_profile: null,
   create_profile: { id: 'test-profile-id' },
+  delete_profile: { deleted: true, converted_projects: 0 },
+  delete_profile_cleanup: {
+    deleted: true,
+    projects_unassigned: 0,
+    local_overrides_removed: 0,
+  },
   apply_profile: { success: true },
   rollback_profile: { success: true },
+  export_profile_as_plugin: '/tmp/plugin.zip',
+  list_profile_mcp_servers: [],
+  remove_profile_mcp_server: null,
+  create_profile_mcp_server: null,
 };
 
 // Helper to set up mock responses

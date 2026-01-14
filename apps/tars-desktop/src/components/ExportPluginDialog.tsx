@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import {
   Dialog,
@@ -13,6 +12,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Package, CheckCircle, Loader2, AlertTriangle, FolderOpen } from 'lucide-react';
+import { exportProfileAsPlugin } from '../lib/ipc';
 import type { ProfileInfo } from '../lib/types';
 
 interface ExportPluginDialogProps {
@@ -67,11 +67,9 @@ export function ExportPluginDialog({
     setError(null);
 
     try {
-      const result = await invoke<string>('export_profile_as_plugin', {
-        profileId: profile.id,
-        pluginName,
+      const result = await exportProfileAsPlugin(profile.id, outputPath, {
+        name: pluginName,
         version,
-        outputPath,
       });
       setExportedPath(result);
       setStep('success');
@@ -131,7 +129,7 @@ export function ExportPluginDialog({
             )}
           </DialogTitle>
           <DialogDescription>
-            {step === 'form' && `Export "${profile.name}" as a Claude Code plugin`}
+            {step === 'form' && `Export "${profile.name}" as a Claude Code plugin (ZIP)`}
             {step === 'exporting' && 'Please wait while the plugin is being created...'}
             {step === 'success' && 'Your plugin has been exported successfully.'}
             {step === 'error' && 'An error occurred while exporting the plugin.'}
@@ -209,9 +207,9 @@ export function ExportPluginDialog({
                 <p className="font-medium">Plugin exported successfully!</p>
                 <p className="text-sm text-muted-foreground break-all">{exportedPath}</p>
                 <p className="text-xs text-muted-foreground mt-4">
-                  Install with:{' '}
+                  Unzip and install with:{' '}
                   <code className="bg-muted px-1 py-0.5 rounded">
-                    claude plugin install {exportedPath}
+                    claude plugin install &lt;folder&gt;
                   </code>
                 </p>
               </div>

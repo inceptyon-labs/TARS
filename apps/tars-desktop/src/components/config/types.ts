@@ -3,7 +3,7 @@
  */
 
 /** Configuration scope */
-export type Scope = 'user' | 'project' | 'local';
+export type Scope = 'user' | 'project' | 'local' | 'profile';
 
 /** MCP server transport type */
 export type McpTransport = 'stdio' | 'http' | 'sse';
@@ -22,6 +22,10 @@ export interface McpServer {
   sourcePlugin?: string;
   /** Optional documentation/project page URL */
   docsUrl?: string;
+  /** Profile identifier when scope is profile */
+  profileId?: string;
+  /** Profile name when scope is profile */
+  profileName?: string;
 }
 
 /** Skill configuration */

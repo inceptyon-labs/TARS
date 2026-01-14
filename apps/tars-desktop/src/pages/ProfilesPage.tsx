@@ -3,27 +3,28 @@ import { Plus, Layers, RefreshCw, Search, Upload, AlertTriangle, X } from 'lucid
 import { Button } from '../components/ui/button';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { save } from '@tauri-apps/plugin-dialog';
 import {
   listProfiles,
   createEmptyProfile,
+  addToolsFromSource,
   deleteProfile,
   getProfile,
   updateProfile,
-  exportProfileJson,
 } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { ProfileList } from '../components/ProfileList';
 import { ProfileDetail } from '../components/ProfileDetail';
 import { CreateProfileWizard } from '../components/CreateProfileWizard';
+import { ExportPluginDialog } from '../components/ExportPluginDialog';
 import { ImportProfileDialog } from '../components/ImportProfileDialog';
-import type { ProfileDetails, ToolRef, ProfilePluginRef } from '../lib/types';
+import type { ProfileDetails, ToolRef, ToolType } from '../lib/types';
 
 export function ProfilesPage() {
   const queryClient = useQueryClient();
   const [selectedProfile, setSelectedProfile] = useState<ProfileDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const isDialogOpen = useUIStore((state) => state.isCreateProfileDialogOpen);
@@ -42,14 +43,32 @@ export function ProfilesPage() {
     }: {
       name: string;
       description?: string;
-      tools: ToolRef[];
+      tools: { name: string; toolType: ToolType; sourcePath: string }[];
     }) => {
       // Create the profile first
       const profile = await createEmptyProfile(name, description);
 
       // If tools were selected, add them to the profile
       if (tools.length > 0) {
-        await updateProfile({ id: profile.id, toolRefs: tools });
+        const toolsByPath = new Map<string, typeof tools>();
+        for (const tool of tools) {
+          const existing = toolsByPath.get(tool.sourcePath) || [];
+          existing.push(tool);
+          toolsByPath.set(tool.sourcePath, existing);
+        }
+
+        for (const [sourcePath, group] of toolsByPath) {
+          await addToolsFromSource(
+            profile.id,
+            sourcePath,
+            group.map((tool) => ({
+              name: tool.name,
+              tool_type: tool.toolType,
+              source_mode: 'track',
+            })),
+            'project'
+          );
+        }
       }
 
       return profile;
@@ -87,15 +106,8 @@ export function ProfilesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      toolRefs,
-      pluginRefs,
-    }: {
-      id: string;
-      toolRefs?: ToolRef[];
-      pluginRefs?: ProfilePluginRef[];
-    }) => updateProfile({ id, toolRefs, pluginRefs }),
+    mutationFn: ({ id, toolRefs }: { id: string; toolRefs?: ToolRef[] }) =>
+      updateProfile({ id, toolRefs }),
     onSuccess: async (response, variables) => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       // Refresh the selected profile details using the ID from mutation variables
@@ -127,14 +139,6 @@ export function ProfilesPage() {
     updateMutation.mutate({ id: selectedProfile.id, toolRefs: mergedTools });
   }
 
-  async function handleAddPlugins(plugins: ProfilePluginRef[]) {
-    if (!selectedProfile) return;
-    // Merge new plugins with existing ones
-    const existingPlugins = selectedProfile.plugin_refs || [];
-    const mergedPlugins = [...existingPlugins, ...plugins];
-    updateMutation.mutate({ id: selectedProfile.id, pluginRefs: mergedPlugins });
-  }
-
   async function handleRemoveTool(toolIndex: number) {
     if (!selectedProfile) return;
     const existingTools = selectedProfile.tool_refs || [];
@@ -142,29 +146,9 @@ export function ProfilesPage() {
     updateMutation.mutate({ id: selectedProfile.id, toolRefs: updatedTools });
   }
 
-  async function handleRemovePlugin(pluginIndex: number) {
-    if (!selectedProfile) return;
-    const existingPlugins = selectedProfile.plugin_refs || [];
-    const updatedPlugins = existingPlugins.filter((_, i) => i !== pluginIndex);
-    updateMutation.mutate({ id: selectedProfile.id, pluginRefs: updatedPlugins });
-  }
-
   async function handleExportProfile() {
     if (!selectedProfile) return;
-
-    try {
-      const path = await save({
-        defaultPath: `${selectedProfile.name}.tars-profile.json`,
-        filters: [{ name: 'TARS Profile', extensions: ['tars-profile.json'] }],
-      });
-
-      if (path) {
-        await exportProfileJson(selectedProfile.id, path);
-        toast.success(`Profile exported to ${path}`);
-      }
-    } catch (err) {
-      toast.error(`Export failed: ${err}`);
-    }
+    setIsExportDialogOpen(true);
   }
 
   async function handleSelectProfile(id: string) {
@@ -282,9 +266,7 @@ export function ProfilesPage() {
             <ProfileDetail
               profile={selectedProfile}
               onAddTools={handleAddTools}
-              onAddPlugins={handleAddPlugins}
               onRemoveTool={handleRemoveTool}
-              onRemovePlugin={handleRemovePlugin}
               onExportProfile={handleExportProfile}
               onToolsAdded={handleToolsAdded}
             />
@@ -322,6 +304,15 @@ export function ProfilesPage() {
           toast.success('Profile imported successfully');
         }}
       />
+
+      {selectedProfile && (
+        <ExportPluginDialog
+          open={isExportDialogOpen}
+          onOpenChange={setIsExportDialogOpen}
+          profile={selectedProfile}
+          onExportSuccess={(path) => toast.success(`Plugin exported to ${path}`)}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       {deleteConfirmId && (

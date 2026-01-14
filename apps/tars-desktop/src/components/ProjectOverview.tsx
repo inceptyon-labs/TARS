@@ -55,6 +55,7 @@ import type {
   McpServer,
   ProjectToolsResponse,
   ToolRefWithSource,
+  CollisionOccurrence,
 } from '../lib/types';
 import {
   readClaudeMd,
@@ -127,6 +128,10 @@ function checkToolAvailability(
   inventory: Inventory,
   projectPath: string
 ): { available: boolean; reason?: string } {
+  if (tool.source === 'profile') {
+    return { available: true };
+  }
+
   const { name, tool_type, source_scope } = tool;
   const nameLower = name.toLowerCase();
   const userScope = inventory.user_scope;
@@ -363,6 +368,26 @@ export function ProjectOverview({
 
   const totalCollisions =
     collisions.skills.length + collisions.commands.length + collisions.agents.length;
+
+  const formatCollisionScope = (scope: CollisionOccurrence['scope']) => {
+    if (typeof scope === 'string') {
+      return scope;
+    }
+    switch (scope.type) {
+      case 'User':
+        return 'User';
+      case 'Project':
+        return 'Project';
+      case 'Local':
+        return 'Local';
+      case 'Managed':
+        return 'Managed';
+      case 'Plugin':
+        return scope.plugin_id ? `Plugin (${scope.plugin_id})` : 'Plugin';
+      default:
+        return 'Unknown';
+    }
+  };
 
   const toggleSection = (id: SectionId) => {
     setExpandedSections((prev) => {
@@ -1329,24 +1354,39 @@ export function ProjectOverview({
                   <div key={c.name} className="bg-destructive/10 rounded p-3">
                     <div className="font-medium text-destructive">Skill: {c.name}</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Found in: {c.occurrences.map((o) => o.scope).join(', ')}
+                      Found in: {c.occurrences.map((o) => formatCollisionScope(o.scope)).join(', ')}
                     </div>
+                    {c.winner_scope && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Winner: {formatCollisionScope(c.winner_scope)}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {collisions.commands.map((c) => (
                   <div key={c.name} className="bg-destructive/10 rounded p-3">
                     <div className="font-medium text-destructive">Command: /{c.name}</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Found in: {c.occurrences.map((o) => o.scope).join(', ')}
+                      Found in: {c.occurrences.map((o) => formatCollisionScope(o.scope)).join(', ')}
                     </div>
+                    {c.winner_scope && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Winner: {formatCollisionScope(c.winner_scope)}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {collisions.agents.map((c) => (
                   <div key={c.name} className="bg-destructive/10 rounded p-3">
                     <div className="font-medium text-destructive">Agent: {c.name}</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Found in: {c.occurrences.map((o) => o.scope).join(', ')}
+                      Found in: {c.occurrences.map((o) => formatCollisionScope(o.scope)).join(', ')}
                     </div>
+                    {c.winner_scope && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Winner: {formatCollisionScope(c.winner_scope)}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1360,14 +1400,13 @@ export function ProjectOverview({
         open={isToolPickerOpen}
         onOpenChange={setIsToolPickerOpen}
         onAddTools={handleAddLocalTools}
-        onAddPlugins={() => {}} // Plugins are not used for local project overrides
         existingTools={combinedTools.map((t) => ({
           name: t.name,
           tool_type: t.tool_type,
           source_scope: t.source_scope,
           permissions: t.permissions,
+          source_ref: t.source_ref ?? null,
         }))}
-        existingPlugins={[]} // No plugin refs for local overrides
       />
     </div>
   );

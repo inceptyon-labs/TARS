@@ -28,7 +28,7 @@
 
 ## Overview
 
-TARS is a centralized hub for discovering, creating, editing, and managing Claude Code resources. It provides a visual interface for managing skills, agents, commands, hooks, MCP servers, and plugins across multiple projects with safe apply/rollback operations and profile-based configuration sharing.
+TARS is a centralized hub for discovering, creating, editing, and managing Claude Code resources. It provides a visual interface for managing skills, agents, commands, hooks, MCP servers, and plugins across multiple projects with safe apply/rollback operations and profile-based configuration sharing via a local profile marketplace.
 
 Inspired by the robot from Interstellar, TARS brings order to your Claude Code configuration chaos.
 
@@ -77,7 +77,7 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 ### MCP Servers
 - **Server management** - Add, remove, and configure MCP servers
 - **Transport types** - Support for stdio, HTTP, and SSE
-- **Scope configuration** - User-level or project-specific servers
+- **Scope configuration** - User, project, and profile scopes
 - **Environment variables** - Configure server environment
 - **Plugin integration** - View MCP servers provided by installed plugins
 
@@ -90,40 +90,57 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 - **Cache management** - View and clean plugin cache
 
 ### Profiles
-Profiles let you create reusable configuration bundles that can be shared across multiple projects. Think of them as "presets" for your Claude Code setup.
+Profiles let you create reusable configuration bundles that can be shared across multiple projects. Think of them as "presets" for your Claude Code setup that install as native Claude Code plugins through a local marketplace.
+
+**How It Works**
+- Profiles are **plugin drafts** that bundle MCP servers, skills, agents, commands, and hooks
+- TARS generates a Claude Code plugin in `~/.tars/profiles/<id>/plugin/`
+- The plugin is synced into a local marketplace at `~/.claude/plugins/marketplaces/tars-profiles/`
+- When applied, TARS installs `tars-profile-<slug>@tars-profiles` via the Claude CLI
+- This provides native plugin management: scope control, enable/disable, clean uninstall
+- Tools can be **pinned** (frozen at current version) or **tracked** (detect source changes)
 
 **Creation Wizard**
 - **Guided setup** - Step-by-step wizard for creating profiles
 - **Multiple source options**:
   - **Single project** - Import tools from one specific project
   - **Registered projects** - Pick tools from projects already added to TARS
-  - **Development folder** - Scan an entire folder for all Claude-configured projects
-  - **Start empty** - Create a blank profile and add tools later
-- **Tool discovery** - Automatically finds MCP servers, skills, and agents from project `.claude/` directories and `.mcp.json` files
-- **Plugin inclusion** - Add project-scoped plugins to profiles
+- **Development folder** - Scan an entire folder for all Claude-configured projects
+- **Start empty** - Create a blank profile and add tools later
+- **Tool discovery** - Automatically finds MCP servers, skills, agents, commands, and hooks from project `.claude/` directories and `.mcp.json` files
 
 **Tool Management**
 - **Visual tool picker** - Browse and select tools with descriptions and source info
-- **Categorized view** - Filter by MCP servers, skills, agents, or plugins
+- **Categorized view** - Filter by MCP servers, skills, agents, commands, or hooks
 - **Bulk selection** - Select all or clear selections quickly
 - **Search** - Find specific tools across all discovered projects
+- **Profile scope authoring** - Create tools directly inside a profile from the module editors
+- **Source modes**:
+  - **Pin** - Freeze tool at current version, ignore source changes
+  - **Track** - Detect when source files change, offer updates
 
-**Profile Assignment**
-- **Project binding** - Assign profiles to one or more projects
-- **Auto-sync** - Profile changes automatically propagate to assigned projects
-- **Local overrides** - Projects can have local tools that supplement the profile
-- **Unassign** - Remove profile from a project while keeping local configurations
+**Update Detection**
+- **Change detection** - Automatically detect when tracked tool sources change
+- **Update indicators** - Visual badges show which tools have updates available
+- **Pull updates** - One-click update to sync from source and regenerate plugin
+- **Selective updates** - Update individual tools without affecting others
+
+**Profile Application**
+- **Apply to Project** - Install as project-scoped plugin from `tars-profiles`
+- **Apply to User** - Install as user-scoped plugin from `tars-profiles`
+- **Marketplace sync** - Local marketplace and manifest are regenerated on profile changes
+- **Native uninstall** - Remove via `claude plugin uninstall`
+- **Auto-regeneration** - Plugin automatically regenerates when profile changes
 
 **Import/Export**
-- **Portable format** - Export profiles as `.tars-profile.json` files
-- **Share configurations** - Import profiles from teammates or community
+- **Plugin export** - Export profiles as Claude Code plugin `.zip` files
+- **Legacy import** - Import `.tars-profile.json` profiles from teammates or community
 - **Collision handling** - Detect and resolve name conflicts on import
-- **Plugin export** - Convert profiles to Claude Code plugin format for distribution
 
 **Safety Features**
-- **Diff preview** - Review all changes before applying to a project
-- **Automatic backups** - Every apply creates a backup for easy rollback
-- **Deterministic rollback** - Restore exact previous state byte-for-byte
+- **Atomic updates** - Plugin regeneration uses atomic directory replacement
+- **Secure file handling** - Path traversal protection, symlink skipping, depth limits
+- **Name sanitization** - Tool names validated for filesystem safety
 
 ### Knowledge Center (CASE)
 - **Documentation** - Built-in reference for all Claude Code features
@@ -212,20 +229,34 @@ bun run tauri dev
    - **Registered projects** - Pick from projects already in TARS
    - **Development folder** - Scan a parent folder (e.g., `~/Development`)
    - **Empty** - Start blank and add tools later
-4. Select the MCP servers, skills, agents, and plugins you want in the profile
-5. Click **"Create Profile"** to save
+4. Select the MCP servers, skills, agents, commands, and hooks you want in the profile
+5. Choose source mode for each tool:
+   - **Track** - Follow source changes (default)
+   - **Pin** - Freeze at current version
+6. Click **"Create Profile"** to save
 
-**Assigning to Projects:**
+**Applying to Projects:**
 1. Select a profile from the list
-2. In the detail panel, click **"Assign to Project"**
-3. Choose which registered project should use this profile
-4. The profile's tools will be available in that project
+2. Click **"Apply to Project"** and select a registered project
+3. TARS syncs the local `tars-profiles` marketplace and installs the plugin via CLI
+4. The profile's tools are now available as a project-scoped plugin
+
+**Applying Globally:**
+1. Select a profile from the list
+2. Click **"Apply to User"** to install as a user-scoped plugin
+3. The profile's tools are now available across all projects
+
+**Updating Tools:**
+1. When tracked tools have source changes, an update badge appears
+2. Click the refresh icon to check for updates
+3. Click **"Pull"** to sync individual tools from source
+4. The plugin automatically regenerates with updated content
 
 **Sharing Profiles:**
 1. Select the profile to export
-2. Click **"Export"** and choose a save location
-3. Share the `.tars-profile.json` file with teammates
-4. They can import via **"Import Profile"** button
+2. Click **"Export Plugin"** and choose a save location
+3. Share the `.zip` plugin with teammates
+4. They can install it via Claude Code or import a `.tars-profile.json` into TARS
 
 ### Configuring Hooks
 

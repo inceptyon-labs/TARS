@@ -48,6 +48,7 @@ pub fn run() {
             commands::scan_project,
             commands::scan_user_scope,
             commands::scan_projects,
+            commands::scan_profiles,
             commands::discover_claude_projects,
             // Project commands
             commands::list_projects,
@@ -65,6 +66,7 @@ pub fn run() {
             commands::get_profile,
             commands::update_profile,
             commands::delete_profile,
+            commands::delete_profile_cleanup,
             commands::export_profile_as_plugin,
             // Profile assignment commands
             commands::assign_profile,
@@ -75,6 +77,7 @@ pub fn run() {
             commands::remove_local_tool,
             // Add tools from source
             commands::add_tools_from_source,
+            commands::create_profile_mcp_server,
             // Plugin profile commands
             commands::add_plugin_to_profile,
             commands::remove_plugin_from_profile,
@@ -83,6 +86,16 @@ pub fn run() {
             commands::export_profile_json,
             commands::preview_profile_import,
             commands::import_profile_json,
+            // Profile update detection commands
+            commands::check_profile_updates,
+            commands::pull_tool_update,
+            commands::set_tool_source_mode,
+            commands::assign_profile_as_plugin,
+            commands::unassign_profile_plugin,
+            // Profile install commands
+            commands::install_profile_to_project,
+            commands::install_profile_to_user,
+            commands::uninstall_profile_from_user,
             // Apply commands
             commands::preview_apply,
             commands::apply_profile,
@@ -116,7 +129,12 @@ pub fn run() {
             commands::get_project_hooks,
             commands::save_user_hooks,
             commands::save_project_hooks,
+            commands::get_profile_hooks,
+            commands::save_profile_hooks,
             commands::get_hook_event_types,
+            // Profile MCP commands
+            commands::list_profile_mcp_servers,
+            commands::remove_profile_mcp_server,
             // MCP config commands
             commands::mcp_list,
             commands::mcp_add,

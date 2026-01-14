@@ -20,6 +20,7 @@ fn create_test_profile(name: &str) -> Profile {
             allowed_tools: vec!["read".to_string()],
             disallowed_tools: vec![],
         }),
+        source_ref: None,
     }];
     profile
 }
@@ -188,6 +189,7 @@ fn test_local_overrides_preserved() {
                 allowed_tools: vec!["local-tool".to_string()],
                 disallowed_tools: vec![],
             }),
+            source_ref: None,
         }],
         skills: vec![],
         agents: vec![],
@@ -231,12 +233,14 @@ fn test_local_overrides_methods() {
                 tool_type: ToolType::Mcp,
                 source_scope: None,
                 permissions: None,
+                source_ref: None,
             },
             ToolRef {
                 name: "server2".to_string(),
                 tool_type: ToolType::Mcp,
                 source_scope: None,
                 permissions: None,
+                source_ref: None,
             },
         ],
         skills: vec![ToolRef {
@@ -244,6 +248,7 @@ fn test_local_overrides_methods() {
             tool_type: ToolType::Skill,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
         agents: vec![],
         hooks: vec![],
@@ -275,6 +280,7 @@ fn test_profile_update_does_not_clear_local_overrides() {
             tool_type: ToolType::Mcp,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
         skills: vec![],
         agents: vec![],
@@ -290,6 +296,7 @@ fn test_profile_update_does_not_clear_local_overrides() {
         tool_type: ToolType::Skill,
         source_scope: None,
         permissions: None,
+        source_ref: None,
     });
     profile.updated_at = chrono::Utc::now();
     profile_store
@@ -375,12 +382,14 @@ fn test_local_overrides_serialization_roundtrip() {
                 allowed_tools: vec!["tool1".to_string()],
                 disallowed_tools: vec!["bad-tool".to_string()],
             }),
+            source_ref: None,
         }],
         skills: vec![ToolRef {
             name: "test-skill".to_string(),
             tool_type: ToolType::Skill,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
         agents: vec![],
         hooks: vec![ToolRef {
@@ -388,6 +397,7 @@ fn test_local_overrides_serialization_roundtrip() {
             tool_type: ToolType::Hook,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
     };
 
@@ -420,24 +430,28 @@ fn test_project_with_all_override_types() {
             tool_type: ToolType::Mcp,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
         skills: vec![ToolRef {
             name: "skill-override".to_string(),
             tool_type: ToolType::Skill,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
         agents: vec![ToolRef {
             name: "agent-override".to_string(),
             tool_type: ToolType::Agent,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
         hooks: vec![ToolRef {
             name: "hook-override".to_string(),
             tool_type: ToolType::Hook,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         }],
     };
 

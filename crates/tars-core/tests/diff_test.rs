@@ -342,6 +342,7 @@ fn test_plan_full_profile() {
 
     let mut profile = Profile::new("full-profile".to_string());
     profile.repo_overlays = RepoOverlays {
+        mcp_servers: vec![],
         skills: vec![
             SkillOverlay {
                 name: "skill1".to_string(),

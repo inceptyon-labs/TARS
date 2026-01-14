@@ -7,6 +7,30 @@ use std::path::PathBuf;
 use tars_scanner::types::Scope;
 use uuid::Uuid;
 
+/// Source tracking mode for profile tools
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SourceMode {
+    /// Frozen at copied version - ignore source changes
+    Pin,
+    /// Follow source changes - detect updates
+    #[default]
+    Track,
+}
+
+/// Reference to the original source of a tool
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SourceRef {
+    /// Path to the original source file/directory
+    pub source_path: PathBuf,
+    /// SHA256 hash of content at copy time
+    pub source_hash: String,
+    /// Whether to track updates from source
+    pub mode: SourceMode,
+    /// When the tool was copied to the profile
+    pub copied_at: String,
+}
+
 /// Type of tool that can be referenced in a profile
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -59,6 +83,9 @@ pub struct ToolRef {
     /// Optional permission restrictions
     #[serde(default)]
     pub permissions: Option<ToolPermissions>,
+    /// Source tracking reference (for detecting updates)
+    #[serde(default)]
+    pub source_ref: Option<SourceRef>,
 }
 
 /// A profile configuration bundle

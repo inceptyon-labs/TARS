@@ -71,7 +71,8 @@ impl PluginInventory {
                     RawMarketplaceSource::Git { url } => {
                         MarketplaceSource::Url { url: url.clone() }
                     }
-                    RawMarketplaceSource::Local { path } => MarketplaceSource::Local {
+                    RawMarketplaceSource::Local { path }
+                    | RawMarketplaceSource::Directory { path } => MarketplaceSource::Local {
                         path: PathBuf::from(path),
                     },
                 };
@@ -79,7 +80,8 @@ impl PluginInventory {
                 let location = match &entry.source {
                     RawMarketplaceSource::GitHub { repo } => repo.clone(),
                     RawMarketplaceSource::Git { url } => url.clone(),
-                    RawMarketplaceSource::Local { path } => path.clone(),
+                    RawMarketplaceSource::Local { path }
+                    | RawMarketplaceSource::Directory { path } => path.clone(),
                 };
 
                 // Scan available plugins in this marketplace
@@ -656,6 +658,8 @@ enum RawMarketplaceSource {
     Git { url: String },
     #[serde(rename = "local")]
     Local { path: String },
+    #[serde(rename = "directory")]
+    Directory { path: String },
 }
 
 #[derive(Debug, Deserialize)]

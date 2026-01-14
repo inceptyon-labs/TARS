@@ -176,6 +176,7 @@ pub fn import_profile(path: &Path) -> Result<Profile, ExportError> {
                 tool_type,
                 source_scope: None,
                 permissions,
+                source_ref: None,
             })
         })
         .collect();

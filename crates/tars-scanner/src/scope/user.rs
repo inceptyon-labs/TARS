@@ -129,8 +129,7 @@ fn extract_plugin_mcp(plugin_inventory: &PluginInventory) -> ScanResult<Vec<McpC
         if !plugin.enabled {
             continue;
         }
-        let mcp_path = plugin.path.join(".mcp.json");
-        if mcp_path.exists() {
+        if let Some(mcp_path) = resolve_plugin_mcp_path(plugin) {
             if let Ok(content) = fs::read_to_string(&mcp_path) {
                 if let Ok(mut mcp) = parse_mcp_config(&mcp_path, &content) {
                     // Tag the MCP servers with their plugin source
@@ -146,6 +145,31 @@ fn extract_plugin_mcp(plugin_inventory: &PluginInventory) -> ScanResult<Vec<McpC
     }
 
     Ok(all_mcp)
+}
+
+fn resolve_plugin_mcp_path(plugin: &crate::plugins::InstalledPlugin) -> Option<PathBuf> {
+    if let Some(path) = plugin.manifest.mcp_servers.as_ref() {
+        if path.is_absolute() && path.exists() {
+            return Some(path.clone());
+        }
+        let relative_candidates = [
+            plugin.path.join(path),
+            plugin.path.join(".claude-plugin").join(path),
+        ];
+        if let Some(found) = relative_candidates
+            .into_iter()
+            .find(|candidate| candidate.exists())
+        {
+            return Some(found);
+        }
+    }
+
+    let candidates = [
+        plugin.path.join(".mcp.json"),
+        plugin.path.join(".claude-plugin").join("mcp.json"),
+    ];
+
+    candidates.into_iter().find(|path| path.exists())
 }
 
 /// Merge multiple MCP configs into a single Option<McpConfig>

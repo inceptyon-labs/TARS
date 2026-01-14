@@ -7,8 +7,8 @@ import {
   addProject,
   removeProject,
   scanProject,
-  assignProfile,
-  unassignProfile,
+  assignProfileAsPlugin,
+  unassignProfilePlugin,
   getProjectTools,
 } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
@@ -59,20 +59,14 @@ export function ProjectsPage() {
 
   const assignMutation = useMutation({
     mutationFn: ({ projectId, profileId }: { projectId: string; profileId: string }) =>
-      assignProfile(projectId, profileId),
-    onSuccess: async () => {
+      assignProfileAsPlugin(projectId, profileId),
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      // Refresh project tools
       if (selectedProject) {
-        try {
-          const tools = await getProjectTools(selectedProject.id);
-          setProjectTools(tools);
-        } catch (err) {
-          console.error('Failed to refresh project tools:', err);
-        }
+        await handleScan(selectedProject);
       }
       setIsAssignDialogOpen(false);
-      toast.success('Profile assigned successfully');
+      toast.success(`Profile installed as plugin: ${result.plugin_id}`);
     },
     onError: (err) => {
       toast.error(`Failed to assign profile: ${err}`);
@@ -80,19 +74,14 @@ export function ProjectsPage() {
   });
 
   const unassignMutation = useMutation({
-    mutationFn: (projectId: string) => unassignProfile(projectId),
+    mutationFn: (projectId: string) => unassignProfilePlugin(projectId),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       if (selectedProject) {
-        try {
-          const tools = await getProjectTools(selectedProject.id);
-          setProjectTools(tools);
-        } catch (err) {
-          console.error('Failed to refresh project tools:', err);
-        }
+        await handleScan(selectedProject);
       }
       setIsAssignDialogOpen(false);
-      toast.success('Profile unassigned');
+      toast.success('Profile plugin uninstalled');
     },
     onError: (err) => {
       toast.error(`Failed to unassign profile: ${err}`);

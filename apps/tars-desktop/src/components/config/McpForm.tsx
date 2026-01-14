@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import {
@@ -19,6 +20,12 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import {
+  addToolsFromSource,
+  createProfileMcpServer,
+  listProfiles,
+  removeProfileMcpServer,
+} from '../../lib/ipc';
 import type { Scope, McpTransport, OperationResult, McpServer } from './types';
 
 interface McpFormProps {
@@ -102,8 +109,15 @@ export function McpForm({
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [addToProfile, setAddToProfile] = useState(false);
+  const [selectedProfileId, setSelectedProfileId] = useState('');
 
   const isEditMode = !!editServer;
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: listProfiles,
+  });
 
   // Initialize form data based on edit mode or project context
   useEffect(() => {
@@ -127,6 +141,7 @@ export function McpForm({
           env: envStr,
           docsUrl: editServer.docsUrl || '',
         });
+        setSelectedProfileId(editServer.profileId || '');
       } else {
         setFormData((prev) => ({
           ...prev,
@@ -142,6 +157,8 @@ export function McpForm({
       scope: projectPath ? 'project' : 'user',
     });
     setError(null);
+    setAddToProfile(false);
+    setSelectedProfileId('');
   };
 
   const handleClose = () => {
@@ -155,6 +172,24 @@ export function McpForm({
     setLoading(true);
 
     try {
+      if (formData.scope === 'profile' && !selectedProfileId) {
+        toast.error('Please select a profile');
+        setLoading(false);
+        return;
+      }
+
+      if (
+        !isEditMode &&
+        addToProfile &&
+        formData.scope !== 'local' &&
+        formData.scope !== 'profile' &&
+        !selectedProfileId
+      ) {
+        toast.error('Please select a profile');
+        setLoading(false);
+        return;
+      }
+
       // Parse command string into command and args
       const { command, args } = parseCommand(formData.command);
 
@@ -171,14 +206,41 @@ export function McpForm({
 
       // If editing, remove the old server first
       if (isEditMode && editServer) {
-        await invoke<OperationResult>('mcp_remove', {
-          params: {
-            name: editServer.name,
-            scope: editServer.scope,
-            dryRun: false,
-          },
-          projectPath,
+        if (editServer.scope === 'profile') {
+          if (!editServer.profileId) {
+            throw new Error('Missing profile ID for MCP server');
+          }
+          await removeProfileMcpServer(editServer.profileId, editServer.name);
+        } else {
+          await invoke<OperationResult>('mcp_remove', {
+            params: {
+              name: editServer.name,
+              scope: editServer.scope,
+              dryRun: false,
+            },
+            projectPath,
+          });
+        }
+      }
+
+      if (formData.scope === 'profile') {
+        await createProfileMcpServer({
+          profileId: selectedProfileId,
+          name: formData.name,
+          transport: formData.transport,
+          command: formData.transport === 'stdio' ? command || null : null,
+          args: formData.transport === 'stdio' && args.length > 0 ? args : null,
+          env: Object.keys(env).length > 0 ? env : null,
+          url: formData.transport !== 'stdio' ? formData.url || null : null,
+          docsUrl: formData.docsUrl.trim() || null,
         });
+
+        toast.success(`${isEditMode ? 'Updated' : 'Added'} "${formData.name}"`, {
+          description: `MCP server ${isEditMode ? 'updated in' : 'added to'} profile`,
+        });
+        resetForm();
+        onSuccess();
+        return;
       }
 
       const result = await invoke<OperationResult>('mcp_add', {
@@ -200,6 +262,31 @@ export function McpForm({
         toast.success(isEditMode ? `Updated "${formData.name}"` : `Added "${formData.name}"`, {
           description: `MCP server ${isEditMode ? 'updated in' : 'added to'} ${formData.scope} scope`,
         });
+
+        if (
+          !isEditMode &&
+          addToProfile &&
+          formData.scope !== 'local' &&
+          formData.scope !== 'profile' &&
+          selectedProfileId
+        ) {
+          try {
+            await addToolsFromSource(
+              selectedProfileId,
+              formData.scope === 'project' ? projectPath : undefined,
+              [{ name: formData.name, tool_type: 'mcp' }],
+              formData.scope === 'user' ? 'user' : 'project'
+            );
+            const profileName =
+              profiles.find((profile) => profile.id === selectedProfileId)?.name || 'profile';
+            toast.success(`Added to profile "${profileName}"`);
+          } catch (err) {
+            toast.error('Failed to add MCP server to profile', {
+              description: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+
         resetForm();
         onSuccess();
       } else {
@@ -252,7 +339,16 @@ export function McpForm({
               <Label>Scope</Label>
               <Select
                 value={formData.scope}
-                onValueChange={(value: Scope) => setFormData({ ...formData, scope: value })}
+                onValueChange={(value: Scope) => {
+                  setFormData({ ...formData, scope: value });
+                  if (value === 'local') {
+                    setAddToProfile(false);
+                    setSelectedProfileId('');
+                  }
+                  if (value === 'profile') {
+                    setAddToProfile(false);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -264,6 +360,9 @@ export function McpForm({
                   <SelectItem value="user">User (~/.claude.json)</SelectItem>
                   <SelectItem value="local" disabled={!projectPath}>
                     Local (.claude/settings.local.json)
+                  </SelectItem>
+                  <SelectItem value="profile" disabled={profiles.length === 0}>
+                    Profile (plugin only)
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -282,12 +381,105 @@ export function McpForm({
                   Will be added to: ~/.claude.json (available globally)
                 </p>
               )}
+              {formData.scope === 'profile' && (
+                <p className="text-xs text-muted-foreground">
+                  Stored in the selected profile (available when installed).
+                </p>
+              )}
               {(formData.scope === 'project' || formData.scope === 'local') && !projectPath && (
                 <p className="text-xs text-destructive">
                   Select a project from the dropdown above to use this scope
                 </p>
               )}
             </div>
+
+            {formData.scope === 'profile' && (
+              <div className="grid gap-2">
+                <Label>Profile</Label>
+                {profiles.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Create a profile first to enable this option.
+                  </p>
+                ) : (
+                  <Select
+                    value={selectedProfileId || undefined}
+                    onValueChange={(value) => setSelectedProfileId(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles.map((profile) => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {!isEditMode && formData.scope !== 'local' && formData.scope !== 'profile' && (
+              <div className="rounded-md border border-border p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="add-mcp-to-profile">Add to profile</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Copies this MCP server into a profile for reuse.
+                    </p>
+                  </div>
+                  <input
+                    id="add-mcp-to-profile"
+                    type="checkbox"
+                    checked={addToProfile}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setAddToProfile(next);
+                      if (!next) {
+                        setSelectedProfileId('');
+                      }
+                    }}
+                    className="accent-primary"
+                    disabled={
+                      profiles.length === 0 || (formData.scope === 'project' && !projectPath)
+                    }
+                  />
+                </div>
+
+                {profiles.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Create a profile first to enable this option.
+                  </p>
+                )}
+                {formData.scope === 'project' && !projectPath && (
+                  <p className="text-xs text-muted-foreground">
+                    Select a project to enable this option.
+                  </p>
+                )}
+
+                {addToProfile && profiles.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Profile</Label>
+                    <Select
+                      value={selectedProfileId || undefined}
+                      onValueChange={(value) => setSelectedProfileId(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select profile" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {profiles.map((profile) => (
+                          <SelectItem key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Transport */}
             <div className="grid gap-2">

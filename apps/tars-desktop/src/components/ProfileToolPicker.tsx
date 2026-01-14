@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { toast } from 'sonner';
 import {
   X,
   Server,
   Sparkles,
   Bot,
   Webhook,
-  Puzzle,
   Search,
   Check,
   Plus,
@@ -19,33 +18,27 @@ import {
   ChevronRight,
   FolderOpen,
   Folder,
+  Pin,
+  GitBranch,
 } from 'lucide-react';
 import { discoverClaudeProjects, scanProjects, addToolsFromSource } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { Button } from './ui/button';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
-import type {
-  ToolRef,
-  ToolType,
-  ToolPermissions,
-  InstalledPlugin,
-  ProfilePluginRef,
-} from '../lib/types';
+import type { ToolRef, ToolType, ToolPermissions, SourceMode } from '../lib/types';
 
 interface ProfileToolPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAddTools: (tools: ToolRef[]) => void;
-  onAddPlugins: (plugins: ProfilePluginRef[]) => void;
   existingTools: ToolRef[];
-  existingPlugins: ProfilePluginRef[];
   /** If provided, tools will be added via addToolsFromSource (captures content) */
   profileId?: string;
   /** Callback for successful tool addition when using profileId mode */
   onToolsAdded?: () => void;
 }
 
-type TabType = 'mcp' | 'skill' | 'agent' | 'plugin';
+type TabType = 'mcp' | 'skill' | 'agent';
 
 interface ToolItem {
   name: string;
@@ -74,40 +67,23 @@ export function ProfileToolPicker({
   open: isOpen,
   onOpenChange,
   onAddTools,
-  onAddPlugins,
   existingTools,
-  existingPlugins,
   profileId,
   onToolsAdded,
 }: ProfileToolPickerProps) {
   const [activeTab, setActiveTab] = useState<TabType>('mcp');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTools, setSelectedTools] = useState<ToolItem[]>([]);
-  const [selectedPlugins, setSelectedPlugins] = useState<InstalledPlugin[]>([]);
   const [toolPermissions, setToolPermissions] = useState<Record<string, ToolPermissions | null>>(
     {}
   );
+  const [toolSourceModes, setToolSourceModes] = useState<Record<string, SourceMode>>({});
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
 
   const developmentFolder = useUIStore((state) => state.developmentFolder);
   const setDevelopmentFolder = useUIStore((state) => state.setDevelopmentFolder);
 
   const getToolKey = (tool: ToolItem) => `${tool.toolType}:${tool.name}:${tool.sourcePath}`;
-
-  // Fetch installed plugins
-  const {
-    data: installedPlugins = [],
-    isLoading: isLoadingPlugins,
-    error: pluginsError,
-    refetch: refetchPlugins,
-  } = useQuery({
-    queryKey: ['installed-plugins'],
-    queryFn: async () => {
-      const result = await invoke<InstalledPlugin[]>('plugin_list');
-      return result;
-    },
-    enabled: isOpen,
-  });
 
   // Discover Claude projects in the development folder
   const {
@@ -199,7 +175,6 @@ export function ProfileToolPicker({
 
   // Filter tools based on search query and exclude already added tools
   const filteredTools = useMemo(() => {
-    if (activeTab === 'plugin') return [];
     const tools = availableTools[activeTab as keyof typeof availableTools] || [];
     const existingNames = new Set(
       existingTools.filter((t) => t.tool_type === activeTab).map((t) => t.name)
@@ -215,24 +190,6 @@ export function ProfileToolPicker({
       );
   }, [availableTools, activeTab, existingTools, searchQuery]);
 
-  // Filter plugins: only project-scoped (user-scoped are already globally available)
-  // Also exclude already added plugins and apply search filter
-  const filteredPlugins = useMemo(() => {
-    const existingIds = new Set(existingPlugins.map((p) => p.id));
-    return (
-      installedPlugins
-        // Only show project-scoped plugins (not user-scoped since they're already global)
-        .filter((p) => p.scope.type !== 'User')
-        .filter((p) => !existingIds.has(p.id))
-        .filter((p) =>
-          searchQuery
-            ? p.manifest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              p.manifest.description?.toLowerCase().includes(searchQuery.toLowerCase())
-            : true
-        )
-    );
-  }, [installedPlugins, existingPlugins, searchQuery]);
-
   const isToolSelected = (tool: ToolItem) =>
     selectedTools.some((t) => t.name === tool.name && t.toolType === tool.toolType);
 
@@ -243,17 +200,6 @@ export function ProfileToolPicker({
       );
     } else {
       setSelectedTools([...selectedTools, tool]);
-    }
-  };
-
-  const isPluginSelected = (plugin: InstalledPlugin) =>
-    selectedPlugins.some((p) => p.id === plugin.id);
-
-  const togglePluginSelection = (plugin: InstalledPlugin) => {
-    if (isPluginSelected(plugin)) {
-      setSelectedPlugins(selectedPlugins.filter((p) => p.id !== plugin.id));
-    } else {
-      setSelectedPlugins([...selectedPlugins, plugin]);
     }
   };
 
@@ -278,7 +224,12 @@ export function ProfileToolPicker({
             await addToolsFromSource(
               profileId,
               sourcePath,
-              tools.map((t) => ({ name: t.name, tool_type: t.toolType }))
+              tools.map((t) => ({
+                name: t.name,
+                tool_type: t.toolType,
+                source_mode: toolSourceModes[getToolKey(t)] || 'track',
+              })),
+              'project'
             );
           }
           // Notify parent that tools were added so it can refresh
@@ -290,28 +241,20 @@ export function ProfileToolPicker({
             tool_type: t.toolType,
             source_scope: 'project',
             permissions: toolPermissions[getToolKey(t)] || null,
+            source_ref: null,
           }));
           onAddTools(toolRefs);
         }
       }
-      // Add plugins (unchanged - plugins don't need content capture)
-      if (selectedPlugins.length > 0) {
-        const pluginRefs: ProfilePluginRef[] = selectedPlugins.map((p) => ({
-          id: p.id,
-          marketplace: p.marketplace,
-          scope: p.scope.type.toLowerCase(),
-          enabled: true,
-        }));
-        onAddPlugins(pluginRefs);
-      }
       setSelectedTools([]);
-      setSelectedPlugins([]);
       setToolPermissions({});
+      setToolSourceModes({});
       setExpandedTool(null);
       setSearchQuery('');
       onOpenChange(false);
     } catch (err) {
       console.error('Failed to add tools:', err);
+      toast.error(`Failed to add tools: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsAdding(false);
     }
@@ -319,11 +262,21 @@ export function ProfileToolPicker({
 
   const handleClose = () => {
     setSelectedTools([]);
-    setSelectedPlugins([]);
     setToolPermissions({});
+    setToolSourceModes({});
     setExpandedTool(null);
     setSearchQuery('');
     onOpenChange(false);
+  };
+
+  const toggleSourceMode = (tool: ToolItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const key = getToolKey(tool);
+    const currentMode = toolSourceModes[key] || 'track';
+    setToolSourceModes((prev) => ({
+      ...prev,
+      [key]: currentMode === 'track' ? 'pin' : 'track',
+    }));
   };
 
   const togglePermissionsExpand = (tool: ToolItem, e: React.MouseEvent) => {
@@ -357,17 +310,13 @@ export function ProfileToolPicker({
 
   if (!isOpen) return null;
 
-  // Count only project-scoped plugins (user-scoped are already global)
-  const projectScopedPluginCount = installedPlugins.filter((p) => p.scope.type !== 'User').length;
-
   const tabs: { id: TabType; label: string; icon: typeof Server; count: number }[] = [
     { id: 'mcp', label: 'MCP Servers', icon: Server, count: availableTools.mcp?.length || 0 },
     { id: 'skill', label: 'Skills', icon: Sparkles, count: availableTools.skill?.length || 0 },
     { id: 'agent', label: 'Agents', icon: Bot, count: availableTools.agent?.length || 0 },
-    { id: 'plugin', label: 'Plugins', icon: Puzzle, count: projectScopedPluginCount },
   ];
 
-  const selectedCount = selectedTools.length + selectedPlugins.length;
+  const selectedCount = selectedTools.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -458,90 +407,9 @@ export function ProfileToolPicker({
           </div>
         </div>
 
-        {/* Tool/Plugin List */}
+        {/* Tool List */}
         <div className="flex-1 overflow-auto p-4">
-          {activeTab === 'plugin' ? (
-            // Plugin list
-            isLoadingPlugins ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
-              </div>
-            ) : pluginsError ? (
-              <div className="text-center py-8 space-y-3">
-                <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
-                <p className="text-sm text-destructive">Failed to load plugins</p>
-                <p className="text-xs text-muted-foreground">
-                  {pluginsError instanceof Error ? pluginsError.message : String(pluginsError)}
-                </p>
-                <Button variant="outline" size="sm" onClick={() => refetchPlugins()}>
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Retry
-                </Button>
-              </div>
-            ) : projectScopedPluginCount === 0 ? (
-              <div className="text-center py-8 text-muted-foreground space-y-2">
-                <Puzzle className="h-8 w-8 mx-auto opacity-50" />
-                <p className="text-sm">No project-scoped plugins</p>
-                <p className="text-xs">
-                  User-scoped plugins are already globally available. Install plugins at project
-                  scope to add them to profiles.
-                </p>
-              </div>
-            ) : filteredPlugins.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchQuery
-                  ? 'No plugins match your search'
-                  : 'All project-scoped plugins are already in this profile'}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredPlugins.map((plugin) => {
-                  const selected = isPluginSelected(plugin);
-                  return (
-                    <button
-                      key={plugin.id}
-                      onClick={() => togglePluginSelection(plugin)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                        selected
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:bg-muted/50'
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
-                          selected
-                            ? 'bg-primary border-primary text-primary-foreground'
-                            : 'border-muted-foreground/40'
-                        }`}
-                      >
-                        {selected && <Check className="h-3 w-3" />}
-                      </div>
-                      <Puzzle className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 text-left min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{plugin.manifest.name}</span>
-                          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {plugin.scope.type.toLowerCase()}
-                          </span>
-                          {plugin.marketplace && (
-                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                              {plugin.marketplace}
-                            </span>
-                          )}
-                        </div>
-                        {plugin.manifest.description && (
-                          <div className="text-xs text-muted-foreground truncate">
-                            {plugin.manifest.description}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )
-          ) : // Tool list (MCP, Skills, Agents)
-          !developmentFolder ? (
+          {!developmentFolder ? (
             <div className="text-center py-12 space-y-4">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
                 <Folder className="h-8 w-8 text-muted-foreground" />
@@ -586,6 +454,8 @@ export function ProfileToolPicker({
                 const isExpanded = expandedTool === toolKey;
                 const hasPermissions = toolPermissions[toolKey] != null;
                 const isMcp = tool.toolType === 'mcp';
+                const sourceMode = toolSourceModes[toolKey] || 'track';
+                const isTracking = sourceMode === 'track';
 
                 return (
                   <div key={toolKey} className="space-y-0">
@@ -621,6 +491,34 @@ export function ProfileToolPicker({
                           </div>
                         )}
                       </div>
+                      {/* Source Mode Toggle - shown for all selected tools */}
+                      {selected && (
+                        <button
+                          onClick={(e) => toggleSourceMode(tool, e)}
+                          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors shrink-0 ${
+                            isTracking
+                              ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                              : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                          }`}
+                          title={
+                            isTracking
+                              ? 'Track: Follow source changes'
+                              : 'Pin: Freeze at current version'
+                          }
+                        >
+                          {isTracking ? (
+                            <>
+                              <GitBranch className="h-3 w-3" />
+                              Track
+                            </>
+                          ) : (
+                            <>
+                              <Pin className="h-3 w-3" />
+                              Pin
+                            </>
+                          )}
+                        </button>
+                      )}
                       {isMcp && selected && (
                         <button
                           onClick={(e) => togglePermissionsExpand(tool, e)}

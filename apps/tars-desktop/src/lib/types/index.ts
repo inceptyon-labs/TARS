@@ -198,11 +198,19 @@ export interface CollisionReport {
 
 export interface Collision {
   name: string;
+  winner_scope?: ScannerScope | string;
   occurrences: CollisionOccurrence[];
 }
 
+export type ScannerScope =
+  | { type: 'User' }
+  | { type: 'Project' }
+  | { type: 'Local' }
+  | { type: 'Managed' }
+  | { type: 'Plugin'; plugin_id: string };
+
 export interface CollisionOccurrence {
-  scope: string;
+  scope: ScannerScope | string;
   path: string;
 }
 
@@ -267,6 +275,7 @@ export interface ProjectRef {
 
 // Tool reference types
 export type ToolType = 'mcp' | 'skill' | 'agent' | 'hook';
+export type SourceMode = 'pin' | 'track';
 
 export interface ToolPermissions {
   allowed_directories: string[];
@@ -274,11 +283,19 @@ export interface ToolPermissions {
   disallowed_tools: string[];
 }
 
+export interface SourceRef {
+  source_path: string;
+  source_hash: string;
+  mode: SourceMode;
+  copied_at: string;
+}
+
 export interface ToolRef {
   name: string;
   tool_type: ToolType;
   source_scope: 'user' | 'project' | 'managed' | null;
   permissions: ToolPermissions | null;
+  source_ref: SourceRef | null;
 }
 
 export interface ToolRefWithSource extends ToolRef {
@@ -414,6 +431,12 @@ export interface AgentDetails {
   content: string;
   description: string | null;
   scope: string;
+}
+
+export interface ProfileToolInventory {
+  skills: SkillInfo[];
+  commands: CommandInfo[];
+  agents: AgentInfo[];
 }
 
 // Command types
@@ -575,4 +598,26 @@ export interface ClaudeUsageStats {
   dailyModelTokens: DailyModelTokens[];
   modelUsage: Record<string, ModelUsage>;
   hourCounts: Record<string, number>;
+}
+
+// Profile update detection types
+export interface ToolUpdateInfo {
+  name: string;
+  tool_type: string;
+  source_path: string;
+  old_hash: string;
+  new_hash: string;
+  mode: SourceMode;
+}
+
+export interface ProfileUpdateCheck {
+  updates: ToolUpdateInfo[];
+  missing_sources: string[];
+  total_checked: number;
+}
+
+export interface PluginAssignResult {
+  plugin_id: string;
+  installed: boolean;
+  output: string;
 }

@@ -33,6 +33,7 @@ fn create_full_profile(name: &str) -> Profile {
 
     // Add repo overlays
     profile.repo_overlays = RepoOverlays {
+        mcp_servers: vec![],
         skills: vec![SkillOverlay {
             name: "test-skill".to_string(),
             content: "---\nname: test-skill\ndescription: Test\n---\n\nSkill content".to_string(),
@@ -445,6 +446,7 @@ fn test_tool_ref_minimal() {
         tool_type: ToolType::Mcp,
         source_scope: None,
         permissions: None,
+        source_ref: None,
     };
 
     let json = serde_json::to_string(&tool_ref).unwrap();
@@ -467,6 +469,7 @@ fn test_tool_ref_with_permissions() {
             allowed_tools: vec!["query-docs".to_string()],
             disallowed_tools: vec![],
         }),
+        source_ref: None,
     };
 
     let json = serde_json::to_string(&tool_ref).unwrap();
@@ -497,6 +500,7 @@ fn test_tool_ref_all_tool_types() {
             tool_type,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         };
 
         let json = serde_json::to_string(&tool_ref).unwrap();
@@ -522,12 +526,14 @@ fn test_profile_with_tool_refs() {
                 allowed_tools: vec!["read".to_string()],
                 disallowed_tools: vec!["write".to_string()],
             }),
+            source_ref: None,
         },
         ToolRef {
             name: "my-skill".to_string(),
             tool_type: ToolType::Skill,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         },
     ];
 

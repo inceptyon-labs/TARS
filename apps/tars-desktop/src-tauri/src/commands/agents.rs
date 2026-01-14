@@ -2,9 +2,16 @@
 //!
 //! Commands for viewing and editing agents.
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use tars_core::profile::{regenerate_profile_plugin, sync_profile_marketplace, ToolRef, ToolType};
+use tars_core::storage::profiles::ProfileStore;
 use tars_core::util::validate_name;
+use tauri::State;
+use uuid::Uuid;
+
+use crate::state::AppState;
 
 /// Agent information for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,19 +81,33 @@ pub async fn save_agent(path: String, content: String) -> Result<(), String> {
 /// Create a new agent
 #[tauri::command]
 pub async fn create_agent(
+    state: State<'_, AppState>,
     name: String,
     scope: String,
     project_path: Option<String>,
+    profile_id: Option<String>,
 ) -> Result<AgentDetails, String> {
     // Validate the agent name to prevent path traversal
     validate_name(&name).map_err(|_| "Invalid agent name".to_string())?;
 
-    let base_path = if scope == "user" {
-        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-        home.join(".claude").join("agents")
-    } else {
-        let project = project_path.ok_or("Project path required for project-scoped agent")?;
-        PathBuf::from(project).join(".claude").join("agents")
+    let (base_path, profile_uuid) = match scope.as_str() {
+        "user" => {
+            let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+            (home.join(".claude").join("agents"), None)
+        }
+        "project" => {
+            let project = project_path.ok_or("Project path required for project-scoped agent")?;
+            (PathBuf::from(project).join(".claude").join("agents"), None)
+        }
+        "profile" => {
+            let profile_id = profile_id.ok_or("Profile ID required for profile-scoped agent")?;
+            let profile_uuid =
+                Uuid::parse_str(&profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+            let profile_dir = tars_core::profile::storage::ensure_profile_dir(profile_uuid)
+                .map_err(|e| e.to_string())?;
+            (profile_dir.join("agents"), Some(profile_uuid))
+        }
+        _ => return Err("Invalid scope".to_string()),
     };
 
     let agent_file = base_path.join(format!("{name}.md"));
@@ -120,6 +141,40 @@ This agent has access to file reading tools by default.
     std::fs::create_dir_all(&base_path)
         .map_err(|_| "Failed to create agents directory".to_string())?;
     std::fs::write(&agent_file, &content).map_err(|_| "Failed to create agent".to_string())?;
+
+    if let Some(profile_uuid) = profile_uuid {
+        state.with_db(|db| {
+            let store = ProfileStore::new(db.connection());
+            let mut profile = store
+                .get(profile_uuid)
+                .map_err(|e| format!("Database error: {e}"))?
+                .ok_or_else(|| "Profile not found".to_string())?;
+
+            if !profile
+                .tool_refs
+                .iter()
+                .any(|tool| tool.name == name && tool.tool_type == ToolType::Agent)
+            {
+                profile.tool_refs.push(ToolRef {
+                    name: name.clone(),
+                    tool_type: ToolType::Agent,
+                    source_scope: None,
+                    permissions: None,
+                    source_ref: None,
+                });
+            }
+
+            profile.updated_at = Utc::now();
+            store
+                .update(&profile)
+                .map_err(|e| format!("Failed to update profile: {e}"))?;
+
+            regenerate_profile_plugin(&profile).map_err(|e| e.to_string())?;
+            sync_profile_marketplace(&profile).map_err(|e| e.to_string())?;
+
+            Ok(())
+        })?;
+    }
 
     Ok(AgentDetails {
         name,
@@ -488,6 +543,7 @@ pub async fn list_disabled_agents(
 fn determine_agent_scope(path: &Path) -> String {
     if let Some(home_path) = dirs::home_dir() {
         let user_agents_dir = home_path.join(".claude").join("agents");
+        let profile_root = home_path.join(".tars").join("profiles");
 
         if let Ok(canonical_user_agents) = user_agents_dir.canonicalize() {
             if let Ok(canonical_path) = path.canonicalize() {
@@ -499,6 +555,18 @@ fn determine_agent_scope(path: &Path) -> String {
 
         if path.starts_with(&user_agents_dir) {
             return "user".to_string();
+        }
+
+        if let Ok(canonical_profile_root) = profile_root.canonicalize() {
+            if let Ok(canonical_path) = path.canonicalize() {
+                if canonical_path.starts_with(&canonical_profile_root) {
+                    return "profile".to_string();
+                }
+            }
+        }
+
+        if path.starts_with(&profile_root) {
+            return "profile".to_string();
         }
     }
 
@@ -514,6 +582,7 @@ fn get_agent_roots() -> Vec<PathBuf> {
         roots.push(claude_dir.join("agents"));
         roots.push(claude_dir.join("plugins").join("cache"));
         roots.push(claude_dir.join("plugins").join("marketplaces"));
+        roots.push(home.join(".tars").join("profiles"));
     }
 
     roots

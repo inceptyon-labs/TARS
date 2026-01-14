@@ -12,6 +12,9 @@ import {
   ChevronRight,
   Search,
   Keyboard,
+  Layers,
+  GitBranch,
+  Pin,
 } from 'lucide-react';
 
 // Detect if user is on macOS
@@ -636,6 +639,192 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
       },
     ],
   },
+  {
+    id: 'profiles',
+    title: 'Profiles',
+    icon: <Layers className="h-5 w-5" />,
+    description: 'Reusable tool bundles that install as Claude Code plugins',
+    content: (
+      <div className="space-y-4">
+        <p>
+          Profiles in TARS let you bundle MCP servers, skills, agents, commands, and hooks into
+          reusable configurations. TARS generates a plugin, syncs it into a local marketplace, and
+          installs it via the{' '}
+          <code className="px-1.5 py-0.5 bg-muted rounded text-sm">claude plugin install</code>{' '}
+          command.
+        </p>
+
+        <h4 className="font-semibold mt-6">How It Works</h4>
+        <div className="bg-secondary/50 text-muted-foreground p-4 rounded-lg text-sm">
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              Generate the plugin in{' '}
+              <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">
+                ~/.tars/profiles/&lt;profile-id&gt;/plugin/
+              </code>
+            </li>
+            <li>
+              Sync it into the local marketplace at{' '}
+              <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">
+                ~/.claude/plugins/marketplaces/tars-profiles/plugins/&lt;profile-plugin&gt;/
+              </code>
+            </li>
+            <li>
+              Install via{' '}
+              <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">
+                claude plugin install tars-profile-&lt;slug&gt;@tars-profiles --scope=user|project
+              </code>
+            </li>
+            <li>
+              Claude loads it from{' '}
+              <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">
+                ~/.claude/plugins/
+              </code>{' '}
+              (user) or{' '}
+              <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">
+                .claude/plugins/
+              </code>{' '}
+              (project)
+            </li>
+          </ol>
+        </div>
+
+        <h4 className="font-semibold mt-6">Source Tracking Modes</h4>
+        <p className="text-muted-foreground mb-3">
+          When adding tools to a profile, you can choose how they track their source:
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 p-3 bg-secondary/50 rounded-lg">
+            <Pin className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-amber-400">Pin Mode</strong>
+              <p className="text-sm text-muted-foreground">
+                Freezes the tool at the current version. Source changes are ignored. Use this when
+                you want a stable, unchanging configuration.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 p-3 bg-secondary/50 rounded-lg">
+            <GitBranch className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-blue-400">Track Mode</strong>
+              <p className="text-sm text-muted-foreground">
+                Monitors the source for changes. When changes are detected, an update badge appears.
+                Click "Pull" to sync the latest version.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <h4 className="font-semibold mt-6">Authoring</h4>
+        <p className="text-muted-foreground">
+          You can create tools directly in profile scope from the Skills, Agents, Commands, Hooks,
+          and MCP modules, or import them from projects during profile creation.
+        </p>
+
+        <h4 className="font-semibold mt-6">Generated Plugin Structure</h4>
+        <pre className="bg-secondary text-secondary-foreground p-4 rounded-lg text-sm overflow-x-auto font-mono">{`~/.tars/profiles/<profile-id>/plugin/
+├── .claude-plugin/
+│   └── plugin.json     # Manifest with version hash
+├── skills/             # Copied skill directories
+│   └── my-skill/
+│       └── SKILL.md
+├── agents/             # Agent markdown files
+│   └── my-agent.md
+├── commands/           # Slash commands
+│   └── my-command.md
+├── hooks.json          # Hook configuration (if present)
+└── .mcp.json           # MCP server configs (flat format)`}</pre>
+
+        <h4 className="font-semibold mt-6">Applying Profiles</h4>
+        <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+          <li>
+            <strong>Apply to Project</strong> - Installs{' '}
+            <code className="px-1 py-0.5 bg-muted rounded text-xs">
+              tars-profile-{'<slug>'}@tars-profiles --scope=project
+            </code>
+          </li>
+          <li>
+            <strong>Apply to User</strong> - Installs{' '}
+            <code className="px-1 py-0.5 bg-muted rounded text-xs">
+              tars-profile-{'<slug>'}@tars-profiles --scope=user
+            </code>
+          </li>
+          <li>
+            <strong>Marketplace sync</strong> - Local marketplace is refreshed on profile changes
+          </li>
+          <li>
+            <strong>Auto-regenerate</strong> - Plugin rebuilds when profile content changes
+          </li>
+        </ul>
+
+        <h4 className="font-semibold mt-6">Update Workflow</h4>
+        <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+          <li>TARS computes a hash of tracked source files</li>
+          <li>When hashes differ, an "Update Available" badge appears</li>
+          <li>Click "Pull" to copy updated content to profile storage</li>
+          <li>The plugin regenerates with a new content-hash version</li>
+          <li>Reinstall to affected projects to apply changes</li>
+        </ol>
+
+        <h4 className="font-semibold mt-6">Storage Locations</h4>
+        <table className="w-full text-sm mt-4">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left py-2">Location</th>
+              <th className="text-left py-2">Purpose</th>
+            </tr>
+          </thead>
+          <tbody className="text-muted-foreground">
+            <tr className="border-b border-border/50">
+              <td className="py-2 font-mono text-xs">~/.tars/profiles/</td>
+              <td className="py-2">Profile storage (tools, plugins, metadata)</td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="py-2 font-mono text-xs">~/.tars/profiles/&lt;id&gt;/plugin/</td>
+              <td className="py-2">Pre-generated plugin ready to install</td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="py-2 font-mono text-xs">
+                ~/.claude/plugins/marketplaces/tars-profiles/
+              </td>
+              <td className="py-2">Local profile marketplace + manifest</td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="py-2 font-mono text-xs">~/.claude/plugins/</td>
+              <td className="py-2">Installed plugins (user scope)</td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="py-2 font-mono text-xs">.claude/plugins/</td>
+              <td className="py-2">Installed plugins (project scope)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4 className="font-semibold mt-6">Benefits Over File Copying</h4>
+        <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+          <li>
+            <strong>Native management</strong> - Use <code className="text-xs">claude plugin</code>{' '}
+            commands
+          </li>
+          <li>
+            <strong>Clean uninstall</strong> - Remove with{' '}
+            <code className="text-xs">claude plugin uninstall</code>
+          </li>
+          <li>
+            <strong>Scope control</strong> - Project-specific or user-wide installation
+          </li>
+          <li>
+            <strong>Enable/disable</strong> - Toggle without reinstalling
+          </li>
+          <li>
+            <strong>No file conflicts</strong> - Plugins live in their own directories
+          </li>
+        </ul>
+      </div>
+    ),
+    docs: [],
+  },
 ];
 
 export function CasePage() {
@@ -794,4 +983,5 @@ export const CASE_SECTIONS = {
   MCP: 'mcp',
   SHORTCUTS: 'shortcuts',
   PLUGINS: 'plugins',
+  PROFILES: 'profiles',
 } as const;

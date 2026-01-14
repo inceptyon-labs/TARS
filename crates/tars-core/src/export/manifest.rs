@@ -11,16 +11,6 @@ pub struct ExportManifest {
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<Author>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub commands: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agents: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub skills: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hooks: Option<String>,
-    #[serde(rename = "mcpServers", skip_serializing_if = "Option::is_none")]
-    pub mcp_servers: Option<String>,
 }
 
 impl ExportManifest {
@@ -32,11 +22,6 @@ impl ExportManifest {
             version,
             description,
             author: None,
-            commands: Vec::new(),
-            agents: None,
-            skills: None,
-            hooks: None,
-            mcp_servers: None,
         }
     }
 }

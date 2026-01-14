@@ -15,6 +15,7 @@ import type {
   CommandDetails,
   DirectoryInfo,
   PluginExportOptions,
+  ProfileToolInventory,
   SettingsHooksConfig,
   SettingsHookEvent,
 } from '../types';
@@ -30,6 +31,10 @@ export async function scanUserScope(): Promise<Inventory> {
 
 export async function scanProjects(paths: string[]): Promise<Inventory> {
   return invoke('scan_projects', { paths });
+}
+
+export async function scanProfiles(): Promise<ProfileToolInventory> {
+  return invoke('scan_profiles');
 }
 
 export interface DiscoveredProject {
@@ -180,6 +185,16 @@ export async function deleteProfile(id: string): Promise<DeleteProfileResponse> 
   return invoke('delete_profile', { id });
 }
 
+export interface DeleteProfileCleanupResponse {
+  deleted: boolean;
+  projects_unassigned: number;
+  local_overrides_removed: number;
+}
+
+export async function deleteProfileCleanup(id: string): Promise<DeleteProfileCleanupResponse> {
+  return invoke('delete_profile_cleanup', { id });
+}
+
 // Profile assignment commands
 import type {
   AssignProfileResponse,
@@ -238,6 +253,7 @@ export async function removeLocalTool(
 export interface ToolFromSource {
   name: string;
   tool_type: string;
+  source_mode?: 'pin' | 'track'; // defaults to 'track' if not provided
 }
 
 export interface AddToolsFromSourceResponse {
@@ -250,14 +266,69 @@ export interface AddToolsFromSourceResponse {
 
 export async function addToolsFromSource(
   profileId: string,
-  sourceProjectPath: string,
-  tools: ToolFromSource[]
+  sourceProjectPath: string | null | undefined,
+  tools: ToolFromSource[],
+  sourceScope: 'project' | 'user' = 'project'
 ): Promise<AddToolsFromSourceResponse> {
   return invoke('add_tools_from_source', {
     input: {
       profile_id: profileId,
-      source_project_path: sourceProjectPath,
+      source_project_path: sourceProjectPath ?? null,
+      source_scope: sourceScope,
       tools,
+    },
+  });
+}
+
+export interface CreateProfileMcpInput {
+  profileId: string;
+  name: string;
+  transport: 'stdio' | 'http' | 'sse';
+  command?: string | null;
+  args?: string[] | null;
+  env?: Record<string, string> | null;
+  url?: string | null;
+  docsUrl?: string | null;
+}
+
+export async function createProfileMcpServer(input: CreateProfileMcpInput): Promise<void> {
+  return invoke('create_profile_mcp_server', {
+    input: {
+      profile_id: input.profileId,
+      name: input.name,
+      transport: input.transport,
+      command: input.command,
+      args: input.args,
+      env: input.env,
+      url: input.url,
+      docsUrl: input.docsUrl,
+    },
+  });
+}
+
+export interface ProfileMcpServer {
+  name: string;
+  scope: 'profile';
+  transport: 'stdio' | 'http' | 'sse';
+  command?: string;
+  args: string[];
+  env: Record<string, string>;
+  url?: string;
+  filePath: string;
+  docsUrl?: string;
+  profileId: string;
+  profileName: string;
+}
+
+export async function listProfileMcpServers(): Promise<ProfileMcpServer[]> {
+  return invoke('list_profile_mcp_servers');
+}
+
+export async function removeProfileMcpServer(profileId: string, name: string): Promise<void> {
+  return invoke('remove_profile_mcp_server', {
+    input: {
+      profile_id: profileId,
+      name,
     },
   });
 }
@@ -391,13 +462,15 @@ export async function saveSkill(path: string, content: string): Promise<void> {
 
 export async function createSkill(
   name: string,
-  scope: 'user' | 'project',
-  projectPath?: string
+  scope: 'user' | 'project' | 'profile',
+  projectPath?: string,
+  profileId?: string
 ): Promise<SkillDetails> {
   return invoke('create_skill', {
     name,
     scope,
     projectPath,
+    profileId,
   });
 }
 
@@ -438,13 +511,15 @@ export async function saveAgent(path: string, content: string): Promise<void> {
 
 export async function createAgent(
   name: string,
-  scope: 'user' | 'project',
-  projectPath?: string
+  scope: 'user' | 'project' | 'profile',
+  projectPath?: string,
+  profileId?: string
 ): Promise<AgentDetails> {
   return invoke('create_agent', {
     name,
     scope,
     projectPath,
+    profileId,
   });
 }
 
@@ -491,13 +566,15 @@ export async function saveCommand(path: string, content: string): Promise<void> 
 
 export async function createCommand(
   name: string,
-  scope: 'user' | 'project',
-  projectPath?: string
+  scope: 'user' | 'project' | 'profile',
+  projectPath?: string,
+  profileId?: string
 ): Promise<CommandDetails> {
   return invoke('create_command', {
     name,
     scope,
     projectPath,
+    profileId,
   });
 }
 
@@ -547,6 +624,10 @@ export async function getProjectHooks(projectPath: string): Promise<SettingsHook
   return invoke('get_project_hooks', { projectPath });
 }
 
+export async function getProfileHooks(profileId: string): Promise<SettingsHooksConfig> {
+  return invoke('get_profile_hooks', { profileId });
+}
+
 export async function saveUserHooks(events: SettingsHookEvent[]): Promise<void> {
   return invoke('save_user_hooks', { events });
 }
@@ -556,6 +637,13 @@ export async function saveProjectHooks(
   events: SettingsHookEvent[]
 ): Promise<void> {
   return invoke('save_project_hooks', { projectPath, events });
+}
+
+export async function saveProfileHooks(
+  profileId: string,
+  events: SettingsHookEvent[]
+): Promise<void> {
+  return invoke('save_profile_hooks', { profileId, events });
 }
 
 export async function getHookEventTypes(): Promise<string[]> {
@@ -638,8 +726,60 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
 }
 
 // Claude Code usage stats
-import type { ClaudeUsageStats } from '../types';
+import type {
+  ClaudeUsageStats,
+  ProfileUpdateCheck,
+  PluginAssignResult,
+  SourceMode,
+} from '../types';
 
 export async function getClaudeUsageStats(): Promise<ClaudeUsageStats> {
   return invoke('get_claude_usage_stats');
+}
+
+// Profile update detection
+export async function checkProfileUpdates(profileId: string): Promise<ProfileUpdateCheck> {
+  return invoke('check_profile_updates', { profileId });
+}
+
+export async function pullToolUpdate(profileId: string, toolName: string): Promise<void> {
+  return invoke('pull_tool_update', { profileId, toolName });
+}
+
+export async function setToolSourceMode(
+  profileId: string,
+  toolName: string,
+  mode: SourceMode
+): Promise<void> {
+  return invoke('set_tool_source_mode', { profileId, toolName, mode });
+}
+
+// Plugin-based profile assignment
+export async function assignProfileAsPlugin(
+  projectId: string,
+  profileId: string
+): Promise<PluginAssignResult> {
+  return invoke('assign_profile_as_plugin', { projectId, profileId });
+}
+
+export async function unassignProfilePlugin(projectId: string): Promise<void> {
+  return invoke('unassign_profile_plugin', { projectId });
+}
+
+// Install profile plugin to a specific project
+export async function installProfileToProject(
+  profileId: string,
+  projectId: string
+): Promise<PluginAssignResult> {
+  return invoke('install_profile_to_project', { profileId, projectId });
+}
+
+// Install profile plugin globally (user scope)
+export async function installProfileToUser(profileId: string): Promise<PluginAssignResult> {
+  return invoke('install_profile_to_user', { profileId });
+}
+
+// Uninstall profile plugin from user scope
+export async function uninstallProfileFromUser(profileId: string): Promise<void> {
+  return invoke('uninstall_profile_from_user', { profileId });
 }

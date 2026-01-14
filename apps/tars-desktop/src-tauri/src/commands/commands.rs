@@ -2,9 +2,16 @@
 //!
 //! Commands for viewing and editing Claude Code slash commands.
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use tars_core::profile::{regenerate_profile_plugin, sync_profile_marketplace, ToolRef, ToolType};
+use tars_core::storage::profiles::ProfileStore;
 use tars_core::util::validate_name;
+use tauri::State;
+use uuid::Uuid;
+
+use crate::state::AppState;
 
 /// Command information for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,19 +81,36 @@ pub async fn save_command(path: String, content: String) -> Result<(), String> {
 /// Create a new command
 #[tauri::command]
 pub async fn create_command(
+    state: State<'_, AppState>,
     name: String,
     scope: String,
     project_path: Option<String>,
+    profile_id: Option<String>,
 ) -> Result<CommandDetails, String> {
     // Validate the command name to prevent path traversal
     validate_name(&name).map_err(|_| "Invalid command name".to_string())?;
 
-    let base_path = if scope == "user" {
-        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-        home.join(".claude").join("commands")
-    } else {
-        let project = project_path.ok_or("Project path required for project-scoped command")?;
-        PathBuf::from(project).join(".claude").join("commands")
+    let (base_path, profile_uuid) = match scope.as_str() {
+        "user" => {
+            let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+            (home.join(".claude").join("commands"), None)
+        }
+        "project" => {
+            let project = project_path.ok_or("Project path required for project-scoped command")?;
+            (
+                PathBuf::from(project).join(".claude").join("commands"),
+                None,
+            )
+        }
+        "profile" => {
+            let profile_id = profile_id.ok_or("Profile ID required for profile-scoped command")?;
+            let profile_uuid =
+                Uuid::parse_str(&profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+            let profile_dir = tars_core::profile::storage::ensure_profile_dir(profile_uuid)
+                .map_err(|e| e.to_string())?;
+            (profile_dir.join("commands"), Some(profile_uuid))
+        }
+        _ => return Err("Invalid scope".to_string()),
     };
 
     let command_file = base_path.join(format!("{name}.md"));
@@ -117,6 +141,40 @@ Add your command instructions here.
     std::fs::create_dir_all(&base_path)
         .map_err(|_| "Failed to create commands directory".to_string())?;
     std::fs::write(&command_file, &content).map_err(|_| "Failed to create command".to_string())?;
+
+    if let Some(profile_uuid) = profile_uuid {
+        state.with_db(|db| {
+            let store = ProfileStore::new(db.connection());
+            let mut profile = store
+                .get(profile_uuid)
+                .map_err(|e| format!("Database error: {e}"))?
+                .ok_or_else(|| "Profile not found".to_string())?;
+
+            if !profile
+                .tool_refs
+                .iter()
+                .any(|tool| tool.name == name && tool.tool_type == ToolType::Hook)
+            {
+                profile.tool_refs.push(ToolRef {
+                    name: name.clone(),
+                    tool_type: ToolType::Hook,
+                    source_scope: None,
+                    permissions: None,
+                    source_ref: None,
+                });
+            }
+
+            profile.updated_at = Utc::now();
+            store
+                .update(&profile)
+                .map_err(|e| format!("Failed to update profile: {e}"))?;
+
+            regenerate_profile_plugin(&profile).map_err(|e| e.to_string())?;
+            sync_profile_marketplace(&profile).map_err(|e| e.to_string())?;
+
+            Ok(())
+        })?;
+    }
 
     Ok(CommandDetails {
         name,
@@ -274,6 +332,7 @@ pub async fn delete_command(path: String) -> Result<(), String> {
 fn determine_command_scope(path: &Path) -> String {
     if let Some(home_path) = dirs::home_dir() {
         let user_commands_dir = home_path.join(".claude").join("commands");
+        let profile_root = home_path.join(".tars").join("profiles");
 
         if let Ok(canonical_user_commands) = user_commands_dir.canonicalize() {
             if let Ok(canonical_path) = path.canonicalize() {
@@ -285,6 +344,18 @@ fn determine_command_scope(path: &Path) -> String {
 
         if path.starts_with(&user_commands_dir) {
             return "user".to_string();
+        }
+
+        if let Ok(canonical_profile_root) = profile_root.canonicalize() {
+            if let Ok(canonical_path) = path.canonicalize() {
+                if canonical_path.starts_with(&canonical_profile_root) {
+                    return "profile".to_string();
+                }
+            }
+        }
+
+        if path.starts_with(&profile_root) {
+            return "profile".to_string();
         }
     }
 
@@ -300,6 +371,7 @@ fn get_command_roots() -> Vec<PathBuf> {
         roots.push(claude_dir.join("commands"));
         roots.push(claude_dir.join("plugins").join("cache"));
         roots.push(claude_dir.join("plugins").join("marketplaces"));
+        roots.push(home.join(".tars").join("profiles"));
     }
 
     roots

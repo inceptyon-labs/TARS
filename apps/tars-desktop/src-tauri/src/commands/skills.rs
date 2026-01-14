@@ -2,9 +2,16 @@
 //!
 //! Commands for viewing and editing skills.
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use tars_core::profile::{regenerate_profile_plugin, sync_profile_marketplace, ToolRef, ToolType};
+use tars_core::storage::profiles::ProfileStore;
 use tars_core::util::validate_name;
+use tauri::State;
+use uuid::Uuid;
+
+use crate::state::AppState;
 
 /// Skill information for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,7 +20,7 @@ pub struct SkillInfo {
     pub path: String,
     pub content: String,
     pub description: Option<String>,
-    pub scope: String, // "user" or "project"
+    pub scope: String, // "user", "project", or "profile"
     pub supporting_files: Vec<SupportingFile>,
 }
 
@@ -108,19 +115,33 @@ pub async fn save_skill(path: String, content: String) -> Result<(), String> {
 /// Create a new skill
 #[tauri::command]
 pub async fn create_skill(
+    state: State<'_, AppState>,
     name: String,
     scope: String,
     project_path: Option<String>,
+    profile_id: Option<String>,
 ) -> Result<SkillInfo, String> {
     // Validate the skill name to prevent path traversal
     validate_name(&name).map_err(|_| "Invalid skill name".to_string())?;
 
-    let base_path = if scope == "user" {
-        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-        home.join(".claude").join("skills")
-    } else {
-        let project = project_path.ok_or("Project path required for project-scoped skill")?;
-        PathBuf::from(project).join(".claude").join("skills")
+    let (base_path, profile_uuid) = match scope.as_str() {
+        "user" => {
+            let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+            (home.join(".claude").join("skills"), None)
+        }
+        "project" => {
+            let project = project_path.ok_or("Project path required for project-scoped skill")?;
+            (PathBuf::from(project).join(".claude").join("skills"), None)
+        }
+        "profile" => {
+            let profile_id = profile_id.ok_or("Profile ID required for profile-scoped skill")?;
+            let profile_uuid =
+                Uuid::parse_str(&profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+            let profile_dir = tars_core::profile::storage::ensure_profile_dir(profile_uuid)
+                .map_err(|e| e.to_string())?;
+            (profile_dir.join("skills"), Some(profile_uuid))
+        }
+        _ => return Err("Invalid scope".to_string()),
     };
 
     let skill_dir = base_path.join(&name);
@@ -149,6 +170,40 @@ Add your skill instructions here.
     std::fs::create_dir_all(&skill_dir)
         .map_err(|_| "Failed to create skill directory".to_string())?;
     std::fs::write(&skill_file, &content).map_err(|_| "Failed to create skill".to_string())?;
+
+    if let Some(profile_uuid) = profile_uuid {
+        state.with_db(|db| {
+            let store = ProfileStore::new(db.connection());
+            let mut profile = store
+                .get(profile_uuid)
+                .map_err(|e| format!("Database error: {e}"))?
+                .ok_or_else(|| "Profile not found".to_string())?;
+
+            if !profile
+                .tool_refs
+                .iter()
+                .any(|tool| tool.name == name && tool.tool_type == ToolType::Skill)
+            {
+                profile.tool_refs.push(ToolRef {
+                    name: name.clone(),
+                    tool_type: ToolType::Skill,
+                    source_scope: None,
+                    permissions: None,
+                    source_ref: None,
+                });
+            }
+
+            profile.updated_at = Utc::now();
+            store
+                .update(&profile)
+                .map_err(|e| format!("Failed to update profile: {e}"))?;
+
+            regenerate_profile_plugin(&profile).map_err(|e| e.to_string())?;
+            sync_profile_marketplace(&profile).map_err(|e| e.to_string())?;
+
+            Ok(())
+        })?;
+    }
 
     Ok(SkillInfo {
         name,
@@ -309,6 +364,7 @@ fn determine_skill_scope(path: &Path) -> String {
     // Get user home directory
     if let Some(home_path) = dirs::home_dir() {
         let user_skills_dir = home_path.join(".claude").join("skills");
+        let profile_root = home_path.join(".tars").join("profiles");
 
         // Check if path is under user's .claude/skills directory
         if let Ok(canonical_user_skills) = user_skills_dir.canonicalize() {
@@ -322,6 +378,18 @@ fn determine_skill_scope(path: &Path) -> String {
         // Also check logical path (for non-existent paths)
         if path.starts_with(&user_skills_dir) {
             return "user".to_string();
+        }
+
+        if let Ok(canonical_profile_root) = profile_root.canonicalize() {
+            if let Ok(canonical_path) = path.canonicalize() {
+                if canonical_path.starts_with(&canonical_profile_root) {
+                    return "profile".to_string();
+                }
+            }
+        }
+
+        if path.starts_with(&profile_root) {
+            return "profile".to_string();
         }
     }
 
@@ -341,6 +409,8 @@ fn get_skill_roots() -> Vec<PathBuf> {
         roots.push(claude_dir.join("plugins").join("cache"));
         // Plugin marketplaces: ~/.claude/plugins/marketplaces/
         roots.push(claude_dir.join("plugins").join("marketplaces"));
+        // Profile storage: ~/.tars/profiles/
+        roots.push(home.join(".tars").join("profiles"));
     }
 
     roots

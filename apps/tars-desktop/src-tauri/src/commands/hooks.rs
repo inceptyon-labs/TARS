@@ -2,10 +2,16 @@
 //!
 //! Commands for viewing and editing hooks in settings.json files.
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tauri::State;
+use uuid::Uuid;
+
+use crate::state::AppState;
+use tars_core::storage::ProfileStore;
 
 /// Hook event types
 pub const HOOK_EVENTS: &[&str] = &[
@@ -66,6 +72,14 @@ fn get_project_settings_path(project_path: &str) -> PathBuf {
     PathBuf::from(project_path)
         .join(".claude")
         .join("settings.json")
+}
+
+/// Get the profile hooks path (hooks.json)
+fn get_profile_hooks_path(profile_id: &str) -> Result<PathBuf, String> {
+    let profile_uuid = Uuid::parse_str(profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+    let profile_dir =
+        tars_core::profile::storage::profile_dir(profile_uuid).map_err(|e| e.to_string())?;
+    Ok(profile_dir.join("hooks.json"))
 }
 
 /// Read hooks from a settings.json file
@@ -193,6 +207,58 @@ pub async fn save_project_hooks(
 ) -> Result<(), String> {
     let path = get_project_settings_path(&project_path);
     write_hooks_to_settings(&path, &events)
+}
+
+/// Get hooks from a profile scope
+#[tauri::command]
+pub async fn get_profile_hooks(
+    profile_id: String,
+    _state: State<'_, AppState>,
+) -> Result<HooksConfig, String> {
+    let path = get_profile_hooks_path(&profile_id)?;
+    let events = read_hooks_from_settings(&path)?;
+
+    Ok(HooksConfig {
+        path: path.display().to_string(),
+        scope: "profile".to_string(),
+        events,
+    })
+}
+
+/// Save hooks to a profile scope
+#[tauri::command]
+pub async fn save_profile_hooks(
+    state: State<'_, AppState>,
+    profile_id: String,
+    events: Vec<HookEvent>,
+) -> Result<(), String> {
+    let path = get_profile_hooks_path(&profile_id)?;
+    write_hooks_to_settings(&path, &events)?;
+
+    let profile_uuid =
+        Uuid::parse_str(&profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+
+    state.with_db(|db| {
+        let store = ProfileStore::new(db.connection());
+        let mut profile = store
+            .get(profile_uuid)
+            .map_err(|e| format!("Database error: {e}"))?
+            .ok_or_else(|| "Profile not found".to_string())?;
+
+        profile.updated_at = Utc::now();
+        store
+            .update(&profile)
+            .map_err(|e| format!("Failed to update profile: {e}"))?;
+
+        tars_core::profile::regenerate_profile_plugin(&profile)
+            .map_err(|e| format!("Failed to regenerate plugin: {e}"))?;
+        tars_core::profile::sync_profile_marketplace(&profile)
+            .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+
+        Ok(())
+    })?;
+
+    Ok(())
 }
 
 /// Get all available hook event types

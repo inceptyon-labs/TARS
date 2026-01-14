@@ -19,9 +19,9 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 walkdir = { workspace = true }
 dirs = { workspace = true }
+tempfile = "3.10"
 
 [dev-dependencies]
-tempfile = "3.10"
 
 [lints]
 workspace = true

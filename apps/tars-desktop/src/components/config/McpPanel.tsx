@@ -25,7 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ConfirmDialog } from './ConfirmDialog';
 import { McpForm } from './McpForm';
-import { listProjects } from '../../lib/ipc';
+import { listProfileMcpServers, listProjects, removeProfileMcpServer } from '../../lib/ipc';
 import type { McpServer, OperationResult, Scope } from './types';
 
 interface McpListResult {
@@ -34,6 +34,14 @@ interface McpListResult {
 
 interface GroupedServers {
   [key: string]: McpServer[];
+}
+
+function isProfileMarketplacePath(path: string) {
+  const normalized = path.replace(/\\/g, '/').toLowerCase();
+  return (
+    normalized.includes('/.claude/plugins/marketplaces/tars-profiles/') ||
+    normalized.includes('/.claude/plugins/cache/tars-profiles/')
+  );
 }
 
 export function McpPanel() {
@@ -59,10 +67,18 @@ export function McpPanel() {
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<McpListResult>('mcp_list', {
-        projectPath: selectedProjectPath,
-      });
-      setServers(result.servers);
+      const [result, profileServers] = await Promise.all([
+        invoke<McpListResult>('mcp_list', {
+          projectPath: selectedProjectPath,
+        }),
+        listProfileMcpServers(),
+      ]);
+
+      const filteredServers = result.servers.filter(
+        (server) => !isProfileMarketplacePath(server.filePath)
+      );
+
+      setServers([...filteredServers, ...profileServers]);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -79,27 +95,35 @@ export function McpPanel() {
 
     setRemoving(true);
     try {
-      const result = await invoke<OperationResult>('mcp_remove', {
-        params: {
-          name: serverToRemove.name,
-          scope: serverToRemove.scope,
-          dryRun: false,
-        },
-        projectPath: selectedProjectPath,
-      });
-
-      if (result.success) {
-        toast.success(`Removed "${serverToRemove.name}"`, {
-          description: 'MCP server removed successfully',
-        });
-        // Refresh the list
-        await loadServers();
+      if (serverToRemove.scope === 'profile') {
+        if (!serverToRemove.profileId) {
+          throw new Error('Missing profile ID for MCP server');
+        }
+        await removeProfileMcpServer(serverToRemove.profileId, serverToRemove.name);
       } else {
-        toast.error('Failed to remove server', {
-          description: result.error || 'Unknown error',
+        const result = await invoke<OperationResult>('mcp_remove', {
+          params: {
+            name: serverToRemove.name,
+            scope: serverToRemove.scope,
+            dryRun: false,
+          },
+          projectPath: selectedProjectPath,
         });
-        setError(result.error || 'Failed to remove server');
+
+        if (!result.success) {
+          toast.error('Failed to remove server', {
+            description: result.error || 'Unknown error',
+          });
+          setError(result.error || 'Failed to remove server');
+          setRemoving(false);
+          return;
+        }
       }
+
+      toast.success(`Removed "${serverToRemove.name}"`, {
+        description: 'MCP server removed successfully',
+      });
+      await loadServers();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error('Failed to remove server', { description: message });
@@ -149,6 +173,9 @@ export function McpPanel() {
   };
 
   const openMoveDialog = (server: McpServer) => {
+    if (server.scope === 'profile') {
+      return;
+    }
     setServerToMove(server);
     // Pre-select a different scope than current
     const otherScopes: Scope[] = ['user', 'project', 'local'].filter(
@@ -167,11 +194,18 @@ export function McpPanel() {
     return acc;
   }, {} as GroupedServers);
 
-  const scopeOrder: Scope[] = ['project', 'local', 'user'];
+  const scopeOrder: Scope[] = ['profile', 'project', 'local', 'user'];
   const scopeLabels: Record<string, string> = {
     user: 'User (Global)',
     project: 'Project',
     local: 'Local',
+    profile: 'Profiles',
+  };
+  const scopeDescriptions: Record<string, string> = {
+    user: '~/.claude.json - Available in all projects',
+    project: '.mcp.json - Project-specific servers',
+    local: '.claude/settings.local.json - Not committed',
+    profile: '~/.tars/profiles/*/mcp-servers - Available when installed',
   };
 
   if (loading) {
@@ -234,11 +268,7 @@ export function McpPanel() {
             <Card key={scope}>
               <CardHeader className="py-3">
                 <CardTitle className="text-base">{scopeLabels[scope]}</CardTitle>
-                <CardDescription>
-                  {scope === 'user' && '~/.claude.json - Available in all projects'}
-                  {scope === 'project' && '.mcp.json - Project-specific servers'}
-                  {scope === 'local' && '.claude/settings.local.json - Not committed'}
-                </CardDescription>
+                <CardDescription>{scopeDescriptions[scope]}</CardDescription>
               </CardHeader>
               <CardContent className="pt-0">
                 <Table>
@@ -251,74 +281,92 @@ export function McpPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {scopeServers.map((server) => (
-                      <TableRow key={`${server.scope}-${server.name}`}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {server.name}
-                            {server.docsUrl && (
-                              <button
-                                type="button"
-                                className="text-muted-foreground hover:text-foreground transition-colors"
-                                title="View documentation"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openUrl(server.docsUrl!);
-                                }}
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            {server.sourcePlugin && (
-                              <span
-                                className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs"
-                                title={`From plugin: ${server.sourcePlugin}`}
-                              >
-                                plugin
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="px-2 py-1 bg-muted rounded text-xs">
-                            {server.transport}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm truncate max-w-[300px]">
-                          {server.command || server.url || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {server.sourcePlugin ? (
-                            <span className="text-xs text-muted-foreground">Managed by plugin</span>
-                          ) : (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setServerToEdit(server)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openMoveDialog(server)}
-                              >
-                                Move
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => setServerToRemove(server)}
-                              >
-                                Remove
-                              </Button>
+                    {scopeServers.map((server) => {
+                      const rowKey =
+                        server.scope === 'profile' && server.profileId
+                          ? `${server.scope}-${server.profileId}-${server.name}`
+                          : `${server.scope}-${server.name}`;
+                      return (
+                        <TableRow key={rowKey}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {server.name}
+                              {server.docsUrl && (
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground hover:text-foreground transition-colors"
+                                  title="View documentation"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openUrl(server.docsUrl!);
+                                  }}
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {server.sourcePlugin && (
+                                <span
+                                  className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs"
+                                  title={`From plugin: ${server.sourcePlugin}`}
+                                >
+                                  plugin
+                                </span>
+                              )}
+                              {server.scope === 'profile' && server.profileName && (
+                                <span
+                                  className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded text-xs"
+                                  title={`From profile: ${server.profileName}`}
+                                >
+                                  {server.profileName}
+                                </span>
+                              )}
                             </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 bg-muted rounded text-xs">
+                              {server.transport}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm truncate max-w-[300px]">
+                            {server.command || server.url || '-'}
+                          </TableCell>
+                          <TableCell>
+                            {server.sourcePlugin ? (
+                              <span className="text-xs text-muted-foreground">
+                                Managed by plugin
+                              </span>
+                            ) : (
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setServerToEdit(server)}
+                                >
+                                  Edit
+                                </Button>
+                                {server.scope !== 'profile' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openMoveDialog(server)}
+                                  >
+                                    Move
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setServerToRemove(server)}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>

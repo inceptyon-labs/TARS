@@ -16,8 +16,11 @@ import {
   saveUserHooks,
   getProjectHooks,
   saveProjectHooks,
+  getProfileHooks,
+  saveProfileHooks,
   getHookEventTypes,
   listProjects,
+  listProfiles,
 } from '../lib/ipc';
 import { Button } from '../components/ui/button';
 import {
@@ -49,8 +52,9 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
 
 export function HooksPage() {
   const queryClient = useQueryClient();
-  const [selectedScope, setSelectedScope] = useState<'user' | 'project'>('user');
+  const [selectedScope, setSelectedScope] = useState<'user' | 'project' | 'profile'>('user');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAddMatcherDialog, setShowAddMatcherDialog] = useState(false);
@@ -78,6 +82,11 @@ export function HooksPage() {
     queryFn: listProjects,
   });
 
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: listProfiles,
+  });
+
   // Get hook event types
   const { data: eventTypes = [] } = useQuery({
     queryKey: ['hook-event-types'],
@@ -86,31 +95,43 @@ export function HooksPage() {
 
   // Get hooks for selected scope
   const { data: hooksConfig, isLoading } = useQuery({
-    queryKey: ['hooks', selectedScope, selectedProject],
+    queryKey: ['hooks', selectedScope, selectedProject, selectedProfileId],
     queryFn: () => {
       if (selectedScope === 'user') {
         return getUserHooks();
-      } else if (selectedProject) {
+      } else if (selectedScope === 'project' && selectedProject) {
         return getProjectHooks(selectedProject);
+      } else if (selectedScope === 'profile' && selectedProfileId) {
+        return getProfileHooks(selectedProfileId);
       }
       return Promise.resolve({ path: '', scope: 'user', events: [] });
     },
-    enabled: selectedScope === 'user' || !!selectedProject,
+    enabled:
+      selectedScope === 'user' ||
+      (selectedScope === 'project' && !!selectedProject) ||
+      (selectedScope === 'profile' && !!selectedProfileId),
   });
 
   const events = hooksConfig?.events || [];
+  const canEditScope =
+    selectedScope === 'user' ||
+    (selectedScope === 'project' && !!selectedProject) ||
+    (selectedScope === 'profile' && !!selectedProfileId);
 
   // Save hooks mutation
   const saveMutation = useMutation({
     mutationFn: async (newEvents: SettingsHookEvent[]) => {
       if (selectedScope === 'user') {
         await saveUserHooks(newEvents);
-      } else if (selectedProject) {
+      } else if (selectedScope === 'project' && selectedProject) {
         await saveProjectHooks(selectedProject, newEvents);
+      } else if (selectedScope === 'profile' && selectedProfileId) {
+        await saveProfileHooks(selectedProfileId, newEvents);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hooks'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-hooks'] });
       toast.success('Hooks saved');
     },
     onError: (err) => {
@@ -299,6 +320,7 @@ export function HooksPage() {
                 onClick={() => {
                   setSelectedScope('user');
                   setSelectedProject(null);
+                  setSelectedProfileId(null);
                 }}
               >
                 User (~/.claude/)
@@ -306,9 +328,23 @@ export function HooksPage() {
               <Button
                 variant={selectedScope === 'project' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setSelectedScope('project')}
+                onClick={() => {
+                  setSelectedScope('project');
+                  setSelectedProfileId(null);
+                }}
               >
                 Project
+              </Button>
+              <Button
+                variant={selectedScope === 'profile' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setSelectedScope('profile');
+                  setSelectedProject(null);
+                }}
+                disabled={profiles.length === 0}
+              >
+                Profile
               </Button>
             </div>
             {selectedScope === 'project' && (
@@ -325,11 +361,25 @@ export function HooksPage() {
                 ))}
               </select>
             )}
+            {selectedScope === 'profile' && (
+              <select
+                value={selectedProfileId || ''}
+                onChange={(e) => setSelectedProfileId(e.target.value || null)}
+                className="tars-input px-3 py-1.5 text-sm rounded"
+              >
+                <option value="">Select profile...</option>
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <Button
             onClick={() => setShowAddDialog(true)}
             size="sm"
-            disabled={availableEvents.length === 0}
+            disabled={availableEvents.length === 0 || !canEditScope}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Event

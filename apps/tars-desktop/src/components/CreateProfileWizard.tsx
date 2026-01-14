@@ -23,12 +23,12 @@ import {
 import { listProjects, scanProjects, scanProject, discoverClaudeProjects } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { Button } from './ui/button';
-import type { ToolRef, ToolType } from '../lib/types';
+import type { ToolType } from '../lib/types';
 
 interface CreateProfileWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (name: string, description: string | undefined, tools: ToolRef[]) => void;
+  onCreate: (name: string, description: string | undefined, tools: ToolItem[]) => void;
   isLoading: boolean;
   error?: string;
 }
@@ -319,13 +319,7 @@ export function CreateProfileWizard({
   };
 
   const handleCreate = () => {
-    const toolRefs: ToolRef[] = selectedTools.map((t) => ({
-      name: t.name,
-      tool_type: t.toolType,
-      source_scope: 'project',
-      permissions: null,
-    }));
-    onCreate(name.trim(), description.trim() || undefined, toolRefs);
+    onCreate(name.trim(), description.trim() || undefined, selectedTools);
   };
 
   const canProceedFromBasics = name.trim().length > 0;

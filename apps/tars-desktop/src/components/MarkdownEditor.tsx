@@ -65,6 +65,8 @@ function getScopeLabel(scope?: string): string {
       return 'Managed';
     case 'plugin':
       return 'Plugin';
+    case 'profile':
+      return 'Profile';
     default:
       return scope || 'Unknown';
   }

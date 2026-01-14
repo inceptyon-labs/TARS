@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box,
   Check,
@@ -15,14 +15,15 @@ import {
   Store,
   Terminal,
   Trash2,
+  AlertTriangle,
   Power,
   PowerOff,
 } from 'lucide-react';
 import { HelpButton } from '../components/HelpButton';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { invoke } from '@tauri-apps/api/core';
-import { scanUserScope, listProjects } from '../lib/ipc';
+import { scanUserScope, listProfiles, listProjects, deleteProfileCleanup } from '../lib/ipc';
 import type {
   AvailablePlugin,
   CacheStatusResponse,
@@ -52,6 +53,7 @@ import {
 } from '../components/ui/table';
 
 export function PluginsPage() {
+  const queryClient = useQueryClient();
   const [showAddMarketplace, setShowAddMarketplace] = useState(false);
   const [marketplaceSource, setMarketplaceSource] = useState('');
   const [addingMarketplace, setAddingMarketplace] = useState(false);
@@ -59,6 +61,7 @@ export function PluginsPage() {
   const [removingMarketplace, setRemovingMarketplace] = useState(false);
   const [alsoUninstallPlugins, setAlsoUninstallPlugins] = useState(false);
   const [updatingMarketplaces, setUpdatingMarketplaces] = useState(false);
+  const [updatingPlugin, setUpdatingPlugin] = useState<string | null>(null);
   const [selectedMarketplace, setSelectedMarketplace] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [installingPlugin, setInstallingPlugin] = useState<string | null>(null);
@@ -98,6 +101,11 @@ export function PluginsPage() {
     queryFn: listProjects,
   });
 
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: listProfiles,
+  });
+
   // Get cache status
   const { data: cacheStatus, refetch: refetchCache } = useQuery({
     queryKey: ['cache-status'],
@@ -105,6 +113,7 @@ export function PluginsPage() {
   });
 
   const plugins: PluginInventory = inventory?.plugins || { marketplaces: [], installed: [] };
+  const PROFILE_MARKETPLACE = 'tars-profiles';
 
   // Sort marketplaces by name for stable ordering
   const sortedMarketplaces = [...plugins.marketplaces].sort((a, b) => a.name.localeCompare(b.name));
@@ -117,6 +126,25 @@ export function PluginsPage() {
     if (marketplaceCompare !== 0) return marketplaceCompare;
     return (a.project_path || '').localeCompare(b.project_path || '');
   });
+
+  const isProfileMarketplace = marketplaceToRemove === PROFILE_MARKETPLACE;
+  const profileSummary = useMemo(() => {
+    const totalProfiles = profiles.length;
+    const totalTools = profiles.reduce((sum, profile) => sum + (profile.tool_count || 0), 0);
+    return { totalProfiles, totalTools };
+  }, [profiles]);
+
+  const availableByMarketplace = useMemo(() => {
+    const map = new Map<string, Map<string, AvailablePlugin>>();
+    for (const marketplace of sortedMarketplaces) {
+      const pluginMap = new Map<string, AvailablePlugin>();
+      for (const plugin of marketplace.available_plugins || []) {
+        pluginMap.set(plugin.id, plugin);
+      }
+      map.set(marketplace.name, pluginMap);
+    }
+    return map;
+  }, [sortedMarketplaces]);
 
   async function handleAddMarketplace() {
     if (!marketplaceSource.trim()) return;
@@ -144,13 +172,43 @@ export function PluginsPage() {
     return sortedInstalledPlugins.filter((p) => p.marketplace === marketplaceName);
   }
 
+  function getPluginInstallId(plugin: (typeof sortedInstalledPlugins)[number]) {
+    return plugin.marketplace ? `${plugin.id}@${plugin.marketplace}` : plugin.id;
+  }
+
+  async function installPlugin(plugin: (typeof sortedInstalledPlugins)[number]) {
+    return invoke('plugin_install', {
+      plugin: getPluginInstallId(plugin),
+      scope: plugin.scope.type.toLowerCase(),
+      projectPath: plugin.project_path ?? undefined,
+    });
+  }
+
   async function handleRemoveMarketplace() {
     if (!marketplaceToRemove) return;
 
     setRemovingMarketplace(true);
     try {
+      if (isProfileMarketplace && profiles.length > 0) {
+        const failedProfiles: string[] = [];
+        for (const profile of profiles) {
+          try {
+            await deleteProfileCleanup(profile.id);
+          } catch (err) {
+            failedProfiles.push(profile.name);
+          }
+        }
+        if (failedProfiles.length > 0) {
+          toast.error('Failed to delete some profiles', {
+            description: failedProfiles.slice(0, 5).join(', '),
+          });
+        }
+        queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      }
+
       // If user wants to uninstall plugins too, do that first
-      if (alsoUninstallPlugins) {
+      const shouldUninstall = alsoUninstallPlugins || isProfileMarketplace;
+      if (shouldUninstall) {
         const pluginsToRemove = getPluginsFromMarketplace(marketplaceToRemove);
         for (const plugin of pluginsToRemove) {
           try {
@@ -167,7 +225,7 @@ export function PluginsPage() {
 
       await invoke('plugin_marketplace_remove', { name: marketplaceToRemove });
       toast.success('Marketplace removed', {
-        description: alsoUninstallPlugins
+        description: shouldUninstall
           ? `Removed ${marketplaceToRemove} and its plugins`
           : `Removed ${marketplaceToRemove}`,
       });
@@ -187,7 +245,25 @@ export function PluginsPage() {
     setUpdatingMarketplaces(true);
     try {
       await invoke('plugin_marketplace_update', { name: null });
-      toast.success('Marketplaces updated');
+      const failures: string[] = [];
+
+      for (const plugin of sortedInstalledPlugins) {
+        try {
+          await installPlugin(plugin);
+        } catch (err) {
+          console.error('Failed to update plugin:', plugin.id, err);
+          failures.push(plugin.id);
+        }
+      }
+
+      if (failures.length > 0) {
+        toast.error('Some plugins failed to update', {
+          description: failures.slice(0, 5).join(', '),
+        });
+      } else {
+        toast.success('Marketplaces and plugins updated');
+      }
+
       await refetch();
     } catch (err) {
       toast.error('Failed to update marketplaces', {
@@ -195,6 +271,21 @@ export function PluginsPage() {
       });
     } finally {
       setUpdatingMarketplaces(false);
+    }
+  }
+
+  async function handleUpdatePlugin(plugin: (typeof sortedInstalledPlugins)[number], key: string) {
+    setUpdatingPlugin(key);
+    try {
+      await installPlugin(plugin);
+      toast.success(`Updated ${plugin.id}`);
+      await refetch();
+    } catch (err) {
+      toast.error('Failed to update plugin', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setUpdatingPlugin(null);
     }
   }
 
@@ -603,7 +694,12 @@ export function PluginsPage() {
                           variant="ghost"
                           size="sm"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => setMarketplaceToRemove(marketplace.name)}
+                          onClick={() => {
+                            setMarketplaceToRemove(marketplace.name);
+                            if (marketplace.name === PROFILE_MARKETPLACE) {
+                              setAlsoUninstallPlugins(true);
+                            }
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -650,6 +746,11 @@ export function PluginsPage() {
                 <TableBody>
                   {sortedInstalledPlugins.map((plugin, index) => {
                     const skills = plugin.manifest.parsed_skills || [];
+                    const availablePlugin = plugin.marketplace
+                      ? availableByMarketplace.get(plugin.marketplace)?.get(plugin.id)
+                      : undefined;
+                    const updateAvailable =
+                      !!availablePlugin?.version && availablePlugin.version !== plugin.version;
                     // Include project_path in key to distinguish same plugin installed to multiple projects
                     const uniqueKey = `${plugin.id}-${plugin.marketplace}-${plugin.scope.type}-${plugin.project_path || index}`;
 
@@ -692,12 +793,33 @@ export function PluginsPage() {
                           <span className="text-xs font-mono">{plugin.version}</span>
                         </TableCell>
                         <TableCell>
-                          <span
-                            className="text-xs text-muted-foreground cursor-help"
-                            title={`Installed: ${formatFullDate(plugin.installed_at)}\nLast updated: ${formatFullDate(plugin.last_updated)}`}
-                          >
-                            {formatRelativeDate(plugin.last_updated)}
-                          </span>
+                          {updateAvailable ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUpdatePlugin(plugin, uniqueKey)}
+                              disabled={updatingPlugin === uniqueKey}
+                              title={
+                                availablePlugin?.version
+                                  ? `Update available: ${plugin.version} → ${availablePlugin.version}`
+                                  : 'Update available'
+                              }
+                            >
+                              <RefreshCw
+                                className={`h-3.5 w-3.5 mr-2 ${
+                                  updatingPlugin === uniqueKey ? 'animate-spin' : ''
+                                }`}
+                              />
+                              Update
+                            </Button>
+                          ) : (
+                            <span
+                              className="text-xs text-muted-foreground cursor-help"
+                              title={`Installed: ${formatFullDate(plugin.installed_at)}\nLast updated: ${formatFullDate(plugin.last_updated)}`}
+                            >
+                              {formatRelativeDate(plugin.last_updated)}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-0.5">
@@ -1048,14 +1170,74 @@ export function PluginsPage() {
           <DialogHeader>
             <DialogTitle>Remove Marketplace</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove "{marketplaceToRemove}"?
+              {isProfileMarketplace
+                ? `Removing "${marketplaceToRemove}" will permanently delete all profiles and their tools.`
+                : `Are you sure you want to remove "${marketplaceToRemove}"?`}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
+            {isProfileMarketplace && (
+              <div className="flex items-start gap-3 rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-medium">Destructive action</div>
+                  <ul className="mt-1 space-y-1 text-xs text-destructive/90">
+                    <li>Deletes all profiles and their stored tools</li>
+                    <li>Unassigns profiles from projects and clears matching local overrides</li>
+                    <li>Uninstalls any installed profile plugins</li>
+                  </ul>
+                </div>
+              </div>
+            )}
             {(() => {
               const affectedPlugins = marketplaceToRemove
                 ? getPluginsFromMarketplace(marketplaceToRemove)
                 : [];
+              if (isProfileMarketplace) {
+                return (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-border bg-muted/30 p-3">
+                      <div className="text-sm font-medium">Profile marketplace cleanup</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {profileSummary.totalProfiles} profile
+                        {profileSummary.totalProfiles !== 1 ? 's' : ''} with{' '}
+                        {profileSummary.totalTools} tool
+                        {profileSummary.totalTools !== 1 ? 's' : ''} total.
+                      </div>
+                    </div>
+                    {affectedPlugins.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No profile plugins are currently installed.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          {affectedPlugins.length} profile plugin
+                          {affectedPlugins.length !== 1 ? 's' : ''} installed:
+                        </p>
+                        <div className="max-h-[120px] overflow-auto border rounded-lg divide-y">
+                          {affectedPlugins.map((plugin, idx) => (
+                            <div
+                              key={`${plugin.id}-${plugin.scope.type}-${idx}`}
+                              className="px-3 py-2 text-sm flex items-center justify-between"
+                            >
+                              <span className="font-medium">{plugin.id}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {plugin.scope.type.toLowerCase()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {affectedPlugins.length > 0 && (
+                      <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
+                        Installed profile plugins will be uninstalled automatically.
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               if (affectedPlugins.length === 0) {
                 return (
                   <p className="text-sm text-muted-foreground">
@@ -1127,7 +1309,12 @@ export function PluginsPage() {
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Remove{alsoUninstallPlugins ? ' & Uninstall' : ''}
+                  Remove
+                  {isProfileMarketplace
+                    ? ' & Delete Profiles'
+                    : alsoUninstallPlugins
+                      ? ' & Uninstall'
+                      : ''}
                 </>
               )}
             </Button>

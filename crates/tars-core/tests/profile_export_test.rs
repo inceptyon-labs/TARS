@@ -19,12 +19,14 @@ fn create_profile_with_tools() -> Profile {
                 allowed_tools: vec!["query-docs".to_string(), "resolve-library-id".to_string()],
                 disallowed_tools: vec!["dangerous-tool".to_string()],
             }),
+            source_ref: None,
         },
         ToolRef {
             name: "my-skill".to_string(),
             tool_type: ToolType::Skill,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         },
         ToolRef {
             name: "test-agent".to_string(),
@@ -35,6 +37,7 @@ fn create_profile_with_tools() -> Profile {
                 allowed_tools: vec!["read".to_string()],
                 disallowed_tools: vec![],
             }),
+            source_ref: None,
         },
     ];
     profile
@@ -264,24 +267,28 @@ fn test_all_tool_types_roundtrip() {
             tool_type: ToolType::Mcp,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         },
         ToolRef {
             name: "skill-tool".to_string(),
             tool_type: ToolType::Skill,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         },
         ToolRef {
             name: "agent-tool".to_string(),
             tool_type: ToolType::Agent,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         },
         ToolRef {
             name: "hook-tool".to_string(),
             tool_type: ToolType::Hook,
             source_scope: None,
             permissions: None,
+            source_ref: None,
         },
     ];
 
