@@ -19,9 +19,6 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create-release.outputs.id }}
-      release_upload_url: ${{ steps.create-release.outputs.upload_url }}
 
     steps:
       - name: Checkout
@@ -58,17 +55,17 @@ jobs:
           echo "" >> /tmp/release_notes.md
           echo "| Platform | File | Notes |" >> /tmp/release_notes.md
           echo "|----------|------|-------|" >> /tmp/release_notes.md
-          echo "| **macOS (Apple Silicon)** | \`TARS_*_aarch64.dmg\` | M1/M2/M3/M4 Macs |" >> /tmp/release_notes.md
-          echo "| **macOS (Intel)** | \`TARS_*_x64.dmg\` | Intel-based Macs |" >> /tmp/release_notes.md
-          echo "| **Windows** | \`TARS_*_x64-setup.exe\` | Windows 10/11 (64-bit) |" >> /tmp/release_notes.md
-          echo "| **Windows (MSI)** | \`TARS_*_x64_en-US.msi\` | Alternative installer |" >> /tmp/release_notes.md
-          echo "| **Linux (Debian/Ubuntu)** | \`TARS_*_amd64.deb\` | \`sudo dpkg -i <file>\` |" >> /tmp/release_notes.md
-          echo "| **Linux (Universal)** | \`TARS_*_amd64.AppImage\` | Make executable, then run |" >> /tmp/release_notes.md
-          echo "| **Linux (Fedora/RHEL)** | \`TARS_*_x86_64.rpm\` | \`sudo rpm -i <file>\` |" >> /tmp/release_notes.md
+          echo "| **macOS (Apple Silicon)** | `TARS_*_aarch64.dmg` | M1/M2/M3/M4 Macs |" >> /tmp/release_notes.md
+          echo "| **macOS (Intel)** | `TARS_*_x64.dmg` | Intel-based Macs |" >> /tmp/release_notes.md
+          echo "| **Windows** | `TARS_*_x64-setup.exe` | Windows 10/11 (64-bit) |" >> /tmp/release_notes.md
+          echo "| **Windows (MSI)** | `TARS_*_x64_en-US.msi` | Alternative installer |" >> /tmp/release_notes.md
+          echo "| **Linux (Debian/Ubuntu)** | `TARS_*_amd64.deb` | `sudo dpkg -i <file>` |" >> /tmp/release_notes.md
+          echo "| **Linux (Universal)** | `TARS_*_amd64.AppImage` | Make executable, then run |" >> /tmp/release_notes.md
+          echo "| **Linux (Fedora/RHEL)** | `TARS_*_x86_64.rpm` | `sudo rpm -i <file>` |" >> /tmp/release_notes.md
           echo "" >> /tmp/release_notes.md
 
           # Get features (feat:)
-          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:" | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
+          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:") | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FEATURES" ]; then
             echo "## Features" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -77,7 +74,7 @@ jobs:
           fi
 
           # Get fixes (fix:)
-          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:" | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
+          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:") | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FIXES" ]; then
             echo "## Bug Fixes" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -86,7 +83,7 @@ jobs:
           fi
 
           # Get performance improvements (perf:)
-          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:" | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
+          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:") | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
           if [ -n "$PERF" ]; then
             echo "## Performance" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -95,7 +92,7 @@ jobs:
           fi
 
           # Get breaking changes (anything with !)
-          BREAKING=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^[a-z]+(\(.+\))?!:" | sed -E 's/^[a-z]+(\([^)]+\))?!: /- **BREAKING:** /' || true)
+          BREAKING=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^[a-z]+(\(.+\))?!:") | sed -E 's/^[a-z]+(\([^)]+\))?!: /- **BREAKING:** /' || true)
           if [ -n "$BREAKING" ]; then
             echo "## Breaking Changes" >> /tmp/release_notes.md
             echo "" >> /tmp/release_notes.md
@@ -125,7 +122,7 @@ jobs:
           echo "" >> /tmp/changelog_entry.md
 
           # Get features (feat:)
-          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:" | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
+          FEATURES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^feat(\(.+\))?!?:") | sed -E 's/^feat(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FEATURES" ]; then
             echo "### Added" >> /tmp/changelog_entry.md
             echo "$FEATURES" >> /tmp/changelog_entry.md
@@ -133,7 +130,7 @@ jobs:
           fi
 
           # Get fixes (fix:)
-          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:" | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
+          FIXES=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^fix(\(.+\))?!?:") | sed -E 's/^fix(\([^)]+\))?!?: /- /' || true)
           if [ -n "$FIXES" ]; then
             echo "### Fixed" >> /tmp/changelog_entry.md
             echo "$FIXES" >> /tmp/changelog_entry.md
@@ -141,7 +138,7 @@ jobs:
           fi
 
           # Get performance improvements (perf:)
-          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:" | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
+          PERF=$(git log $COMMIT_RANGE --pretty=format:"%s" | grep -E "^perf(\(.+\))?!?:") | sed -E 's/^perf(\([^)]+\))?!?: /- /' || true)
           if [ -n "$PERF" ]; then
             echo "### Performance" >> /tmp/changelog_entry.md
             echo "$PERF" >> /tmp/changelog_entry.md
@@ -164,13 +161,12 @@ jobs:
           git push origin HEAD:main || echo "Nothing to push"
 
       - name: Create Release
-        id: create-release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
-          release_name: TARS v${{ steps.get_version.outputs.VERSION }}
+          name: TARS v${{ steps.get_version.outputs.VERSION }}
           draft: true
           prerelease: false
           body_path: ${{ steps.changelog.outputs.CHANGELOG_FILE }}
@@ -261,14 +257,14 @@ jobs:
         with:
           name: artifacts-${{ matrix.name }}
           path: |
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz*
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
-            apps/tars-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/latest.json
+            target/${{ matrix.target }}/release/bundle/**/*.dmg
+            target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz*
+            target/${{ matrix.target }}/release/bundle/**/*.exe
+            target/${{ matrix.target }}/release/bundle/**/*.msi
+            target/${{ matrix.target }}/release/bundle/**/*.deb
+            target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            target/${{ matrix.target }}/release/bundle/**/*.rpm
+            target/${{ matrix.target }}/release/bundle/**/latest.json
           if-no-files-found: warn
 
   publish-release:
