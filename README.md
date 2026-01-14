@@ -32,6 +32,14 @@ TARS is a centralized hub for discovering, creating, editing, and managing Claud
 
 Inspired by the robot from Interstellar, TARS brings order to your Claude Code configuration chaos.
 
+<p align="center">
+  <img src="apps/tars-desktop/src/assets/screenshots/tars-projects.png" alt="Projects View" width="100%">
+</p>
+<p align="center">
+  <img src="apps/tars-desktop/src/assets/screenshots/tars-skills.png" alt="Skills Editor" width="48%">
+  <img src="apps/tars-desktop/src/assets/screenshots/tars-plugins.png" alt="Plugin Marketplace" width="48%">
+</p>
+
 ## Features
 
 ### Project Management
