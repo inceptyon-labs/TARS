@@ -55,13 +55,13 @@ jobs:
           echo "" >> /tmp/release_notes.md
           echo "| Platform | File | Notes |" >> /tmp/release_notes.md
           echo "|----------|------|-------|" >> /tmp/release_notes.md
-          echo "| **macOS (Apple Silicon)** | `TARS_*_aarch64.dmg` | M1/M2/M3/M4 Macs |" >> /tmp/release_notes.md
-          echo "| **macOS (Intel)** | `TARS_*_x64.dmg` | Intel-based Macs |" >> /tmp/release_notes.md
-          echo "| **Windows** | `TARS_*_x64-setup.exe` | Windows 10/11 (64-bit) |" >> /tmp/release_notes.md
-          echo "| **Windows (MSI)** | `TARS_*_x64_en-US.msi` | Alternative installer |" >> /tmp/release_notes.md
-          echo "| **Linux (Debian/Ubuntu)** | `TARS_*_amd64.deb` | `sudo dpkg -i <file>` |" >> /tmp/release_notes.md
-          echo "| **Linux (Universal)** | `TARS_*_amd64.AppImage` | Make executable, then run |" >> /tmp/release_notes.md
-          echo "| **Linux (Fedora/RHEL)** | `TARS_*_x86_64.rpm` | `sudo rpm -i <file>` |" >> /tmp/release_notes.md
+          echo '| **macOS (Apple Silicon)** | `TARS_*_aarch64.dmg` | M1/M2/M3/M4 Macs |' >> /tmp/release_notes.md
+          echo '| **macOS (Intel)** | `TARS_*_x64.dmg` | Intel-based Macs |' >> /tmp/release_notes.md
+          echo '| **Windows** | `TARS_*_x64-setup.exe` | Windows 10/11 (64-bit) |' >> /tmp/release_notes.md
+          echo '| **Windows (MSI)** | `TARS_*_x64_en-US.msi` | Alternative installer |' >> /tmp/release_notes.md
+          echo '| **Linux (Debian/Ubuntu)** | `TARS_*_amd64.deb` | `sudo dpkg -i <file>` |' >> /tmp/release_notes.md
+          echo '| **Linux (Universal)** | `TARS_*_amd64.AppImage` | Make executable, then run |' >> /tmp/release_notes.md
+          echo '| **Linux (Fedora/RHEL)** | `TARS_*_x86_64.rpm` | `sudo rpm -i <file>` |' >> /tmp/release_notes.md
           echo "" >> /tmp/release_notes.md
 
           # Get features (feat:)
