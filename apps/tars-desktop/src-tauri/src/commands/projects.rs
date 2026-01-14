@@ -216,6 +216,14 @@ pub struct ContextStats {
     pub agents_items: Vec<ContextItem>,
     pub settings_chars: usize,
     pub settings_tokens: usize,
+    pub user_settings_chars: usize,
+    pub user_settings_tokens: usize,
+    pub project_settings_chars: usize,
+    pub project_settings_tokens: usize,
+    pub project_local_settings_chars: usize,
+    pub project_local_settings_tokens: usize,
+    pub mcp_chars: usize,
+    pub mcp_tokens: usize,
     pub mcp_servers: Vec<McpComplexity>,
     pub total_chars: usize,
     pub total_tokens: usize,
@@ -478,16 +486,19 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
     let agents_count = agents_items.len();
 
     // Settings files
-    let settings_chars = read_file_size(&user_claude.join("settings.json"))
-        + read_file_size(&project_claude.join("settings.json"))
-        + read_file_size(&project_claude.join("settings.local.json"))
-        + read_file_size(&project.join(".mcp.json"));
+    let user_settings_chars = read_file_size(&user_claude.join("settings.json"));
+    let project_settings_chars = read_file_size(&project_claude.join("settings.json"));
+    let project_local_settings_chars = read_file_size(&project_claude.join("settings.local.json"));
+    let mcp_chars = read_file_size(&project.join(".mcp.json"));
+
+    let settings_chars =
+        user_settings_chars + project_settings_chars + project_local_settings_chars;
 
     // MCP servers with complexity scoring
     let mcp_servers = parse_mcp_servers(&home, &project);
 
     let total_chars =
-        claude_md_chars + skills_chars + commands_chars + agents_chars + settings_chars;
+        claude_md_chars + skills_chars + commands_chars + agents_chars + settings_chars + mcp_chars;
 
     Ok(ContextStats {
         claude_md_chars,
@@ -506,6 +517,14 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
         agents_items,
         settings_chars,
         settings_tokens: estimate_tokens(settings_chars),
+        user_settings_chars,
+        user_settings_tokens: estimate_tokens(user_settings_chars),
+        project_settings_chars,
+        project_settings_tokens: estimate_tokens(project_settings_chars),
+        project_local_settings_chars,
+        project_local_settings_tokens: estimate_tokens(project_local_settings_chars),
+        mcp_chars,
+        mcp_tokens: estimate_tokens(mcp_chars),
         mcp_servers,
         total_chars,
         total_tokens: estimate_tokens(total_chars),

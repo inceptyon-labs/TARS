@@ -69,6 +69,17 @@ import { ProfileToolPicker } from './ProfileToolPicker';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
 import type { ToolRef } from '../lib/types';
 
+const CLAUDE_CONTEXT_LIMIT = 200000;
+const CONTEXT_SYSTEM_PROMPT_TOKENS = 3800;
+const CONTEXT_SYSTEM_TOOLS_TOKENS = 18100;
+const CONTEXT_MCP_TOOLS_TOKENS = 10500;
+const CONTEXT_MESSAGES_TOKENS = 535;
+const CONTEXT_BASELINE_TOTAL =
+  CONTEXT_SYSTEM_PROMPT_TOKENS +
+  CONTEXT_SYSTEM_TOOLS_TOKENS +
+  CONTEXT_MCP_TOOLS_TOKENS +
+  CONTEXT_MESSAGES_TOKENS;
+
 interface ProjectOverviewProps {
   inventory: Inventory;
   projectPath: string;
@@ -199,9 +210,7 @@ export function ProjectOverview({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const theme = useUIStore((state) => state.theme);
-  const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(
-    new Set(['context', 'claude-md'])
-  );
+  const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set());
   const [claudeMdContent, setClaudeMdContent] = useState<string>('');
   const [claudeMdDirty, setClaudeMdDirty] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
@@ -443,10 +452,17 @@ export function ProjectOverview({
     );
   };
 
-  // Context usage from backend
-  const contextLimit = 200000; // Claude's context window
-  const totalTokens = contextStats?.total_tokens || 0;
-  const contextUsagePercent = Math.min((totalTokens / contextLimit) * 100, 100);
+  // Context usage aligned to /context categories
+  const projectTokens =
+    (contextStats?.claude_md_tokens || 0) +
+    (contextStats?.skills_tokens || 0) +
+    (contextStats?.agents_tokens || 0) +
+    (contextStats?.user_settings_tokens || 0) +
+    (contextStats?.project_settings_tokens || 0) +
+    (contextStats?.project_local_settings_tokens || 0) +
+    (contextStats?.mcp_tokens || 0);
+  const totalTokens = projectTokens + CONTEXT_BASELINE_TOTAL;
+  const contextUsagePercent = Math.min((totalTokens / CLAUDE_CONTEXT_LIMIT) * 100, 100);
 
   const formatNumber = (n: number) => n.toLocaleString();
   const formatSize = (chars: number) => {
@@ -636,7 +652,7 @@ export function ProjectOverview({
               <span className="text-xs text-muted-foreground">Loading...</span>
             ) : (
               <span className="text-xs text-muted-foreground">
-                ~{formatNumber(totalTokens)} / {formatNumber(contextLimit)} tokens
+                ~{formatNumber(totalTokens)} / {formatNumber(CLAUDE_CONTEXT_LIMIT)} tokens
               </span>
             )}
           </div>
@@ -660,6 +676,54 @@ export function ProjectOverview({
               {/* Breakdown with expandable details */}
               {contextStats && (
                 <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm flex items-center gap-2">
+                      <span title="Static system prompt from /context snapshot">System prompt</span>
+                      <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                        system-level
+                      </span>
+                    </span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(CONTEXT_SYSTEM_PROMPT_TOKENS)} tokens
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm flex items-center gap-2">
+                      <span title="Static system tools from /context snapshot">System tools</span>
+                      <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                        system-level
+                      </span>
+                    </span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(CONTEXT_SYSTEM_TOOLS_TOKENS)} tokens
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm flex items-center gap-2">
+                      <span title="MCP tool schemas from /context snapshot">MCP tools</span>
+                      <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                        system-level
+                      </span>
+                    </span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(CONTEXT_MCP_TOOLS_TOKENS)} tokens
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm flex items-center gap-2">
+                      <span title="Session messages from /context snapshot">Messages</span>
+                      <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                        system-level
+                      </span>
+                    </span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(CONTEXT_MESSAGES_TOKENS)} tokens
+                    </span>
+                  </div>
+
                   {/* CLAUDE.md - not expandable */}
                   <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
                     <span className="text-sm">CLAUDE.md</span>
@@ -670,6 +734,72 @@ export function ProjectOverview({
                       </span>
                     </span>
                   </div>
+
+                  {/* Settings - user scope */}
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm flex items-center gap-2">
+                      Settings (user scope)
+                      <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                        user
+                      </span>
+                    </span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(contextStats.user_settings_tokens)} tokens
+                      <span className="text-muted-foreground ml-2">
+                        ({formatSize(contextStats.user_settings_chars)})
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* Settings - project scope */}
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm flex items-center gap-2">
+                      Settings (project scope)
+                      <span className="text-[10px] bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded-full">
+                        project
+                      </span>
+                    </span>
+                    <span className="text-sm font-mono">
+                      {formatNumber(contextStats.project_settings_tokens)} tokens
+                      <span className="text-muted-foreground ml-2">
+                        ({formatSize(contextStats.project_settings_chars)})
+                      </span>
+                    </span>
+                  </div>
+
+                  {contextStats.project_local_settings_chars > 0 && (
+                    <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                      <span className="text-sm flex items-center gap-2">
+                        Settings (local overrides)
+                        <span className="text-[10px] bg-foreground/10 text-foreground px-1.5 py-0.5 rounded-full">
+                          local
+                        </span>
+                      </span>
+                      <span className="text-sm font-mono">
+                        {formatNumber(contextStats.project_local_settings_tokens)} tokens
+                        <span className="text-muted-foreground ml-2">
+                          ({formatSize(contextStats.project_local_settings_chars)})
+                        </span>
+                      </span>
+                    </div>
+                  )}
+
+                  {contextStats.mcp_chars > 0 && (
+                    <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                      <span className="text-sm flex items-center gap-2">
+                        MCP config
+                        <span className="text-[10px] bg-purple-500/10 text-purple-600 px-1.5 py-0.5 rounded-full">
+                          .mcp.json
+                        </span>
+                      </span>
+                      <span className="text-sm font-mono">
+                        {formatNumber(contextStats.mcp_tokens)} tokens
+                        <span className="text-muted-foreground ml-2">
+                          ({formatSize(contextStats.mcp_chars)})
+                        </span>
+                      </span>
+                    </div>
+                  )}
 
                   {/* Agents - expandable */}
                   <details className="group">
@@ -721,6 +851,9 @@ export function ProjectOverview({
                       <span className="text-sm flex items-center gap-2">
                         <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
                         Commands ({contextStats.commands_count})
+                        <span className="text-[10px] text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded-full">
+                          on-demand
+                        </span>
                       </span>
                       <span className="text-sm font-mono">
                         {formatNumber(contextStats.commands_tokens)} tokens
@@ -760,7 +893,6 @@ export function ProjectOverview({
                       <span className="text-sm flex items-center gap-2">
                         <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
                         Skills ({contextStats.skills_count})
-                        <span className="text-[10px] text-muted-foreground">(on-demand)</span>
                       </span>
                       <span className="text-sm font-mono">
                         {formatNumber(contextStats.skills_tokens)} tokens
@@ -792,17 +924,6 @@ export function ProjectOverview({
                       </div>
                     )}
                   </details>
-
-                  {/* Settings - not expandable */}
-                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                    <span className="text-sm">Settings</span>
-                    <span className="text-sm font-mono">
-                      {formatNumber(contextStats.settings_tokens)} tokens
-                      <span className="text-muted-foreground ml-2">
-                        ({formatSize(contextStats.settings_chars)})
-                      </span>
-                    </span>
-                  </div>
 
                   {/* MCP Servers - expandable with complexity */}
                   <details className="group">
@@ -866,8 +987,9 @@ export function ProjectOverview({
               )}
 
               <p className="text-xs text-muted-foreground mt-3 text-center">
-                Token estimates based on actual file sizes (~3.5 chars/token). MCP complexity: 1-3
-                low, 4-5 medium, 6+ high.
+                Token estimates based on actual file sizes (~3.5 chars/token). Commands are
+                on-demand and excluded from totals. System/MCP/message tokens are from a /context
+                snapshot. MCP complexity: 1-3 low, 4-5 medium, 6+ high.
               </p>
             </div>
           )}

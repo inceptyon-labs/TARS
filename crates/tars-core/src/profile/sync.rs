@@ -909,8 +909,7 @@ fn migrate_legacy_installed_plugins(
         let install_path = entry
             .get("installLocation")
             .and_then(|p| p.as_str())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| default_base.join(name));
+            .map_or_else(|| default_base.join(name), PathBuf::from);
         let version = read_plugin_version(&install_path).unwrap_or_else(|| "unknown".to_string());
 
         let project_path = entry.get("projectPath").and_then(|p| p.as_str());

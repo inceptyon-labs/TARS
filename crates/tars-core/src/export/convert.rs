@@ -81,9 +81,9 @@ pub fn export_as_plugin(
         let safe_name = sanitize_tool_name(&tool.name)?;
         let src = profile_storage
             .join("agents")
-            .join(format!("{}.md", safe_name));
+            .join(format!("{safe_name}.md"));
         if src.exists() {
-            let dst = output_dir.join("agents").join(format!("{}.md", safe_name));
+            let dst = output_dir.join("agents").join(format!("{safe_name}.md"));
             fs::copy(&src, &dst)?;
         }
     }
@@ -100,11 +100,9 @@ pub fn export_as_plugin(
         let safe_name = sanitize_tool_name(&tool.name)?;
         let src = profile_storage
             .join("commands")
-            .join(format!("{}.md", safe_name));
+            .join(format!("{safe_name}.md"));
         if src.exists() {
-            let dst = output_dir
-                .join("commands")
-                .join(format!("{}.md", safe_name));
+            let dst = output_dir.join("commands").join(format!("{safe_name}.md"));
             fs::copy(&src, &dst)?;
         }
     }

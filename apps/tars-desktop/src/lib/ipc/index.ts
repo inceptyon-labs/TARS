@@ -120,6 +120,14 @@ export interface ContextStats {
   agents_items: ContextItem[];
   settings_chars: number;
   settings_tokens: number;
+  user_settings_chars: number;
+  user_settings_tokens: number;
+  project_settings_chars: number;
+  project_settings_tokens: number;
+  project_local_settings_chars: number;
+  project_local_settings_tokens: number;
+  mcp_chars: number;
+  mcp_tokens: number;
   mcp_servers: McpComplexity[];
   total_chars: number;
   total_tokens: number;

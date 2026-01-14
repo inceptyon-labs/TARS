@@ -266,8 +266,7 @@ export function McpForm({
         if (
           !isEditMode &&
           addToProfile &&
-          formData.scope !== 'local' &&
-          formData.scope !== 'profile' &&
+          (formData.scope === 'user' || formData.scope === 'project') &&
           selectedProfileId
         ) {
           try {

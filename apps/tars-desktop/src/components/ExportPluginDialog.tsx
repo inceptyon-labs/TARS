@@ -18,7 +18,7 @@ import type { ProfileInfo } from '../lib/types';
 interface ExportPluginDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  profile: ProfileInfo;
+  profile: Pick<ProfileInfo, 'id' | 'name'>;
   onExportSuccess?: (outputPath: string) => void;
 }
 

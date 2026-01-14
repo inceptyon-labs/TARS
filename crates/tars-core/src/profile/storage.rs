@@ -230,14 +230,13 @@ pub fn copy_skill_to_profile(
     }
 
     let mut source_dir = source_skill_dir.to_path_buf();
-    if source_dir.is_file() {
-        if source_dir
+    if source_dir.is_file()
+        && source_dir
             .file_name()
             .is_some_and(|name| name == "SKILL.md")
-        {
-            if let Some(parent) = source_dir.parent() {
-                source_dir = parent.to_path_buf();
-            }
+    {
+        if let Some(parent) = source_dir.parent() {
+            source_dir = parent.to_path_buf();
         }
     }
 
