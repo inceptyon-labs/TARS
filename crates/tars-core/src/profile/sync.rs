@@ -980,24 +980,38 @@ fn register_installed_plugin(
     };
     let now = Utc::now().to_rfc3339();
 
+    let installs_value = plugins
+        .entry(plugin_key.clone())
+        .or_insert_with(|| Value::Array(Vec::new()));
+    let installs = installs_value.as_array_mut().ok_or_else(|| {
+        ApplyError::Parse("Invalid installed_plugins.json plugin entry format".to_string())
+    })?;
+
+    let existing_install = installs
+        .iter()
+        .find(|install| install_matches_scope(install, project_path));
+    let existing_version =
+        existing_install.and_then(|install| install.get("version").and_then(|v| v.as_str()));
+    let existing_last_updated =
+        existing_install.and_then(|install| install.get("lastUpdated").cloned());
+    let should_refresh_last_updated = existing_version != Some(version.as_str());
+    let last_updated_value = if should_refresh_last_updated {
+        Value::String(now.clone())
+    } else {
+        existing_last_updated.unwrap_or_else(|| Value::String(now.clone()))
+    };
+
     let mut entry = json!({
         "scope": scope,
         "installPath": install_path.to_string_lossy().to_string(),
         "version": version,
         "installedAt": now,
-        "lastUpdated": now,
+        "lastUpdated": last_updated_value,
     });
 
     if let Some(path) = project_path {
         entry["projectPath"] = json!(path);
     }
-
-    let installs = plugins
-        .entry(plugin_key.clone())
-        .or_insert_with(|| Value::Array(Vec::new()));
-    let installs = installs.as_array_mut().ok_or_else(|| {
-        ApplyError::Parse("Invalid installed_plugins.json plugin entry format".to_string())
-    })?;
 
     installs.retain(|install| !install_matches_scope(install, project_path));
     installs.push(entry);
