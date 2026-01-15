@@ -7,6 +7,7 @@ use crate::parser::{parse_agent, parse_command, parse_mcp_config, parse_settings
 use crate::plugins::PluginInventory;
 use crate::settings::{McpConfig, SettingsFile};
 use crate::types::Scope;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -100,9 +101,13 @@ fn scan_user_skills(claude_dir: &Path) -> ScanResult<Vec<SkillInfo>> {
 /// avoiding duplicate file system operations.
 fn extract_plugin_skills(plugin_inventory: &PluginInventory) -> ScanResult<Vec<SkillInfo>> {
     let mut all_skills = Vec::new();
+    let mut seen_paths = HashSet::new();
 
     // Only scan skills from installed AND enabled plugin paths
     for plugin in &plugin_inventory.installed {
+        if !matches!(plugin.scope, Scope::User | Scope::Managed) {
+            continue;
+        }
         if !plugin.enabled {
             continue;
         }
@@ -114,7 +119,11 @@ fn extract_plugin_skills(plugin_inventory: &PluginInventory) -> ScanResult<Vec<S
             };
             let scope = Scope::Plugin(plugin_id);
             let dir_skills = scan_skills_directory(&skills_dir, scope)?;
-            all_skills.extend(dir_skills);
+            for skill in dir_skills {
+                if seen_paths.insert(skill.path.clone()) {
+                    all_skills.push(skill);
+                }
+            }
         }
     }
 
@@ -126,6 +135,9 @@ fn extract_plugin_mcp(plugin_inventory: &PluginInventory) -> ScanResult<Vec<McpC
     let mut all_mcp = Vec::new();
 
     for plugin in &plugin_inventory.installed {
+        if !matches!(plugin.scope, Scope::User | Scope::Managed) {
+            continue;
+        }
         if !plugin.enabled {
             continue;
         }
@@ -206,6 +218,9 @@ fn extract_plugin_commands(plugin_inventory: &PluginInventory) -> ScanResult<Vec
     let mut all_commands = Vec::new();
 
     for plugin in &plugin_inventory.installed {
+        if !matches!(plugin.scope, Scope::User | Scope::Managed) {
+            continue;
+        }
         if !plugin.enabled {
             continue;
         }
@@ -229,6 +244,9 @@ fn extract_plugin_agents(plugin_inventory: &PluginInventory) -> ScanResult<Vec<A
     let mut all_agents = Vec::new();
 
     for plugin in &plugin_inventory.installed {
+        if !matches!(plugin.scope, Scope::User | Scope::Managed) {
+            continue;
+        }
         if !plugin.enabled {
             continue;
         }

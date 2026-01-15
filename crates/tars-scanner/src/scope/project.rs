@@ -15,6 +15,7 @@ use crate::plugins::PluginInventory;
 use crate::scope::user::{scan_agents_directory, scan_commands_directory, scan_skills_directory};
 use crate::settings::{McpConfig, SettingsFile};
 use crate::types::{FileInfo, Scope};
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -159,6 +160,7 @@ fn extract_project_plugin_skills(
     project_path: &Path,
 ) -> ScanResult<Vec<SkillInfo>> {
     let mut all_skills = Vec::new();
+    let mut seen_paths = HashSet::new();
 
     for plugin in &plugin_inventory.installed {
         if !is_plugin_for_project(plugin, project_path) {
@@ -173,7 +175,11 @@ fn extract_project_plugin_skills(
             };
             let scope = Scope::Plugin(plugin_id);
             let dir_skills = scan_skills_directory(&skills_dir, scope)?;
-            all_skills.extend(dir_skills);
+            for skill in dir_skills {
+                if seen_paths.insert(skill.path.clone()) {
+                    all_skills.push(skill);
+                }
+            }
         }
     }
 
