@@ -36,11 +36,20 @@ export function SettingsFileEditor({
   const {
     data: settingsFile,
     isLoading,
+    error,
     refetch,
   } = useQuery({
     queryKey: ['settings-file', scope, projectPath],
     queryFn: () => readSettingsFile({ scope, projectPath }),
   });
+
+  // Log errors for debugging
+  useEffect(() => {
+    if (error) {
+      console.error('Failed to load settings file:', error);
+      toast.error(`Failed to load settings: ${error.message || error}`);
+    }
+  }, [error]);
 
   useEffect(() => {
     setSettingsValue('');
@@ -207,6 +216,11 @@ export function SettingsFileEditor({
           onMount={(editorInstance) => {
             editorRef.current = editorInstance;
           }}
+          loading={
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              Loading editor...
+            </div>
+          }
           options={{
             minimap: { enabled: false },
             tabSize: 2,
