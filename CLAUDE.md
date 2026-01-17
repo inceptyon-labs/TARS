@@ -108,6 +108,7 @@ crates/tars-core/      # Profiles, diff, apply, rollback engine
 ## Testing
 
 - Run `cargo test` before committing
+- **Run `cargo tarpaulin` for test coverage before pushing**
 - New features should include tests when practical
 - Frontend tests: Vitest + React Testing Library
 - Test files: `*.test.ts` / `*.test.tsx`

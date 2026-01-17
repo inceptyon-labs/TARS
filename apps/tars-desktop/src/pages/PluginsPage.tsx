@@ -270,7 +270,8 @@ export function PluginsPage() {
         toast.success('Marketplaces and plugins updated');
       }
 
-      await refetch();
+      // Invalidate and refetch to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ['user-scope'] });
     } catch (err) {
       toast.error('Failed to update marketplaces', {
         description: err instanceof Error ? err.message : String(err),
@@ -285,7 +286,8 @@ export function PluginsPage() {
     try {
       await installPlugin(plugin);
       toast.success(`Updated ${plugin.id}`);
-      await refetch();
+      // Invalidate and refetch to ensure fresh data after update
+      await queryClient.invalidateQueries({ queryKey: ['user-scope'] });
     } catch (err) {
       toast.error('Failed to update plugin', {
         description: err instanceof Error ? err.message : String(err),
