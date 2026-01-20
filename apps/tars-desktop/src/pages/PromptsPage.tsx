@@ -34,6 +34,7 @@ import {
   type MDXEditorMethods,
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
+import { codeBlockShortcutPlugin } from '../lib/mdx-plugins/codeBlockShortcutPlugin';
 import { useUIStore } from '../stores/ui-store';
 import { listPrompts, readPrompt, createPrompt, updatePrompt, deletePrompt } from '../lib/ipc';
 import type { PromptSummary } from '../lib/types';
@@ -96,9 +97,11 @@ export function PromptsPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, title, content }: { id: string; title: string; content: string }) =>
       updatePrompt(id, title, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prompts'] });
-      queryClient.invalidateQueries({ queryKey: ['prompt', selectedId] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['prompts'] }),
+        queryClient.invalidateQueries({ queryKey: ['prompt', selectedId] }),
+      ]);
       setIsEditing(false);
       toast.success('Prompt saved');
     },
@@ -201,6 +204,7 @@ export function PromptsPage() {
     quotePlugin(),
     thematicBreakPlugin(),
     markdownShortcutPlugin(),
+    codeBlockShortcutPlugin(),
     linkPlugin(),
     linkDialogPlugin(),
     tablePlugin(),
