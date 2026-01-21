@@ -166,6 +166,12 @@ pub fn run() {
             commands::create_prompt,
             commands::update_prompt,
             commands::delete_prompt,
+            // Beacons commands
+            commands::list_beacons,
+            commands::read_beacon,
+            commands::create_beacon,
+            commands::update_beacon,
+            commands::delete_beacon,
             // Utility commands
             commands::directory_exists,
             commands::get_directory_info,

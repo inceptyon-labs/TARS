@@ -29,6 +29,9 @@ const CasePage = lazy(() => import('./pages/CasePage').then((m) => ({ default: m
 const PromptsPage = lazy(() =>
   import('./pages/PromptsPage').then((m) => ({ default: m.PromptsPage }))
 );
+const BeaconPage = lazy(() =>
+  import('./pages/BeaconPage').then((m) => ({ default: m.BeaconPage }))
+);
 const UpdatesPage = lazy(() =>
   import('./pages/UpdatesPage').then((m) => ({ default: m.UpdatesPage }))
 );
@@ -176,6 +179,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <PromptsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="beacon"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <BeaconPage />
                   </Suspense>
                 }
               />
