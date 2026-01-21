@@ -10,7 +10,7 @@ env:
 
 jobs:
   build-linux:
-    runs-on: [self-hosted, linux, unraid]
+    runs-on: [self-hosted, linux-native]
 
     steps:
       - name: Checkout
@@ -155,7 +155,7 @@ jobs:
 
   update-latest-json:
     needs: [build-linux]
-    runs-on: [self-hosted, linux, unraid]
+    runs-on: [self-hosted, linux-native]
 
     steps:
       - name: Install jq
