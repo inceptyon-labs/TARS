@@ -35,6 +35,8 @@ import {
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
 import { useUIStore } from '../stores/ui-store';
+import { codeBlockShortcutPlugin } from '../lib/mdx-plugins/codeBlockShortcutPlugin';
+import { CodeBlockCopyButton } from './CodeBlockCopyButton';
 
 export interface EditableItem {
   name: string;
@@ -148,6 +150,7 @@ const editorPlugins = [
   quotePlugin(),
   thematicBreakPlugin(),
   markdownShortcutPlugin(),
+  codeBlockShortcutPlugin(),
   linkPlugin(),
   linkDialogPlugin(),
   tablePlugin(),
@@ -450,32 +453,34 @@ export function MarkdownEditor({
       )}
 
       {/* Editor */}
-      <div className="flex-1 mdx-editor-container">
-        <MDXEditor
-          key={`editor-${editorKey}`}
-          ref={isEditing ? editorRef : undefined}
-          markdown={body}
-          onChange={
-            isEditing
-              ? (markdown) => {
-                  // Ignore MDXEditor's initial onChange during mount/normalization
-                  if (!isInitializing) {
-                    setBody(markdown);
+      <CodeBlockCopyButton>
+        <div className="flex-1 mdx-editor-container">
+          <MDXEditor
+            key={`editor-${editorKey}`}
+            ref={isEditing ? editorRef : undefined}
+            markdown={body}
+            onChange={
+              isEditing
+                ? (markdown) => {
+                    // Ignore MDXEditor's initial onChange during mount/normalization
+                    if (!isInitializing) {
+                      setBody(markdown);
+                    }
                   }
-                }
-              : undefined
-          }
-          readOnly={readOnly || isViewMode}
-          plugins={isEditing ? editorPlugins : readOnlyPlugins}
-          className={
-            theme === 'dark' ||
-            (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-              ? 'dark'
-              : ''
-          }
-          contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
-        />
-      </div>
+                : undefined
+            }
+            readOnly={readOnly || isViewMode}
+            plugins={isEditing ? editorPlugins : readOnlyPlugins}
+            className={
+              theme === 'dark' ||
+              (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+                ? 'dark'
+                : ''
+            }
+            contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
+          />
+        </div>
+      </CodeBlockCopyButton>
     </div>
   );
 }

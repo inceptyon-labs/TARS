@@ -46,6 +46,8 @@ import {
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
 import { useUIStore } from '../stores/ui-store';
+import { codeBlockShortcutPlugin } from '../lib/mdx-plugins/codeBlockShortcutPlugin';
+import { CodeBlockCopyButton } from './CodeBlockCopyButton';
 import type {
   Inventory,
   SkillInfo,
@@ -67,6 +69,7 @@ import {
 import { Button } from './ui/button';
 import { ProfileToolPicker } from './ProfileToolPicker';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
+import { ProjectNotes } from './ProjectNotes';
 import type { ToolRef } from '../lib/types';
 
 const CLAUDE_CONTEXT_LIMIT = 200000;
@@ -89,6 +92,7 @@ interface ProjectOverviewProps {
 }
 
 type SectionId =
+  | 'notes'
   | 'context'
   | 'claude-md'
   | 'tools'
@@ -508,6 +512,9 @@ export function ProjectOverview({
             </div>
           )}
         </div>
+
+        {/* Notes Section - at the top, gitignored personal notes */}
+        <ProjectNotes projectPath={projectPath} />
 
         {/* Project Tools Section - shows tools from profile and local */}
         {(combinedTools.length > 0 || projectTools?.project_id) && (
@@ -1024,71 +1031,74 @@ export function ProjectOverview({
                       {saveMutation.isPending ? 'Saving...' : 'Save'}
                     </Button>
                   </div>
-                  <div className="mdx-editor-container h-80 border border-border rounded overflow-hidden">
-                    <MDXEditor
-                      key={`claude-md-${editorKey}`}
-                      ref={editorRef}
-                      markdown={claudeMdContent}
-                      onChange={(markdown) => {
-                        setClaudeMdContent(markdown);
-                        setClaudeMdDirty(true);
-                      }}
-                      plugins={[
-                        headingsPlugin(),
-                        listsPlugin(),
-                        quotePlugin(),
-                        thematicBreakPlugin(),
-                        markdownShortcutPlugin(),
-                        linkPlugin(),
-                        linkDialogPlugin(),
-                        tablePlugin(),
-                        codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
-                        codeMirrorPlugin({
-                          codeBlockLanguages: {
-                            js: 'JavaScript',
-                            ts: 'TypeScript',
-                            tsx: 'TypeScript (React)',
-                            jsx: 'JavaScript (React)',
-                            css: 'CSS',
-                            html: 'HTML',
-                            json: 'JSON',
-                            python: 'Python',
-                            rust: 'Rust',
-                            bash: 'Bash',
-                            sql: 'SQL',
-                            markdown: 'Markdown',
-                            '': 'Plain Text',
-                          },
-                        }),
-                        toolbarPlugin({
-                          toolbarContents: () => (
-                            <>
-                              <UndoRedo />
-                              <Separator />
-                              <BoldItalicUnderlineToggles />
-                              <CodeToggle />
-                              <Separator />
-                              <ListsToggle />
-                              <Separator />
-                              <BlockTypeSelect />
-                              <Separator />
-                              <CreateLink />
-                              <InsertTable />
-                              <InsertThematicBreak />
-                            </>
-                          ),
-                        }),
-                      ]}
-                      className={
-                        theme === 'dark' ||
-                        (theme === 'system' &&
-                          window.matchMedia('(prefers-color-scheme: dark)').matches)
-                          ? 'dark'
-                          : ''
-                      }
-                      contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
-                    />
-                  </div>
+                  <CodeBlockCopyButton>
+                    <div className="mdx-editor-container h-80 border border-border rounded overflow-hidden">
+                      <MDXEditor
+                        key={`claude-md-${editorKey}`}
+                        ref={editorRef}
+                        markdown={claudeMdContent}
+                        onChange={(markdown) => {
+                          setClaudeMdContent(markdown);
+                          setClaudeMdDirty(true);
+                        }}
+                        plugins={[
+                          headingsPlugin(),
+                          listsPlugin(),
+                          quotePlugin(),
+                          thematicBreakPlugin(),
+                          markdownShortcutPlugin(),
+                          codeBlockShortcutPlugin(),
+                          linkPlugin(),
+                          linkDialogPlugin(),
+                          tablePlugin(),
+                          codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
+                          codeMirrorPlugin({
+                            codeBlockLanguages: {
+                              js: 'JavaScript',
+                              ts: 'TypeScript',
+                              tsx: 'TypeScript (React)',
+                              jsx: 'JavaScript (React)',
+                              css: 'CSS',
+                              html: 'HTML',
+                              json: 'JSON',
+                              python: 'Python',
+                              rust: 'Rust',
+                              bash: 'Bash',
+                              sql: 'SQL',
+                              markdown: 'Markdown',
+                              '': 'Plain Text',
+                            },
+                          }),
+                          toolbarPlugin({
+                            toolbarContents: () => (
+                              <>
+                                <UndoRedo />
+                                <Separator />
+                                <BoldItalicUnderlineToggles />
+                                <CodeToggle />
+                                <Separator />
+                                <ListsToggle />
+                                <Separator />
+                                <BlockTypeSelect />
+                                <Separator />
+                                <CreateLink />
+                                <InsertTable />
+                                <InsertThematicBreak />
+                              </>
+                            ),
+                          }),
+                        ]}
+                        className={
+                          theme === 'dark' ||
+                          (theme === 'system' &&
+                            window.matchMedia('(prefers-color-scheme: dark)').matches)
+                            ? 'dark'
+                            : ''
+                        }
+                        contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
+                      />
+                    </div>
+                  </CodeBlockCopyButton>
                 </>
               )}
             </div>

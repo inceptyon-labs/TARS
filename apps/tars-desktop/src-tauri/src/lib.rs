@@ -58,6 +58,8 @@ pub fn run() {
             commands::read_claude_md,
             commands::save_claude_md,
             commands::delete_claude_md,
+            commands::read_project_notes,
+            commands::save_project_notes,
             commands::get_context_stats,
             // Profile commands
             commands::list_profiles,

@@ -84,6 +84,20 @@ export async function deleteClaudeMd(projectPath: string): Promise<void> {
   return invoke('delete_claude_md', { projectPath });
 }
 
+export interface NotesInfo {
+  path: string;
+  content: string | null;
+  exists: boolean;
+}
+
+export async function readProjectNotes(projectPath: string): Promise<NotesInfo> {
+  return invoke('read_project_notes', { projectPath });
+}
+
+export async function saveProjectNotes(projectPath: string, content: string): Promise<void> {
+  return invoke('save_project_notes', { projectPath, content });
+}
+
 export interface ContextItem {
   name: string;
   path: string;

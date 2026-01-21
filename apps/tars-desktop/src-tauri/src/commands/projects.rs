@@ -174,6 +174,89 @@ pub async fn delete_claude_md(project_path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// NOTES.md content response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotesInfo {
+    pub path: String,
+    pub content: Option<String>,
+    pub exists: bool,
+}
+
+/// Read NOTES.md from a project
+#[tauri::command]
+pub async fn read_project_notes(project_path: String) -> Result<NotesInfo, String> {
+    let path = PathBuf::from(&project_path).join("NOTES.md");
+
+    if path.exists() {
+        let content =
+            std::fs::read_to_string(&path).map_err(|e| format!("Failed to read NOTES.md: {e}"))?;
+        Ok(NotesInfo {
+            path: path.display().to_string(),
+            content: Some(content),
+            exists: true,
+        })
+    } else {
+        Ok(NotesInfo {
+            path: path.display().to_string(),
+            content: None,
+            exists: false,
+        })
+    }
+}
+
+/// Ensure NOTES.md is in .gitignore
+fn ensure_notes_in_gitignore(project_path: &PathBuf) -> Result<(), String> {
+    let gitignore_path = project_path.join(".gitignore");
+    let notes_entry = "NOTES.md";
+
+    if gitignore_path.exists() {
+        let content = std::fs::read_to_string(&gitignore_path)
+            .map_err(|e| format!("Failed to read .gitignore: {e}"))?;
+
+        // Check if NOTES.md is already in gitignore (case-insensitive, handle various formats)
+        let already_ignored = content.lines().any(|line| {
+            let trimmed = line.trim();
+            trimmed == notes_entry
+                || trimmed == "/NOTES.md"
+                || trimmed.eq_ignore_ascii_case(notes_entry)
+        });
+
+        if !already_ignored {
+            // Append NOTES.md to .gitignore
+            let new_content = if content.ends_with('\n') {
+                format!("{content}{notes_entry}\n")
+            } else if content.is_empty() {
+                format!("{notes_entry}\n")
+            } else {
+                format!("{content}\n{notes_entry}\n")
+            };
+            std::fs::write(&gitignore_path, new_content)
+                .map_err(|e| format!("Failed to update .gitignore: {e}"))?;
+        }
+    } else {
+        // Create .gitignore with NOTES.md
+        std::fs::write(&gitignore_path, format!("{notes_entry}\n"))
+            .map_err(|e| format!("Failed to create .gitignore: {e}"))?;
+    }
+
+    Ok(())
+}
+
+/// Save NOTES.md to a project (also ensures it's gitignored)
+#[tauri::command]
+pub async fn save_project_notes(project_path: String, content: String) -> Result<(), String> {
+    let project = PathBuf::from(&project_path);
+    let path = project.join("NOTES.md");
+
+    // Write the notes file
+    std::fs::write(&path, &content).map_err(|e| format!("Failed to save NOTES.md: {e}"))?;
+
+    // Ensure NOTES.md is in .gitignore
+    ensure_notes_in_gitignore(&project)?;
+
+    Ok(())
+}
+
 /// Individual item context info
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextItem {

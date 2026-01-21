@@ -1261,3 +1261,139 @@ svg {
   background-color: var(--secondary) !important;
   color: var(--secondary-foreground) !important;
 }
+
+/* ============================================
+   CODE BLOCK COPY BUTTON
+   ============================================ */
+
+/* Ensure cm-editor can contain absolutely positioned children */
+.mdx-editor-container .cm-editor {
+  position: relative !important;
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 4px 6px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+}
+
+.code-copy-btn:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.cm-editor:hover .code-copy-btn {
+  opacity: 1;
+}
+
+.code-copy-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Code block toolbar - position outside the editor */
+.mdx-editor-container [class*='_codeMirrorToolbar_'] {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  gap: 4px !important;
+  padding: 4px 8px !important;
+  background: var(--secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: var(--radius) var(--radius) 0 0 !important;
+  justify-content: flex-end !important;
+}
+
+/* Shrink the language selector button (Radix combobox) */
+.mdx-editor-container [class*='_selectTrigger_'] {
+  font-size: 0.65rem !important;
+  padding: 2px 8px !important;
+  height: 22px !important;
+  min-width: auto !important;
+  gap: 2px !important;
+}
+
+/* Shrink the dropdown arrow */
+.mdx-editor-container [class*='_selectDropdownArrow_'] svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Shrink delete button */
+.mdx-editor-container [class*='_codeMirrorToolbar_'] [class*='_iconButton_'] {
+  width: 22px !important;
+  height: 22px !important;
+  padding: 2px !important;
+}
+
+.mdx-editor-container [class*='_codeMirrorToolbar_'] [class*='_iconButton_'] svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Code block wrapper - ensure toolbar flows above editor */
+.mdx-editor-container [class*='_codeBlockEditorWrapper_'] {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Code editor - remove top border radius since toolbar has it */
+.mdx-editor-container [class*='_codeBlockEditorWrapper_'] .cm-editor {
+  border-radius: 0 0 var(--radius) var(--radius) !important;
+}
+
+/* Position copy button at bottom-right of code editor */
+.code-copy-btn {
+  top: auto !important;
+  bottom: 4px !important;
+  right: 4px !important;
+}
+
+/* ============================================
+   MDXEditor Inline Code Styling
+   ============================================ */
+
+/* Style inline code elements */
+.mdx-editor-container code[data-lexical-text='true'] {
+  background: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
+  padding: 0.125rem 0.5rem !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.875em !important;
+  font-family: 'Geist Mono', 'SF Mono', monospace !important;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.mdx-editor-container code[data-lexical-text='true']:hover {
+  background: var(--muted) !important;
+}
+
+/* Inner span styling */
+.mdx-editor-container code[data-lexical-text='true'] > span[class*='_code_'] {
+  color: var(--secondary-foreground) !important;
+  font-family: 'Geist Mono', 'SF Mono', monospace !important;
+}
+
+/* Hide backticks added via CSS pseudo-elements */
+.mdx-editor-container code[data-lexical-text='true']::before,
+.mdx-editor-container code[data-lexical-text='true']::after,
+.mdx-editor-container code[data-lexical-text='true'] span::before,
+.mdx-editor-container code[data-lexical-text='true'] span::after,
+.mdx-editor-container span[class*='_code_']::before,
+.mdx-editor-container span[class*='_code_']::after {
+  content: none !important;
+  display: none !important;
+}
