@@ -32,7 +32,8 @@ jobs:
             curl \
             wget \
             file \
-            libxdo-dev
+            libxdo-dev \
+            xdg-utils
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
