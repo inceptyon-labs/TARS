@@ -526,6 +526,43 @@ export interface PromptSummary {
   updated_at: string;
 }
 
+// Beacon types (stored in ~/.tars/beacons/, not in Claude config)
+export type BeaconType =
+  | 'github'
+  | 'documentation'
+  | 'api'
+  | 'resource'
+  | 'reddit'
+  | 'twitter'
+  | 'custom';
+
+export interface BeaconLink {
+  label: string | null;
+  url: string;
+}
+
+export interface Beacon {
+  id: string;
+  title: string;
+  category: string | null;
+  links: BeaconLink[];
+  description: string | null;
+  beacon_type: BeaconType;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BeaconSummary {
+  id: string;
+  title: string;
+  category: string | null;
+  links: BeaconLink[];
+  beacon_type: BeaconType;
+  tags: string[];
+  updated_at: string;
+}
+
 // Update types
 export interface ClaudeVersionInfo {
   installed_version: string | null;

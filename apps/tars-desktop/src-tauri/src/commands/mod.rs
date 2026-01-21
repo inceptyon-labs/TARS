@@ -4,6 +4,7 @@
 
 pub mod agents;
 pub mod apply;
+pub mod beacons;
 pub mod commands;
 pub mod config;
 pub mod hooks;
@@ -20,6 +21,7 @@ pub mod utils;
 // Re-export all commands for easy registration
 pub use agents::*;
 pub use apply::*;
+pub use beacons::*;
 pub use commands::*;
 pub use config::*;
 pub use hooks::*;

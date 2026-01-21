@@ -730,6 +730,59 @@ export async function deletePrompt(id: string): Promise<void> {
   return invoke('delete_prompt', { id });
 }
 
+// Beacon commands (stored in ~/.tars/beacons/, not in Claude config)
+import type { Beacon, BeaconSummary, BeaconType, BeaconLink } from '../types';
+
+export async function listBeacons(): Promise<BeaconSummary[]> {
+  return invoke('list_beacons');
+}
+
+export async function readBeacon(id: string): Promise<Beacon> {
+  return invoke('read_beacon', { id });
+}
+
+export async function createBeacon(
+  title: string,
+  category: string | null,
+  links: BeaconLink[],
+  description: string | null,
+  beaconType: BeaconType,
+  tags: string[]
+): Promise<Beacon> {
+  return invoke('create_beacon', {
+    title,
+    category,
+    links,
+    description,
+    beaconType,
+    tags,
+  });
+}
+
+export async function updateBeacon(
+  id: string,
+  title: string,
+  category: string | null,
+  links: BeaconLink[],
+  description: string | null,
+  beaconType: BeaconType,
+  tags: string[]
+): Promise<Beacon> {
+  return invoke('update_beacon', {
+    id,
+    title,
+    category,
+    links,
+    description,
+    beaconType,
+    tags,
+  });
+}
+
+export async function deleteBeacon(id: string): Promise<void> {
+  return invoke('delete_beacon', { id });
+}
+
 // Update commands
 import type {
   ClaudeVersionInfo,
