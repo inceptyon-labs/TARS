@@ -183,9 +183,9 @@ export function BeaconPage() {
     return { groups, uncategorized };
   }, [filteredBeacons, selectedCategory]);
 
-  // Update edit state when selected beacon changes
+  // Update edit state when selected beacon changes (only if not actively editing)
   useEffect(() => {
-    if (selectedBeacon && !isCreating) {
+    if (selectedBeacon && !isCreating && !isEditing) {
       setEditTitle(selectedBeacon.title);
       setEditCategory(selectedBeacon.category || '');
       setEditLinks(
@@ -197,7 +197,7 @@ export function BeaconPage() {
       setEditType(selectedBeacon.beacon_type);
       setEditTags(selectedBeacon.tags.join(', '));
     }
-  }, [selectedBeacon, isCreating]);
+  }, [selectedBeacon, isCreating, isEditing]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -495,8 +495,12 @@ export function BeaconPage() {
             )}
             {beacon.tags.length > 0 && (
               <div className="flex gap-1 flex-wrap">
-                {beacon.tags.slice(0, 4).map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+                {beacon.tags.slice(0, 4).map((tag, idx) => (
+                  <Badge
+                    key={`${tag}-${idx}`}
+                    variant="secondary"
+                    className="text-[10px] px-1.5 py-0"
+                  >
                     {tag}
                   </Badge>
                 ))}
@@ -923,9 +927,9 @@ export function BeaconPage() {
                           Tags
                         </label>
                         <div className="flex gap-2 flex-wrap">
-                          {selectedBeacon.tags.map((tag) => (
+                          {selectedBeacon.tags.map((tag, idx) => (
                             <Badge
-                              key={tag}
+                              key={`${tag}-${idx}`}
                               variant="secondary"
                               className="cursor-pointer hover:bg-muted"
                               onClick={() => setSearchQuery(tag)}
