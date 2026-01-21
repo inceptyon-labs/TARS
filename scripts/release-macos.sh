@@ -191,16 +191,27 @@ git pull --rebase origin main
 git push origin main
 git push origin "v$NEW_VERSION"
 
-RELEASE_NOTES="## TARS v$NEW_VERSION
+RELEASE_NOTES="## Downloads
 
-### macOS Release
+| Platform | File | Notes |
+|----------|------|-------|
+| **macOS (Apple Silicon)** | \`TARS_*_aarch64.dmg\` | M1/M2/M3/M4 Macs |
+| **macOS (Intel)** | \`TARS_*_x64.dmg\` | Intel-based Macs |
+| **Linux (Debian/Ubuntu)** | \`TARS_*_amd64.deb\` | \`sudo dpkg -i <file>\` |
+| **Linux (Universal)** | \`TARS_*_amd64.AppImage\` | Make executable, then run |
+| **Linux (Fedora/RHEL)** | \`TARS_*_x86_64.rpm\` | \`sudo rpm -i <file>\` |
+| **Windows** | \`TARS_*_x64.exe\` | Windows 10/11 (64-bit) |
 
-Download the DMG file below to install TARS on macOS.
+## Installation
 
-### Installation
-1. Download the DMG for your Mac (Apple Silicon or Intel)
-2. Open the DMG and drag TARS to Applications
-3. Launch TARS from Applications
+**macOS**: Download DMG, open it, drag TARS to Applications
+
+**Linux**: Download your preferred format and install:
+- \`.deb\`: \`sudo dpkg -i TARS_*.deb\`
+- \`.rpm\`: \`sudo rpm -i TARS_*.rpm\`
+- \`.AppImage\`: \`chmod +x TARS_*.AppImage && ./TARS_*.AppImage\`
+
+**Windows**: Download and run the .exe installer
 
 ---
 *Built on $(date '+%Y-%m-%d')*"
