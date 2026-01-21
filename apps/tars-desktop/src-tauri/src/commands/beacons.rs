@@ -266,6 +266,20 @@ pub async fn update_beacon(
     tags: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<Beacon, String> {
+    // Input validation (same as create_beacon)
+    if title.trim().is_empty() {
+        return Err("Title cannot be empty".into());
+    }
+    if title.len() > 500 {
+        return Err("Title is too long (max 500 characters)".into());
+    }
+    if links.len() > 50 {
+        return Err("Too many links (max 50)".into());
+    }
+    if tags.len() > 100 {
+        return Err("Too many tags (max 100)".into());
+    }
+
     let path = beacon_path(&state, &id)?;
 
     if !path.exists() {
