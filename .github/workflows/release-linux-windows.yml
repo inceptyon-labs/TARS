@@ -1,0 +1,211 @@
+name: Build Linux & Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: [self-hosted, linux, unraid]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf \
+            curl \
+            wget \
+            file \
+            libxdo-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: apps/tars-desktop
+        run: bun install
+
+      - name: Build Tauri app
+        working-directory: apps/tars-desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run tauri build
+
+      - name: Find artifacts
+        id: artifacts
+        run: |
+          echo "deb=$(find target/release/bundle -name '*.deb' | head -1)" >> $GITHUB_OUTPUT
+          echo "appimage=$(find target/release/bundle -name '*.AppImage' | head -1)" >> $GITHUB_OUTPUT
+          echo "rpm=$(find target/release/bundle -name '*.rpm' | head -1)" >> $GITHUB_OUTPUT
+          echo "updater=$(find target/release/bundle -name '*.AppImage.tar.gz' | head -1)" >> $GITHUB_OUTPUT
+          echo "updater_sig=$(find target/release/bundle -name '*.AppImage.tar.gz.sig' | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Upload Linux artifacts to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          [ -f "${{ steps.artifacts.outputs.deb }}" ] && gh release upload "$TAG" "${{ steps.artifacts.outputs.deb }}" --clobber || true
+          [ -f "${{ steps.artifacts.outputs.appimage }}" ] && gh release upload "$TAG" "${{ steps.artifacts.outputs.appimage }}" --clobber || true
+          [ -f "${{ steps.artifacts.outputs.rpm }}" ] && gh release upload "$TAG" "${{ steps.artifacts.outputs.rpm }}" --clobber || true
+          [ -f "${{ steps.artifacts.outputs.updater }}" ] && gh release upload "$TAG" "${{ steps.artifacts.outputs.updater }}" --clobber || true
+          [ -f "${{ steps.artifacts.outputs.updater_sig }}" ] && gh release upload "$TAG" "${{ steps.artifacts.outputs.updater_sig }}" --clobber || true
+
+      - name: Upload signature for later
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-signature
+          path: ${{ steps.artifacts.outputs.updater_sig }}
+          retention-days: 1
+
+  build-windows:
+    runs-on: [self-hosted, windows-cross, unraid]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libssl-dev \
+            curl \
+            wget \
+            llvm \
+            clang \
+            lld
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install cargo-xwin
+        run: cargo install cargo-xwin
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: apps/tars-desktop
+        run: bun install
+
+      - name: Build frontend
+        working-directory: apps/tars-desktop
+        run: bun run build
+
+      - name: Build Windows binary
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          cd apps/tars-desktop
+          cargo xwin build --release --target x86_64-pc-windows-msvc -p tars-app
+
+      - name: Find and rename Windows artifact
+        id: artifacts
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          EXE=$(find target/x86_64-pc-windows-msvc/release -maxdepth 1 -name "*.exe" | head -1)
+          if [ -f "$EXE" ]; then
+            NEW_NAME="TARS_${VERSION}_x64.exe"
+            cp "$EXE" "/tmp/$NEW_NAME"
+            echo "exe=/tmp/$NEW_NAME" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Windows artifact to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          [ -f "${{ steps.artifacts.outputs.exe }}" ] && gh release upload "$TAG" "${{ steps.artifacts.outputs.exe }}" --clobber || true
+
+  update-latest-json:
+    needs: [build-linux]
+    runs-on: [self-hosted, linux, unraid]
+
+    steps:
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Download Linux signature
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-signature
+          path: /tmp/sigs
+
+      - name: Update latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+
+          # Download existing latest.json (from macOS build)
+          gh release download "$TAG" --pattern "latest.json" --output /tmp/latest.json --clobber || echo '{"version":"'$VERSION'","platforms":{}}' > /tmp/latest.json
+
+          echo "Current latest.json:"
+          cat /tmp/latest.json
+
+          # Get Linux signature
+          LINUX_SIG=""
+          if [ -f /tmp/sigs/*.sig ]; then
+            LINUX_SIG=$(cat /tmp/sigs/*.sig)
+          fi
+
+          # Find Linux updater filename from release
+          LINUX_FILE=$(gh release view "$TAG" --json assets --jq '.assets[].name | select(endswith(".AppImage.tar.gz"))' | grep -v ".sig" | head -1)
+
+          if [ -n "$LINUX_SIG" ] && [ -n "$LINUX_FILE" ]; then
+            LINUX_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${LINUX_FILE}"
+
+            echo "Adding Linux platform:"
+            echo "  URL: $LINUX_URL"
+            echo "  Signature: ${LINUX_SIG:0:50}..."
+
+            # Add Linux platform
+            jq --arg sig "$LINUX_SIG" --arg url "$LINUX_URL" \
+              '.platforms["linux-x86_64"] = {signature: $sig, url: $url}' \
+              /tmp/latest.json > /tmp/latest2.json && mv /tmp/latest2.json /tmp/latest.json
+          fi
+
+          # Update timestamp
+          jq --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.pub_date = $d' \
+            /tmp/latest.json > /tmp/latest2.json && mv /tmp/latest2.json /tmp/latest.json
+
+          echo ""
+          echo "Final latest.json:"
+          cat /tmp/latest.json
+
+          # Upload updated latest.json
+          gh release upload "$TAG" /tmp/latest.json --clobber
