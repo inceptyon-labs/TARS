@@ -57,6 +57,9 @@ jobs:
       - name: Find artifacts
         id: artifacts
         run: |
+          echo "=== All bundle files ==="
+          find target/release/bundle -type f || true
+          echo "==="
           echo "deb=$(find target/release/bundle -name '*.deb' | head -1)" >> $GITHUB_OUTPUT
           echo "appimage=$(find target/release/bundle -name '*.AppImage' | head -1)" >> $GITHUB_OUTPUT
           echo "rpm=$(find target/release/bundle -name '*.rpm' | head -1)" >> $GITHUB_OUTPUT
@@ -76,6 +79,7 @@ jobs:
           [ -f "${{ steps.artifacts.outputs.updater_sig }}" ] && gh release upload "$TAG" "${{ steps.artifacts.outputs.updater_sig }}" --clobber || true
 
       - name: Upload signature for later
+        if: steps.artifacts.outputs.updater_sig != ''
         uses: actions/upload-artifact@v4
         with:
           name: linux-signature
@@ -160,6 +164,7 @@ jobs:
           sudo apt-get install -y jq
 
       - name: Download Linux signature
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: linux-signature
