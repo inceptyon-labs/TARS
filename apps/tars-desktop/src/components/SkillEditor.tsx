@@ -43,6 +43,8 @@ import '@mdxeditor/editor/style.css';
 import type { SkillDetails, SupportingFile } from '../lib/types';
 import { readSupportingFile, saveSupportingFile, deleteSupportingFile } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
+import { codeBlockShortcutPlugin } from '../lib/mdx-plugins/codeBlockShortcutPlugin';
+import { CodeBlockCopyButton } from './CodeBlockCopyButton';
 
 interface SkillEditorProps {
   skill: SkillDetails;
@@ -126,6 +128,7 @@ const editorPlugins = [
   quotePlugin(),
   thematicBreakPlugin(),
   markdownShortcutPlugin(),
+  codeBlockShortcutPlugin(),
   linkPlugin(),
   linkDialogPlugin(),
   tablePlugin(),
@@ -647,32 +650,34 @@ export function SkillEditor({ skill, onSave, readOnly = false }: SkillEditorProp
       </div>
 
       {/* Editor */}
-      <div className="flex-1 mdx-editor-container overflow-auto">
-        <MDXEditor
-          key={`skill-${editorKey}`}
-          ref={readOnly ? undefined : editorRef}
-          markdown={body}
-          onChange={
-            readOnly
-              ? undefined
-              : (markdown) => {
-                  // Ignore MDXEditor's initial onChange during mount/normalization
-                  if (!isInitializing) {
-                    setBody(markdown);
+      <CodeBlockCopyButton>
+        <div className="flex-1 mdx-editor-container overflow-auto">
+          <MDXEditor
+            key={`skill-${editorKey}`}
+            ref={readOnly ? undefined : editorRef}
+            markdown={body}
+            onChange={
+              readOnly
+                ? undefined
+                : (markdown) => {
+                    // Ignore MDXEditor's initial onChange during mount/normalization
+                    if (!isInitializing) {
+                      setBody(markdown);
+                    }
                   }
-                }
-          }
-          readOnly={readOnly}
-          plugins={readOnly ? readOnlyPlugins : editorPlugins}
-          className={
-            theme === 'dark' ||
-            (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-              ? 'dark'
-              : ''
-          }
-          contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
-        />
-      </div>
+            }
+            readOnly={readOnly}
+            plugins={readOnly ? readOnlyPlugins : editorPlugins}
+            className={
+              theme === 'dark' ||
+              (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+                ? 'dark'
+                : ''
+            }
+            contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
+          />
+        </div>
+      </CodeBlockCopyButton>
     </div>
   );
 }

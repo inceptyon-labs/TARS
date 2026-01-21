@@ -35,6 +35,7 @@ import {
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
 import { codeBlockShortcutPlugin } from '../lib/mdx-plugins/codeBlockShortcutPlugin';
+import { CodeBlockCopyButton } from '../components/CodeBlockCopyButton';
 import { useUIStore } from '../stores/ui-store';
 import { listPrompts, readPrompt, createPrompt, updatePrompt, deletePrompt } from '../lib/ipc';
 import type { PromptSummary } from '../lib/types';
@@ -371,73 +372,75 @@ export function PromptsPage() {
               </div>
 
               {/* Editor Content */}
-              <div className="flex-1 overflow-auto">
-                {loadingPrompt ? (
-                  <div className="h-full flex items-center justify-center">
-                    <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : isEditing ? (
-                  <div className="h-full mdx-editor-container">
-                    <MDXEditor
-                      key={`edit-${editorKey}`}
-                      ref={editorRef}
-                      markdown={editContent}
-                      onChange={(markdown) => setEditContent(markdown)}
-                      plugins={editorPlugins}
-                      className={
-                        theme === 'dark' ||
-                        (theme === 'system' &&
-                          window.matchMedia('(prefers-color-scheme: dark)').matches)
-                          ? 'dark'
-                          : ''
-                      }
-                      contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-full mdx-editor-container">
-                    <MDXEditor
-                      key={`view-${selectedId}`}
-                      markdown={selectedPrompt?.content || ''}
-                      readOnly
-                      plugins={[
-                        headingsPlugin(),
-                        listsPlugin(),
-                        quotePlugin(),
-                        thematicBreakPlugin(),
-                        linkPlugin(),
-                        tablePlugin(),
-                        codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
-                        codeMirrorPlugin({
-                          codeBlockLanguages: {
-                            js: 'JavaScript',
-                            ts: 'TypeScript',
-                            tsx: 'TypeScript (React)',
-                            jsx: 'JavaScript (React)',
-                            css: 'CSS',
-                            html: 'HTML',
-                            json: 'JSON',
-                            python: 'Python',
-                            rust: 'Rust',
-                            bash: 'Bash',
-                            sql: 'SQL',
-                            markdown: 'Markdown',
-                            '': 'Plain Text',
-                          },
-                        }),
-                      ]}
-                      className={
-                        theme === 'dark' ||
-                        (theme === 'system' &&
-                          window.matchMedia('(prefers-color-scheme: dark)').matches)
-                          ? 'dark'
-                          : ''
-                      }
-                      contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full"
-                    />
-                  </div>
-                )}
-              </div>
+              <CodeBlockCopyButton>
+                <div className="flex-1 overflow-auto">
+                  {loadingPrompt ? (
+                    <div className="h-full flex items-center justify-center">
+                      <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : isEditing ? (
+                    <div className="h-full mdx-editor-container">
+                      <MDXEditor
+                        key={`edit-${editorKey}`}
+                        ref={editorRef}
+                        markdown={editContent}
+                        onChange={(markdown) => setEditContent(markdown)}
+                        plugins={editorPlugins}
+                        className={
+                          theme === 'dark' ||
+                          (theme === 'system' &&
+                            window.matchMedia('(prefers-color-scheme: dark)').matches)
+                            ? 'dark'
+                            : ''
+                        }
+                        contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full focus:outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-full mdx-editor-container">
+                      <MDXEditor
+                        key={`view-${selectedId}`}
+                        markdown={selectedPrompt?.content || ''}
+                        readOnly
+                        plugins={[
+                          headingsPlugin(),
+                          listsPlugin(),
+                          quotePlugin(),
+                          thematicBreakPlugin(),
+                          linkPlugin(),
+                          tablePlugin(),
+                          codeBlockPlugin({ defaultCodeBlockLanguage: '' }),
+                          codeMirrorPlugin({
+                            codeBlockLanguages: {
+                              js: 'JavaScript',
+                              ts: 'TypeScript',
+                              tsx: 'TypeScript (React)',
+                              jsx: 'JavaScript (React)',
+                              css: 'CSS',
+                              html: 'HTML',
+                              json: 'JSON',
+                              python: 'Python',
+                              rust: 'Rust',
+                              bash: 'Bash',
+                              sql: 'SQL',
+                              markdown: 'Markdown',
+                              '': 'Plain Text',
+                            },
+                          }),
+                        ]}
+                        className={
+                          theme === 'dark' ||
+                          (theme === 'system' &&
+                            window.matchMedia('(prefers-color-scheme: dark)').matches)
+                            ? 'dark'
+                            : ''
+                        }
+                        contentEditableClassName="prose prose-sm dark:prose-invert max-w-none p-4 min-h-full"
+                      />
+                    </div>
+                  )}
+                </div>
+              </CodeBlockCopyButton>
             </>
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground">
