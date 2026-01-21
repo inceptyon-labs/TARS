@@ -191,6 +191,7 @@ pub async fn read_beacon(id: String, state: State<'_, AppState>) -> Result<Beaco
 
 /// Create a new beacon
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_beacon(
     title: String,
     category: Option<String>,
@@ -256,6 +257,7 @@ pub async fn create_beacon(
 
 /// Update an existing beacon
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn update_beacon(
     id: String,
     title: String,
