@@ -34,6 +34,6 @@ pub use scope::ConfigScope;
 pub use agent::AgentConfig;
 pub use command::CommandConfig;
 pub use hook::{HookConfig, HookDefinition, HookTrigger};
-pub use mcp::{McpServerConfig, McpTransport};
+pub use mcp::{McpServerConfig, McpServerUpdate, McpTransport};
 pub use mcp_ops::McpOps;
 pub use skill::SkillConfig;

@@ -7,7 +7,9 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use tars_core::config::{ConfigItemData, ConfigScope, McpOps, McpServerConfig, McpTransport};
+use tars_core::config::{
+    ConfigItemData, ConfigScope, McpOps, McpServerConfig, McpServerUpdate, McpTransport,
+};
 
 /// MCP server commands
 #[derive(Subcommand)]
@@ -385,11 +387,105 @@ fn execute_remove(
 }
 
 fn execute_update(
-    _args: McpUpdateArgs,
-    _project_path: Option<&PathBuf>,
+    args: McpUpdateArgs,
+    project_path: Option<&PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: Implement in Phase 4
-    println!("MCP update not yet implemented");
+    let ops = McpOps::new(project_path.cloned());
+
+    // Parse scope if provided
+    let scope = args.scope.as_deref().and_then(|s| match s {
+        "user" => Some(ConfigScope::User),
+        "project" => Some(ConfigScope::Project),
+        "local" => Some(ConfigScope::Local),
+        _ => {
+            eprintln!("Invalid scope: {}. Use 'user', 'project', or 'local'.", s);
+            None
+        }
+    });
+
+    // Build update struct
+    let mut env: Option<HashMap<String, String>> = None;
+    if !args.env.is_empty() {
+        let mut map = HashMap::new();
+        for pair in &args.env {
+            if let Some((key, value)) = pair.split_once('=') {
+                map.insert(key.to_string(), value.to_string());
+            } else {
+                eprintln!("Invalid env format: '{}'. Use KEY=VALUE.", pair);
+                std::process::exit(1);
+            }
+        }
+        env = Some(map);
+    }
+
+    let mut add_env: Option<HashMap<String, String>> = None;
+    if !args.add_env.is_empty() {
+        let mut map = HashMap::new();
+        for pair in &args.add_env {
+            if let Some((key, value)) = pair.split_once('=') {
+                map.insert(key.to_string(), value.to_string());
+            } else {
+                eprintln!("Invalid add-env format: '{}'. Use KEY=VALUE.", pair);
+                std::process::exit(1);
+            }
+        }
+        add_env = Some(map);
+    }
+
+    let update = McpServerUpdate {
+        command: args.command,
+        args: if args.args.is_empty() {
+            None
+        } else {
+            Some(args.args)
+        },
+        add_args: if args.add_args.is_empty() {
+            None
+        } else {
+            Some(args.add_args)
+        },
+        env,
+        add_env,
+        remove_env: if args.remove_env.is_empty() {
+            None
+        } else {
+            Some(args.remove_env)
+        },
+        url: args.url,
+    };
+
+    // Perform update
+    let result = ops.update(&args.name, scope, update, args.dry_run)?;
+
+    if args.json {
+        println!(
+            "{}",
+            json!({
+                "success": result.success,
+                "name": result.name,
+                "scope": result.scope.to_string(),
+                "backupId": result.backup_id,
+                "warnings": result.warnings,
+                "dry_run": args.dry_run
+            })
+        );
+    } else {
+        if args.dry_run {
+            println!("[DRY RUN] Would update MCP server '{}'", args.name);
+        } else {
+            println!("✓ Updated MCP server '{}'", args.name);
+            if let Some(backup_id) = result.backup_id {
+                println!("  Backup ID: {}", backup_id);
+            }
+        }
+
+        if !result.warnings.is_empty() {
+            for warning in result.warnings {
+                println!("  ⚠ {}", warning);
+            }
+        }
+    }
+
     Ok(())
 }
 
