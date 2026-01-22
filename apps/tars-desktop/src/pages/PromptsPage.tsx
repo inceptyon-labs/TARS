@@ -373,7 +373,7 @@ export function PromptsPage() {
 
               {/* Editor Content */}
               <CodeBlockCopyButton>
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 flex flex-col min-h-0">
                   {loadingPrompt ? (
                     <div className="h-full flex items-center justify-center">
                       <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />

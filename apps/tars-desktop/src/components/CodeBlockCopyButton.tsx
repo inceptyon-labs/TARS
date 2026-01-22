@@ -115,5 +115,9 @@ export function CodeBlockCopyButton({ children }: CodeBlockCopyButtonProps) {
     };
   }, []);
 
-  return <div ref={containerRef}>{children}</div>;
+  return (
+    <div ref={containerRef} className="flex-1 flex flex-col min-h-0">
+      {children}
+    </div>
+  );
 }
