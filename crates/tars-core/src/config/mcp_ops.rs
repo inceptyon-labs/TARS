@@ -11,7 +11,7 @@ use tars_scanner::plugins::PluginInventory;
 
 use super::error::{ConfigError, ConfigResult};
 use super::item::{validate_name, ConfigItem, ConfigItemData, ConfigItemType};
-use super::mcp::{McpServerConfig, McpTransport};
+use super::mcp::{McpServerConfig, McpServerUpdate, McpTransport};
 use super::ops::{OperationResult, OperationType};
 use super::scope::ConfigScope;
 
@@ -449,6 +449,109 @@ impl McpOps {
         })
     }
 
+    /// Update an MCP server configuration
+    pub fn update(
+        &self,
+        name: &str,
+        scope: Option<ConfigScope>,
+        updates: McpServerUpdate,
+        dry_run: bool,
+    ) -> ConfigResult<OperationResult> {
+        // Validate name
+        validate_name(name)?;
+
+        // Find the server
+        let (found_scope, path) = self.find_server(name, scope)?;
+
+        // Validate scope is writable
+        if !found_scope.is_writable() {
+            return Err(ConfigError::ManagedScope);
+        }
+
+        // Read the server config
+        let servers = self.read_servers_from_file(&path, found_scope)?;
+        let item =
+            servers
+                .iter()
+                .find(|s| s.name == name)
+                .ok_or_else(|| ConfigError::ItemNotFound {
+                    name: name.to_string(),
+                })?;
+
+        // Clone and apply updates to config
+        let mut config = match item.config {
+            ConfigItemData::McpServer(ref cfg) => cfg.clone(),
+            _ => {
+                return Err(ConfigError::ValidationError(
+                    "Expected MCP server config".into(),
+                ))
+            }
+        };
+
+        // Apply updates
+        if let Some(command) = updates.command {
+            config.command = Some(command);
+        }
+        if let Some(args) = updates.args {
+            config.args = args;
+        }
+        if let Some(add_args) = updates.add_args {
+            config.args.extend(add_args);
+        }
+        if let Some(env) = updates.env {
+            config.env = env;
+        }
+        if let Some(add_env) = updates.add_env {
+            for (key, value) in add_env {
+                config.env.insert(key, value);
+            }
+        }
+        if let Some(remove_env) = updates.remove_env {
+            for key in remove_env {
+                config.env.remove(&key);
+            }
+        }
+        if let Some(url) = updates.url {
+            config.url = Some(url);
+        }
+
+        // Validate merged config
+        config
+            .validate()
+            .map_err(|e| ConfigError::ValidationError(e))?;
+
+        // Return early for dry-run (no backup or file write)
+        if dry_run {
+            return Ok(OperationResult {
+                success: true,
+                operation: OperationType::Update,
+                name: name.to_string(),
+                scope: found_scope,
+                files_modified: vec![path],
+                backup_id: None,
+                error: None,
+                warnings: vec!["This is a dry-run; no changes were applied".into()],
+            });
+        }
+
+        // Create backup if backup directory is configured
+        let backup_id = self.create_backup_if_exists(&path)?;
+
+        // Write updated config to file
+        self.update_server_in_file(&path, name, config)?;
+
+        Ok(OperationResult {
+            success: true,
+            operation: OperationType::Update,
+            name: name.to_string(),
+            scope: found_scope,
+            files_modified: vec![path],
+            backup_id,
+            error: None,
+            warnings: Vec::new(),
+        })
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
@@ -713,6 +816,57 @@ impl McpOps {
         self.write_json_file(file_path, &json)
     }
 
+    fn update_server_in_file(
+        &self,
+        file_path: &PathBuf,
+        name: &str,
+        config: McpServerConfig,
+    ) -> ConfigResult<()> {
+        let content = fs::read_to_string(file_path).map_err(|e| ConfigError::IoError {
+            path: file_path.clone(),
+            message: e.to_string(),
+        })?;
+
+        let mut json: Value =
+            serde_json::from_str(&content).map_err(|e| ConfigError::JsonParseError {
+                path: file_path.clone(),
+                message: e.to_string(),
+            })?;
+
+        let root = json
+            .as_object_mut()
+            .ok_or_else(|| ConfigError::JsonParseError {
+                path: file_path.clone(),
+                message: "Expected JSON object".into(),
+            })?;
+
+        // Serialize the updated config
+        let config_json = serde_json::to_value(&config).map_err(|e| {
+            ConfigError::ValidationError(format!("Failed to serialize config: {e}"))
+        })?;
+
+        // Try to update in mcpServers first, then root
+        let updated =
+            if let Some(mcp_servers) = root.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
+                mcp_servers.insert(name.to_string(), config_json);
+                true
+            } else if root.get(name).is_some() {
+                root.insert(name.to_string(), config_json);
+                true
+            } else {
+                false
+            };
+
+        if !updated {
+            return Err(ConfigError::ItemNotFound {
+                name: name.to_string(),
+            });
+        }
+
+        // Write back
+        self.write_json_file(file_path, &json)
+    }
+
     fn write_json_file(&self, path: &PathBuf, value: &Value) -> ConfigResult<()> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
@@ -873,5 +1027,80 @@ mod tests {
 
         let result = ops.add("path/traversal", ConfigScope::Project, config, false);
         assert!(matches!(result, Err(ConfigError::ValidationError(_))));
+    }
+
+    #[test]
+    fn test_update_server_not_found() {
+        let dir = TempDir::new().unwrap();
+        let ops = McpOps::new(Some(dir.path().to_path_buf()));
+
+        let update = McpServerUpdate {
+            command: Some("new".into()),
+            ..Default::default()
+        };
+        let result = ops.update("nonexistent", Some(ConfigScope::Project), update, false);
+
+        assert!(matches!(result, Err(ConfigError::ItemNotFound { .. })));
+    }
+
+    #[test]
+    fn test_update_dry_run() {
+        let dir = TempDir::new().unwrap();
+        let ops = McpOps::new(Some(dir.path().to_path_buf()));
+
+        // Add initial server
+        let config = McpServerConfig::stdio("npx", vec!["arg1".into()]);
+        ops.add("test", ConfigScope::Project, config, false)
+            .unwrap();
+
+        // Dry-run update
+        let update = McpServerUpdate {
+            args: Some(vec!["arg2".into()]),
+            ..Default::default()
+        };
+        let result = ops
+            .update("test", Some(ConfigScope::Project), update, true)
+            .unwrap();
+
+        assert!(result.success);
+        assert!(result.backup_id.is_none());
+        assert!(result
+            .warnings
+            .contains(&"This is a dry-run; no changes were applied".into()));
+
+        // Verify nothing changed - check we still have 1 server
+        let items = ops.list_scope(ConfigScope::Project).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].name, "test");
+    }
+
+    #[test]
+    fn test_update_command() {
+        let dir = TempDir::new().unwrap();
+        let backup_dir = TempDir::new().unwrap();
+        let ops = McpOps::new(Some(dir.path().to_path_buf()))
+            .with_backup_dir(backup_dir.path().to_path_buf());
+
+        // Add initial server
+        let config = McpServerConfig::stdio("npx", vec!["@old/mcp".into()]);
+        ops.add("test", ConfigScope::Project, config, false)
+            .unwrap();
+
+        // Update command
+        let update = McpServerUpdate {
+            command: Some("node".into()),
+            ..Default::default()
+        };
+        let result = ops
+            .update("test", Some(ConfigScope::Project), update, false)
+            .unwrap();
+
+        assert!(result.success);
+        assert!(result.backup_id.is_some()); // Backup created
+
+        // Verify update by checking server was written
+        let items = ops.list_scope(ConfigScope::Project).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].name, "test");
     }
 }
