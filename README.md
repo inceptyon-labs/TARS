@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/inceptyon-labs/TARS/releases/latest"><img src="https://img.shields.io/github/v/release/inceptyon-labs/TARS?style=flat-square" alt="Release"></a>
-  <a href="https://github.com/inceptyon-labs/TARS/actions"><img src="https://img.shields.io/github/actions/workflow/status/inceptyon-labs/TARS/ci.yml?style=flat-square" alt="Build"></a>
+  <a href="https://github.com/inceptyon-labs/TARS/actions"><img src="https://img.shields.io/github/actions/workflow/status/inceptyon-labs/TARS/release-linux-windows.yml?style=flat-square" alt="Build"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Platform">
   <a href="https://github.com/inceptyon-labs/TARS/releases"><img src="https://img.shields.io/github/downloads/inceptyon-labs/TARS/total?style=flat-square" alt="Downloads"></a>
@@ -47,6 +47,16 @@ Inspired by the robot from Interstellar, TARS brings order to your Claude Code c
 - **Configuration scanning** - Automatically discover skills, commands, agents, hooks, and MCP servers
 - **Collision detection** - Identify configuration conflicts across scopes
 - **Context stats** - View token and character usage for project context
+- **Project stats** - Code metrics including:
+  - Language breakdown with visual bar chart
+  - Lines of code, files, and comment ratios
+  - TODO/FIXME marker counts (detects `TODO:`, `TODO(`, `TODO-` patterns in comments)
+  - Test coverage from lcov.info or tarpaulin reports
+  - Dependency counts from package.json, Cargo.toml, pyproject.toml
+- **Project notes** - Personal markdown notes per project (gitignored NOTES.md)
+  - Collapsible panel with line count preview when closed
+  - Rich markdown editor with code block support
+  - Keyboard shortcuts for save (Cmd/Ctrl+S)
 
 ### Skills Management
 - **Browse & search** - Filter skills by scope (User, Project, Plugin, Managed)
@@ -160,6 +170,15 @@ Profiles let you create reusable configuration bundles that can be shared across
 - **Rich editing** - MDXEditor with full markdown support
 - **Code blocks** - Syntax highlighting for 14+ languages
 - **Separate storage** - Stored in app data directory, independent of Claude config
+
+### Beacons
+Navigation bookmarks for quick access to project-related resources:
+- **Multiple link types** - GitHub repos, documentation, APIs, Reddit, Twitter, custom URLs
+- **Categories** - Organize beacons into custom categories
+- **Tags** - Add searchable tags for filtering
+- **Multi-link support** - Store multiple related URLs per beacon
+- **Quick open** - Launch links directly from the app
+- **Separate storage** - Stored in `~/.tars/beacons/`, independent of Claude config
 
 ### Updates
 - **Claude Code updates** - Compare installed vs latest version with update notifications
