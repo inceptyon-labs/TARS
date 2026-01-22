@@ -474,8 +474,18 @@ pub async fn config_rollback(
         std::env::current_dir().map_err(|e| format!("Failed to get current directory: {e}"))?
     };
 
+    // Log rollback operation start (audit trail)
+    let project_path_display = project_path.display();
+    let files_count = backup.files.len();
+    eprintln!(
+        "[AUDIT] config_rollback: Starting rollback backup_id={backup_id} project_path={project_path_display} files_count={files_count}"
+    );
+
     // Restore from backup
-    restore_from_backup(&project_path, &backup).map_err(|e| format!("Restore failed: {e}"))?;
+    if let Err(e) = restore_from_backup(&project_path, &backup) {
+        eprintln!("[AUDIT] config_rollback: FAILED backup_id={backup_id} error={e}");
+        return Err(format!("Restore failed: {e}"));
+    }
 
     // Collect restored files
     let files_restored: Vec<String> = backup
@@ -483,6 +493,11 @@ pub async fn config_rollback(
         .iter()
         .map(|f| f.path.to_string_lossy().into_owned())
         .collect();
+
+    // Log rollback operation completion (audit trail)
+    eprintln!(
+        "[AUDIT] config_rollback: SUCCESS backup_id={backup_id} files_restored={files_restored:?}"
+    );
 
     Ok(RollbackResult {
         success: true,
