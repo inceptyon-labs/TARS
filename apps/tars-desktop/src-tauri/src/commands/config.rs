@@ -8,7 +8,8 @@ use std::path::PathBuf;
 use tauri::State;
 
 use tars_core::config::{
-    ConfigItemData, ConfigScope, McpOps, McpServerConfig, McpServerUpdate, McpTransport,
+    ConfigError, ConfigItemData, ConfigScope, McpOps, McpServerConfig, McpServerUpdate,
+    McpTransport,
 };
 
 use crate::state::AppState;
@@ -394,10 +395,20 @@ pub async fn mcp_move(
         .map_err(|e: tars_core::config::ConfigError| e.to_string())?;
 
     let dry_run = params.dry_run.unwrap_or(false);
+    let force = params.force.unwrap_or(false);
 
-    let result = ops
-        .move_server(&params.name, from_scope, to_scope, dry_run)
-        .map_err(|e| e.to_string())?;
+    // Try the move operation
+    let result = match ops.move_server(&params.name, from_scope, to_scope, dry_run) {
+        Ok(r) => r,
+        Err(ConfigError::ItemExists { name: n, scope: _ }) if force && !dry_run => {
+            // With --force: remove existing server from target, then retry move
+            ops.remove(&n, Some(to_scope), false)
+                .map_err(|e| e.to_string())?;
+            ops.move_server(&params.name, from_scope, to_scope, false)
+                .map_err(|e| e.to_string())?
+        }
+        Err(e) => return Err(e.to_string()),
+    };
 
     Ok(McpMoveResult {
         success: result.success,
