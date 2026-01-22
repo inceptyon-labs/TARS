@@ -142,6 +142,25 @@ impl Default for McpServerConfig {
     }
 }
 
+/// Updates to apply to an MCP server configuration
+#[derive(Debug, Clone, Default)]
+pub struct McpServerUpdate {
+    /// Replace command entirely
+    pub command: Option<String>,
+    /// Replace all arguments
+    pub args: Option<Vec<String>>,
+    /// Add arguments to existing list
+    pub add_args: Option<Vec<String>>,
+    /// Replace all environment variables
+    pub env: Option<HashMap<String, String>>,
+    /// Add environment variables to existing map
+    pub add_env: Option<HashMap<String, String>>,
+    /// Remove specific environment variable keys
+    pub remove_env: Option<Vec<String>>,
+    /// Replace URL
+    pub url: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
