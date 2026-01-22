@@ -516,9 +516,7 @@ impl McpOps {
         }
 
         // Validate merged config
-        config
-            .validate()
-            .map_err(|e| ConfigError::ValidationError(e))?;
+        config.validate().map_err(ConfigError::ValidationError)?;
 
         // Return early for dry-run (no backup or file write)
         if dry_run {

@@ -398,7 +398,7 @@ fn execute_update(
         "project" => Some(ConfigScope::Project),
         "local" => Some(ConfigScope::Local),
         _ => {
-            eprintln!("Invalid scope: {}. Use 'user', 'project', or 'local'.", s);
+            eprintln!("Invalid scope: {s}. Use 'user', 'project', or 'local'.");
             None
         }
     });
@@ -411,7 +411,7 @@ fn execute_update(
             if let Some((key, value)) = pair.split_once('=') {
                 map.insert(key.to_string(), value.to_string());
             } else {
-                eprintln!("Invalid env format: '{}'. Use KEY=VALUE.", pair);
+                eprintln!("Invalid env format: '{pair}'. Use KEY=VALUE.");
                 std::process::exit(1);
             }
         }
@@ -425,7 +425,7 @@ fn execute_update(
             if let Some((key, value)) = pair.split_once('=') {
                 map.insert(key.to_string(), value.to_string());
             } else {
-                eprintln!("Invalid add-env format: '{}'. Use KEY=VALUE.", pair);
+                eprintln!("Invalid add-env format: '{pair}'. Use KEY=VALUE.");
                 std::process::exit(1);
             }
         }
@@ -475,13 +475,13 @@ fn execute_update(
         } else {
             println!("✓ Updated MCP server '{}'", args.name);
             if let Some(backup_id) = result.backup_id {
-                println!("  Backup ID: {}", backup_id);
+                println!("  Backup ID: {backup_id}");
             }
         }
 
         if !result.warnings.is_empty() {
             for warning in result.warnings {
-                println!("  ⚠ {}", warning);
+                println!("  ⚠ {warning}");
             }
         }
     }
