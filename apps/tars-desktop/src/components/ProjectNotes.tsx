@@ -40,7 +40,7 @@ interface ProjectNotesProps {
 export function ProjectNotes({ projectPath }: ProjectNotesProps) {
   const queryClient = useQueryClient();
   const theme = useUIStore((state) => state.theme);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [notesContent, setNotesContent] = useState<string>('');
   const [isDirty, setIsDirty] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
@@ -104,24 +104,41 @@ export function ProjectNotes({ projectPath }: ProjectNotesProps) {
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
+  // Calculate summary for collapsed state
+  const getCollapsedSummary = () => {
+    const content = notesInfo?.content || '';
+    if (!content.trim()) return null;
+
+    const lines = content.split('\n').filter((line) => line.trim()).length;
+    const preview = content.trim().split('\n')[0]?.slice(0, 50) || '';
+    return { lines, preview: preview.length >= 50 ? preview + '...' : preview };
+  };
+
+  const summary = getCollapsedSummary();
+
   return (
     <div className="tars-panel rounded-lg overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-3 hover:text-primary transition-colors"
+          className="flex items-center gap-3 hover:text-primary transition-colors flex-1 min-w-0"
         >
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           )}
-          <StickyNote className="h-4 w-4 text-primary" />
-          <span className="font-medium">Notes</span>
+          <StickyNote className="h-4 w-4 text-primary shrink-0" />
+          <span className="font-medium shrink-0">Notes</span>
           {isDirty && (
-            <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">
+            <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded shrink-0">
               Unsaved changes
+            </span>
+          )}
+          {!isExpanded && summary && (
+            <span className="text-xs text-muted-foreground truncate ml-2">
+              {summary.lines} line{summary.lines !== 1 ? 's' : ''} · {summary.preview}
             </span>
           )}
         </button>
