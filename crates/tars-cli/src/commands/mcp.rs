@@ -513,11 +513,12 @@ fn execute_move(
     // Try the move operation
     let result = match ops.move_server(name, from_scope, to_scope, dry_run) {
         Ok(r) => r,
-        Err(tars_core::config::ConfigError::ItemExists { name: n, scope: s })
+        Err(tars_core::config::ConfigError::ItemExists { name: _, scope: _ })
             if force && !dry_run =>
         {
             // With --force: remove existing server from target, then retry move
-            ops.remove(&n, Some(to_scope), false)?;
+            // Use original `name` param to ensure we remove the correct server
+            ops.remove(name, Some(to_scope), false)?;
             ops.move_server(name, from_scope, to_scope, false)?
         }
         Err(e) => return Err(e.into()),
