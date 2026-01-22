@@ -400,9 +400,10 @@ pub async fn mcp_move(
     // Try the move operation
     let result = match ops.move_server(&params.name, from_scope, to_scope, dry_run) {
         Ok(r) => r,
-        Err(ConfigError::ItemExists { name: n, scope: _ }) if force && !dry_run => {
+        Err(ConfigError::ItemExists { name: _, scope: _ }) if force && !dry_run => {
             // With --force: remove existing server from target, then retry move
-            ops.remove(&n, Some(to_scope), false)
+            // Use original params.name to ensure we remove the correct server
+            ops.remove(&params.name, Some(to_scope), false)
                 .map_err(|e| e.to_string())?;
             ops.move_server(&params.name, from_scope, to_scope, false)
                 .map_err(|e| e.to_string())?
