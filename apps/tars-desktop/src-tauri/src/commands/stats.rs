@@ -1,6 +1,6 @@
 //! Project statistics commands
 //!
-//! Provides code metrics like LoC, file counts, dependencies, etc.
+//! Provides code metrics like lines of code, file counts, dependencies, etc.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -84,23 +84,43 @@ fn get_language(ext: &str) -> Option<&'static str> {
 fn should_ignore(path: &Path) -> bool {
     let path_str = path.to_string_lossy();
 
-    // Common directories to ignore
+    // Common directories to ignore (dependencies, build outputs, caches)
     let ignore_dirs = [
+        // JavaScript/Node
         "node_modules",
-        "target",
-        "dist",
-        "build",
-        ".git",
+        "bower_components",
         ".next",
         ".nuxt",
+        // Rust
+        "target",
+        // iOS/macOS
+        "Pods",
+        "DerivedData",
+        "Carthage",
+        ".build",
+        // Android
+        ".gradle",
+        // Flutter/Dart
+        ".dart_tool",
+        ".pub-cache",
+        ".symlinks",
+        // General build outputs
+        "dist",
+        "build",
+        "out",
+        // Version control
+        ".git",
+        // Python
         "__pycache__",
         ".pytest_cache",
         "venv",
         ".venv",
+        // Other
         "vendor",
         "coverage",
         ".coverage",
         "htmlcov",
+        ".cache",
     ];
 
     for dir in ignore_dirs {
@@ -177,6 +197,40 @@ fn count_lines(path: &Path, ext: &str) -> (usize, usize, usize, usize) {
     (total, code, comments, blanks)
 }
 
+/// Check if a comment line starts with a TODO/FIXME marker
+/// Only matches when the marker appears at the beginning (after comment syntax and whitespace)
+/// e.g. "// TODO: fix" matches, but "// This scans for TODO:" does not
+fn is_todo_comment(comment_text: &str, marker: &str) -> bool {
+    // Strip leading comment characters and whitespace
+    let text = comment_text
+        .trim_start_matches('/')
+        .trim_start_matches('*')
+        .trim_start_matches('#')
+        .trim_start_matches('-')
+        .trim_start_matches('!') // for //! doc comments
+        .trim_start_matches('<') // for <!-- html comments
+        .trim();
+
+    let upper = text.to_uppercase();
+
+    // Check if the comment starts with the marker
+    if !upper.starts_with(marker) {
+        return false;
+    }
+
+    // Check what comes after the marker
+    let after_marker = marker.len();
+    if after_marker >= upper.len() {
+        // Marker at end - valid (bare "TODO" or "FIXME")
+        return true;
+    }
+
+    let next_char = upper.as_bytes()[after_marker];
+    // Valid only if followed by: ':', '(', or '-'
+    // NOT space - that matches prose like "TODO items" or "(TODO)"
+    matches!(next_char, b':' | b'(' | b'-')
+}
+
 // Scan for TODO and FIXME markers in comments only
 fn count_todos(path: &Path, ext: &str) -> (usize, usize) {
     let content = match fs::read_to_string(path) {
@@ -203,14 +257,13 @@ fn count_todos(path: &Path, ext: &str) -> (usize, usize) {
 
     for line in content.lines() {
         let trimmed = line.trim();
-        let upper = trimmed.to_uppercase();
 
         // Track block comment state
         if in_block_comment {
-            if upper.contains("TODO") {
+            if is_todo_comment(trimmed, "TODO") {
                 todos += 1;
             }
-            if upper.contains("FIXME") {
+            if is_todo_comment(trimmed, "FIXME") {
                 fixmes += 1;
             }
             if !block_end.is_empty() && trimmed.contains(block_end) {
@@ -222,10 +275,10 @@ fn count_todos(path: &Path, ext: &str) -> (usize, usize) {
         // Check for block comment start
         if !block_start.is_empty() && trimmed.contains(block_start) {
             in_block_comment = true;
-            if upper.contains("TODO") {
+            if is_todo_comment(trimmed, "TODO") {
                 todos += 1;
             }
-            if upper.contains("FIXME") {
+            if is_todo_comment(trimmed, "FIXME") {
                 fixmes += 1;
             }
             if !block_end.is_empty() && trimmed.contains(block_end) {
@@ -234,17 +287,14 @@ fn count_todos(path: &Path, ext: &str) -> (usize, usize) {
             continue;
         }
 
-        // Check line comments
-        if !line_comment.is_empty() && trimmed.contains(line_comment) {
-            // Only check the part after the comment marker
-            if let Some(idx) = trimmed.find(line_comment) {
-                let comment_part = &trimmed[idx..].to_uppercase();
-                if comment_part.contains("TODO") {
-                    todos += 1;
-                }
-                if comment_part.contains("FIXME") {
-                    fixmes += 1;
-                }
+        // Check line comments - must START with comment marker (not just contain it)
+        if !line_comment.is_empty() && trimmed.starts_with(line_comment) {
+            let comment_part = &trimmed[line_comment.len()..];
+            if is_todo_comment(comment_part, "TODO") {
+                todos += 1;
+            }
+            if is_todo_comment(comment_part, "FIXME") {
+                fixmes += 1;
             }
         }
     }
@@ -254,10 +304,6 @@ fn count_todos(path: &Path, ext: &str) -> (usize, usize) {
 
 // Walk directory and collect stats
 fn collect_language_stats(root: &Path) -> (HashMap<String, LanguageStats>, usize, usize) {
-    let mut stats: HashMap<String, LanguageStats> = HashMap::new();
-    let mut total_todos = 0;
-    let mut total_fixmes = 0;
-
     fn walk(
         dir: &Path,
         stats: &mut HashMap<String, LanguageStats>,
@@ -299,14 +345,15 @@ fn collect_language_stats(root: &Path) -> (HashMap<String, LanguageStats>, usize
         }
     }
 
+    let mut stats: HashMap<String, LanguageStats> = HashMap::new();
+    let mut total_todos = 0;
+    let mut total_fixmes = 0;
     walk(root, &mut stats, &mut total_todos, &mut total_fixmes);
     (stats, total_todos, total_fixmes)
 }
 
 // Find all package.json files recursively (excluding node_modules)
 fn find_package_jsons(root: &Path) -> Vec<PathBuf> {
-    let mut results = Vec::new();
-
     fn walk(dir: &Path, results: &mut Vec<PathBuf>) {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
@@ -326,6 +373,7 @@ fn find_package_jsons(root: &Path) -> Vec<PathBuf> {
         }
     }
 
+    let mut results = Vec::new();
     walk(root, &mut results);
     results
 }
@@ -344,12 +392,12 @@ fn parse_package_jsons(project: &Path) -> Option<DependencyInfo> {
                 let prod = json
                     .get("dependencies")
                     .and_then(|d| d.as_object())
-                    .map_or(0, |o| o.len());
+                    .map_or(0, serde_json::Map::len);
 
                 let dev = json
                     .get("devDependencies")
                     .and_then(|d| d.as_object())
-                    .map_or(0, |o| o.len());
+                    .map_or(0, serde_json::Map::len);
 
                 if prod > 0 || dev > 0 {
                     total_prod += prod;
@@ -364,7 +412,7 @@ fn parse_package_jsons(project: &Path) -> Option<DependencyInfo> {
         let source = if count == 1 {
             "package.json".to_string()
         } else {
-            format!("{} package.json files", count)
+            format!("{count} package.json files")
         };
         Some(DependencyInfo {
             source,
@@ -385,17 +433,17 @@ fn parse_cargo_toml(project: &Path) -> Option<DependencyInfo> {
     let prod = toml
         .get("dependencies")
         .and_then(|d| d.as_table())
-        .map_or(0, |t| t.len());
+        .map_or(0, toml::map::Map::len);
 
     let dev = toml
         .get("dev-dependencies")
         .and_then(|d| d.as_table())
-        .map_or(0, |t| t.len());
+        .map_or(0, toml::map::Map::len);
 
     let build = toml
         .get("build-dependencies")
         .and_then(|d| d.as_table())
-        .map_or(0, |t| t.len());
+        .map_or(0, toml::map::Map::len);
 
     if prod > 0 || dev > 0 {
         Some(DependencyInfo {
@@ -451,7 +499,7 @@ fn parse_pyproject_toml(project: &Path) -> Option<DependencyInfo> {
         .and_then(|t| t.get("poetry"))
         .and_then(|p| p.get("dev-dependencies"))
         .and_then(|d| d.as_table())
-        .map_or(0, |t| t.len());
+        .map_or(0, toml::map::Map::len);
 
     // Check for PEP 621 dependencies
     let pep_deps = toml
@@ -612,8 +660,6 @@ fn collect_dependencies(project: &Path) -> Vec<DependencyInfo> {
 
 // Find coverage files recursively
 fn find_coverage_files(root: &Path) -> Vec<PathBuf> {
-    let mut results = Vec::new();
-
     fn walk(dir: &Path, results: &mut Vec<PathBuf>, depth: usize) {
         // Limit depth to avoid going too deep
         if depth > 5 {
@@ -654,6 +700,8 @@ fn find_coverage_files(root: &Path) -> Vec<PathBuf> {
             }
         }
     }
+
+    let mut results = Vec::new();
 
     // Check root level first
     let root_lcov = root.join("lcov.info");
@@ -721,7 +769,7 @@ fn parse_lcov(project: &Path) -> Option<CoverageInfo> {
         let source = if files_found == 1 {
             "lcov.info".to_string()
         } else {
-            format!("{} coverage reports", files_found)
+            format!("{files_found} coverage reports")
         };
 
         return Some(CoverageInfo {
@@ -746,8 +794,14 @@ fn parse_tarpaulin(project: &Path) -> Option<CoverageInfo> {
     for path in paths {
         if let Ok(content) = fs::read_to_string(&path) {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                let covered = json.get("covered").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-                let total = json.get("coverable").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                let covered = json
+                    .get("covered")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0) as usize;
+                let total = json
+                    .get("coverable")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0) as usize;
 
                 if total > 0 {
                     return Some(CoverageInfo {
@@ -798,4 +852,49 @@ pub async fn get_project_stats(project_path: String) -> Result<ProjectStats, Str
         todo_count,
         fixme_count,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_todo_comment_valid_patterns() {
+        // Should match - actual TODO markers at start of comment
+        // Note: is_todo_comment receives text AFTER the comment marker (// or #)
+        // Only matches TODO:, TODO(, or TODO- patterns
+        assert!(is_todo_comment(" TODO: fix this", "TODO"));
+        assert!(is_todo_comment(" TODO(jason): refactor", "TODO"));
+        assert!(is_todo_comment(" TODO- add tests", "TODO"));
+        assert!(is_todo_comment(" TODO-add tests", "TODO"));
+        assert!(is_todo_comment(" FIXME: broken", "FIXME"));
+        assert!(is_todo_comment(" FIXME(team): urgent", "FIXME"));
+        assert!(is_todo_comment("TODO: no space after marker", "TODO"));
+        // Block comments strip the /* prefix
+        assert!(is_todo_comment("* TODO: block style", "TODO"));
+    }
+
+    #[test]
+    fn test_todo_comment_invalid_patterns() {
+        // Should NOT match - TODO/FIXME in middle of comment (documentation)
+        assert!(!is_todo_comment(" Scan for TODO and FIXME markers", "TODO"));
+        assert!(!is_todo_comment(
+            " Scan for TODO and FIXME markers",
+            "FIXME"
+        ));
+        assert!(!is_todo_comment(
+            " Matches patterns like TODO:, TODO(name)",
+            "TODO"
+        ));
+        assert!(!is_todo_comment(" This documents TODO: behavior", "TODO"));
+        assert!(!is_todo_comment(" the TODO list", "TODO"));
+        assert!(!is_todo_comment(" handle FIXME items", "FIXME"));
+    }
+
+    #[test]
+    fn test_todo_comment_case_insensitive() {
+        assert!(is_todo_comment(" todo: fix", "TODO"));
+        assert!(is_todo_comment(" Todo: fix", "TODO"));
+        assert!(is_todo_comment(" fixme: broken", "FIXME"));
+    }
 }
