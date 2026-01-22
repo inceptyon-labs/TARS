@@ -10,7 +10,9 @@ import {
   assignProfileAsPlugin,
   unassignProfilePlugin,
   getProjectTools,
+  getProjectsGitStatus,
 } from '../lib/ipc';
+import type { ProjectGitStatus } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
 import { ProjectList } from '../components/ProjectList';
 import { ProjectOverview } from '../components/ProjectOverview';
@@ -36,6 +38,23 @@ export function ProjectsPage() {
     queryKey: ['projects'],
     queryFn: listProjects,
   });
+
+  // Fetch git status for all projects
+  const { data: gitStatuses = [] } = useQuery({
+    queryKey: ['projects-git-status', projects.map((p) => p.path)],
+    queryFn: () => getProjectsGitStatus(projects.map((p) => p.path)),
+    enabled: projects.length > 0,
+    staleTime: 30000, // 30 seconds - git status doesn't change that often
+  });
+
+  // Convert to a map for easy lookup
+  const gitStatusMap = gitStatuses.reduce(
+    (acc, status) => {
+      acc[status.path] = status;
+      return acc;
+    },
+    {} as Record<string, ProjectGitStatus>
+  );
 
   const addMutation = useMutation({
     mutationFn: addProject,
@@ -179,18 +198,27 @@ export function ProjectsPage() {
         {/* Project list sidebar */}
         <div className="w-72 border-r border-border flex flex-col tars-panel">
           <div className="p-3 border-b border-border">
-            <div className="relative flex items-center">
-              <input
-                type="search"
-                placeholder="Search projects..."
-                className="tars-input w-full pl-9 pr-3 py-2 text-sm rounded"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                data-form-type="other"
-              />
-              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <div className="relative flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="search"
+                  placeholder="Search projects..."
+                  className="tars-input w-full pl-9 pr-3 py-2 text-sm rounded"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-form-type="other"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+              <button
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['projects-git-status'] })}
+                className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                title="Refresh git status"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
@@ -215,6 +243,7 @@ export function ProjectsPage() {
               <ProjectList
                 projects={projects}
                 selectedPath={selectedPath}
+                gitStatusMap={gitStatusMap}
                 onSelect={(project) => handleScan(project)}
                 onRemove={(id) => removeMutation.mutate(id)}
               />
