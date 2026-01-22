@@ -7,10 +7,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::State;
 
+use tars_core::backup::restore::restore_from_backup;
 use tars_core::config::{
     ConfigError, ConfigItemData, ConfigScope, McpOps, McpServerConfig, McpServerUpdate,
     McpTransport,
 };
+use tars_core::storage::BackupStore;
+use uuid::Uuid;
 
 use crate::state::AppState;
 
@@ -448,9 +451,42 @@ pub struct RollbackResult {
 /// Rollback a config operation
 #[tauri::command]
 pub async fn config_rollback(
-    _params: RollbackParams,
-    _state: State<'_, AppState>,
+    params: RollbackParams,
+    state: State<'_, AppState>,
 ) -> Result<RollbackResult, String> {
-    // TODO: Implement
-    Err("Not yet implemented".into())
+    // Parse backup ID
+    let backup_id = Uuid::parse_str(&params.backup_id)
+        .map_err(|_| format!("Invalid backup ID: {}", params.backup_id))?;
+
+    // Get backup from database
+    let backup = state.with_db(|db| {
+        let store = BackupStore::new(db.connection());
+        store
+            .get(backup_id)
+            .map_err(|e| format!("Database error: {e}"))?
+            .ok_or_else(|| format!("Backup not found: {}", params.backup_id))
+    })?;
+
+    // Determine project path
+    let project_path = if let Some(path) = params.project_path {
+        PathBuf::from(path)
+    } else {
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {e}"))?
+    };
+
+    // Restore from backup
+    restore_from_backup(&project_path, &backup).map_err(|e| format!("Restore failed: {e}"))?;
+
+    // Collect restored files
+    let files_restored: Vec<String> = backup
+        .files
+        .iter()
+        .map(|f| f.path.to_string_lossy().into_owned())
+        .collect();
+
+    Ok(RollbackResult {
+        success: true,
+        files_restored,
+        error: None,
+    })
 }
