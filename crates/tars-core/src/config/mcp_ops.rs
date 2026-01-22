@@ -1101,4 +1101,95 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].name, "test");
     }
+
+    #[test]
+    fn test_move_server_validation() {
+        let dir = TempDir::new().unwrap();
+        let ops = McpOps::new(Some(dir.path().to_path_buf()));
+
+        // Add server to project scope
+        let config = McpServerConfig::stdio("npx", vec!["@test/mcp".into()]);
+        ops.add("test-move", ConfigScope::Project, config, false)
+            .unwrap();
+
+        // Verify it's in project scope
+        let items = ops.list_scope(ConfigScope::Project).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].name, "test-move");
+
+        // Cannot move to same scope - should fail
+        let result = ops.move_server(
+            "test-move",
+            Some(ConfigScope::Project),
+            ConfigScope::Project,
+            false,
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::ValidationError(msg) => {
+                assert!(msg.contains("already in"));
+            }
+            e => panic!("Expected ValidationError, got: {e:?}"),
+        }
+
+        // Cannot move to Managed scope - should fail
+        let result = ops.move_server(
+            "test-move",
+            Some(ConfigScope::Project),
+            ConfigScope::Managed,
+            false,
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::ManagedScope => {}
+            e => panic!("Expected ManagedScope error, got: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_move_server_dry_run() {
+        let dir = TempDir::new().unwrap();
+        let ops = McpOps::new(Some(dir.path().to_path_buf()));
+
+        // Add server to project scope
+        let config = McpServerConfig::stdio("npx", vec!["@test/mcp".into()]);
+        ops.add("dry-move", ConfigScope::Project, config, false)
+            .unwrap();
+
+        // Dry run move - should succeed without modifying
+        let result = ops
+            .move_server(
+                "dry-move",
+                Some(ConfigScope::Project),
+                ConfigScope::User,
+                true,
+            )
+            .unwrap();
+
+        assert!(result.success);
+        assert!(result.backup_id.is_none()); // No backup on dry run
+        assert_eq!(result.files_modified.len(), 2); // Source and target files
+
+        // Verify NOT moved - still in project (dry run doesn't modify)
+        let project_items = ops.list_scope(ConfigScope::Project).unwrap();
+        assert_eq!(project_items.len(), 1);
+        assert_eq!(project_items[0].name, "dry-move");
+    }
+
+    #[test]
+    fn test_move_server_not_found() {
+        let dir = TempDir::new().unwrap();
+        let ops = McpOps::new(Some(dir.path().to_path_buf()));
+
+        // Try to move non-existent server
+        let result = ops.move_server("nonexistent", None, ConfigScope::User, false);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::ItemNotFound { name } => {
+                assert_eq!(name, "nonexistent");
+            }
+            e => panic!("Expected ItemNotFound error, got: {e:?}"),
+        }
+    }
 }

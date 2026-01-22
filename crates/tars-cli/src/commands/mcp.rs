@@ -490,15 +490,73 @@ fn execute_update(
 }
 
 fn execute_move(
-    _name: &str,
-    _from: Option<String>,
-    _to: &str,
-    _force: bool,
-    _dry_run: bool,
-    _json: bool,
-    _project_path: Option<&PathBuf>,
+    name: &str,
+    from: Option<String>,
+    to: &str,
+    force: bool,
+    dry_run: bool,
+    json_output: bool,
+    project_path: Option<&PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: Implement in Phase 4
-    println!("MCP move not yet implemented");
+    let ops = McpOps::new(project_path.cloned());
+
+    // Parse from_scope (optional)
+    let from_scope: Option<ConfigScope> = if let Some(s) = &from {
+        Some(s.parse()?)
+    } else {
+        None
+    };
+
+    // Parse to_scope (required)
+    let to_scope: ConfigScope = to.parse()?;
+
+    // Try the move operation
+    let result = match ops.move_server(name, from_scope, to_scope, dry_run) {
+        Ok(r) => r,
+        Err(tars_core::config::ConfigError::ItemExists { name: _, scope: _ })
+            if force && !dry_run =>
+        {
+            // With --force: remove existing server from target, then retry move
+            // Use original `name` param to ensure we remove the correct server
+            ops.remove(name, Some(to_scope), false)?;
+            ops.move_server(name, from_scope, to_scope, false)?
+        }
+        Err(e) => return Err(e.into()),
+    };
+
+    if json_output {
+        let output = json!({
+            "success": result.success,
+            "operation": "move",
+            "server": name,
+            "from_scope": from_scope.map_or("auto".to_string(), |s| s.to_string()),
+            "to_scope": to_scope.to_string(),
+            "dry_run": dry_run,
+            "message": result.error,
+            "backup_id": result.backup_id,
+            "files_modified": result.files_modified.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else if dry_run {
+        let from_str = from_scope.map_or("auto-detected".to_string(), |s| s.to_string());
+        println!("Dry run: Would move MCP server '{name}' from {from_str} to {to_scope} scope");
+        if !result.files_modified.is_empty() {
+            println!("Would modify:");
+            for path in &result.files_modified {
+                println!("  - {}", path.display());
+            }
+        }
+    } else if result.success {
+        let from_str = from_scope.map_or("auto-detected".to_string(), |s| s.to_string());
+        println!("Moved MCP server '{name}' from {from_str} to {to_scope} scope");
+        if let Some(backup_id) = &result.backup_id {
+            println!("Backup created: {backup_id}");
+        }
+    } else {
+        let err = result.error.unwrap_or_default();
+        eprintln!("Failed to move MCP server: {err}");
+        std::process::exit(1);
+    }
+
     Ok(())
 }
