@@ -36,6 +36,20 @@ struct RawPermissions {
 /// # Errors
 /// Returns an error if parsing fails
 pub fn parse_settings(path: &Path, content: &str) -> ScanResult<SettingsFile> {
+    // Handle empty or whitespace-only files as empty settings
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return Ok(SettingsFile {
+            path: path.to_path_buf(),
+            sha256: compute_sha256(content),
+            hooks_count: 0,
+            permissions: None,
+            enabled_plugins: std::collections::HashMap::new(),
+            env: std::collections::HashMap::new(),
+            model: None,
+        });
+    }
+
     let raw: RawSettings = serde_json::from_str(content).map_err(ScanError::JsonParse)?;
 
     let sha256 = compute_sha256(content);
@@ -68,6 +82,21 @@ fn compute_sha256(content: &str) -> String {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn test_parse_empty_settings() {
+        let result = parse_settings(&PathBuf::from("settings.json"), "");
+        assert!(result.is_ok());
+        let settings = result.unwrap();
+        assert_eq!(settings.hooks_count, 0);
+        assert!(settings.permissions.is_none());
+    }
+
+    #[test]
+    fn test_parse_whitespace_settings() {
+        let result = parse_settings(&PathBuf::from("settings.json"), "   \n  ");
+        assert!(result.is_ok());
+    }
 
     #[test]
     fn test_parse_settings() {

@@ -5,6 +5,7 @@
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::process::Command;
 use tars_core::storage::ProjectStore;
 use tars_core::Project;
 use tauri::State;
@@ -612,4 +613,86 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
         total_chars,
         total_tokens: estimate_tokens(total_chars),
     })
+}
+
+/// Git status for a single project
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectGitStatus {
+    pub path: String,
+    pub is_git_repo: bool,
+    pub branch: Option<String>,
+    pub is_dirty: bool,
+}
+
+/// Create a git command with security hardening
+fn secure_git_command() -> Command {
+    let mut cmd = Command::new("git");
+    cmd.env("GIT_CONFIG_NOSYSTEM", "1");
+    cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
+    cmd.env("GIT_ADVICE", "0");
+    cmd
+}
+
+/// Get git status for a single project path
+fn get_git_status_for_path(path: &PathBuf) -> ProjectGitStatus {
+    let git_dir = path.join(".git");
+    if !git_dir.exists() {
+        return ProjectGitStatus {
+            path: path.display().to_string(),
+            is_git_repo: false,
+            branch: None,
+            is_dirty: false,
+        };
+    }
+
+    let output = secure_git_command()
+        .args(["status", "-sb"])
+        .current_dir(path)
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let lines: Vec<&str> = stdout.lines().collect();
+
+            let branch = lines.first().and_then(|line| {
+                line.strip_prefix("## ").map(|rest| {
+                    rest.split("...")
+                        .next()
+                        .unwrap_or(rest)
+                        .split(' ')
+                        .next()
+                        .unwrap_or(rest)
+                        .to_string()
+                })
+            });
+
+            // Dirty if there are lines beyond the branch line
+            let is_dirty = lines.len() > 1;
+
+            ProjectGitStatus {
+                path: path.display().to_string(),
+                is_git_repo: true,
+                branch,
+                is_dirty,
+            }
+        }
+        _ => ProjectGitStatus {
+            path: path.display().to_string(),
+            is_git_repo: true,
+            branch: Some("unknown".to_string()),
+            is_dirty: false,
+        },
+    }
+}
+
+/// Get git status for multiple project paths
+#[tauri::command]
+pub async fn get_projects_git_status(paths: Vec<String>) -> Result<Vec<ProjectGitStatus>, String> {
+    let statuses: Vec<ProjectGitStatus> = paths
+        .iter()
+        .map(|p| get_git_status_for_path(&PathBuf::from(p)))
+        .collect();
+
+    Ok(statuses)
 }

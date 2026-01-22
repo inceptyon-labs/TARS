@@ -65,7 +65,8 @@ function ActivityChart({
       {data.map((item, index) => {
         const heightPercent = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
         const heightPx = Math.max((heightPercent / 100) * ACTIVITY_CHART_HEIGHT, 2);
-        const date = new Date(item.date);
+        // Parse as local time to avoid timezone shift (YYYY-MM-DD is interpreted as UTC by default)
+        const date = new Date(item.date + 'T00:00:00');
         const isToday = new Date().toDateString() === date.toDateString();
 
         return (
@@ -309,7 +310,7 @@ export function UsagePage() {
                 </div>
                 {usageStats.firstSessionDate && (
                   <p className="text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
-                    Since {new Date(usageStats.firstSessionDate).toLocaleDateString()}
+                    Since {new Date(usageStats.firstSessionDate + 'T00:00:00').toLocaleDateString()}
                   </p>
                 )}
               </div>

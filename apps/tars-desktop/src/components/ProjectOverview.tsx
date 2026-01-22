@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   AlertCircle,
+  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -48,6 +49,7 @@ import '@mdxeditor/editor/style.css';
 import { useUIStore } from '../stores/ui-store';
 import { codeBlockShortcutPlugin } from '../lib/mdx-plugins/codeBlockShortcutPlugin';
 import { CodeBlockCopyButton } from './CodeBlockCopyButton';
+import { ProjectStatsPanel } from './ProjectStatsPanel';
 import type {
   Inventory,
   SkillInfo,
@@ -512,6 +514,9 @@ export function ProjectOverview({
             </div>
           )}
         </div>
+
+        {/* Project Statistics */}
+        <ProjectStatsPanel projectPath={projectPath} />
 
         {/* Notes Section - at the top, gitignored personal notes */}
         <ProjectNotes projectPath={projectPath} />
@@ -1261,6 +1266,7 @@ export function ProjectOverview({
                 ) : (
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 )}
+                <Globe className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium text-muted-foreground">Global Tools</span>
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                   {totalGlobalTools}

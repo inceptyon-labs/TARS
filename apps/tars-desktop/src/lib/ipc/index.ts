@@ -66,6 +66,17 @@ export async function removeProject(id: string): Promise<boolean> {
   return invoke('remove_project', { id });
 }
 
+export interface ProjectGitStatus {
+  path: string;
+  is_git_repo: boolean;
+  branch: string | null;
+  is_dirty: boolean;
+}
+
+export async function getProjectsGitStatus(paths: string[]): Promise<ProjectGitStatus[]> {
+  return invoke('get_projects_git_status', { paths });
+}
+
 export interface ClaudeMdInfo {
   path: string;
   content: string | null;
@@ -96,6 +107,44 @@ export async function readProjectNotes(projectPath: string): Promise<NotesInfo> 
 
 export async function saveProjectNotes(projectPath: string, content: string): Promise<void> {
   return invoke('save_project_notes', { projectPath, content });
+}
+
+// Project stats types
+export interface LanguageStats {
+  files: number;
+  lines: number;
+  code: number;
+  comments: number;
+  blanks: number;
+}
+
+export interface CoverageInfo {
+  source: string;
+  line_coverage: number | null;
+  branch_coverage: number | null;
+  lines_covered: number | null;
+  lines_total: number | null;
+}
+
+export interface DependencyInfo {
+  source: string;
+  production: number;
+  development: number;
+}
+
+export interface ProjectStats {
+  languages: Record<string, LanguageStats>;
+  total_files: number;
+  total_lines: number;
+  total_code: number;
+  coverage: CoverageInfo | null;
+  dependencies: DependencyInfo[];
+  todo_count: number;
+  fixme_count: number;
+}
+
+export async function getProjectStats(projectPath: string): Promise<ProjectStats> {
+  return invoke('get_project_stats', { projectPath });
 }
 
 export interface ContextItem {

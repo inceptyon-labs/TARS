@@ -15,6 +15,7 @@ pub mod prompts;
 pub mod scanner;
 pub mod settings;
 pub mod skills;
+pub mod stats;
 pub mod updates;
 pub mod utils;
 
@@ -32,5 +33,6 @@ pub use prompts::*;
 pub use scanner::*;
 pub use settings::*;
 pub use skills::*;
+pub use stats::*;
 pub use updates::*;
 pub use utils::*;

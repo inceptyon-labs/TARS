@@ -223,6 +223,13 @@ export interface ProjectInfo {
   updated_at: string;
 }
 
+export interface ProjectGitStatus {
+  path: string;
+  is_git_repo: boolean;
+  branch: string | null;
+  is_dirty: boolean;
+}
+
 // Profile types
 export interface ProfileInfo {
   id: string;
