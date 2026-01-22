@@ -539,10 +539,7 @@ fn execute_move(
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else if dry_run {
         let from_str = from_scope.map_or("auto-detected".to_string(), |s| s.to_string());
-        println!(
-            "Dry run: Would move MCP server '{}' from {} to {} scope",
-            name, from_str, to_scope
-        );
+        println!("Dry run: Would move MCP server '{name}' from {from_str} to {to_scope} scope");
         if !result.files_modified.is_empty() {
             println!("Would modify:");
             for path in &result.files_modified {
@@ -551,18 +548,13 @@ fn execute_move(
         }
     } else if result.success {
         let from_str = from_scope.map_or("auto-detected".to_string(), |s| s.to_string());
-        println!(
-            "Moved MCP server '{}' from {} to {} scope",
-            name, from_str, to_scope
-        );
+        println!("Moved MCP server '{name}' from {from_str} to {to_scope} scope");
         if let Some(backup_id) = &result.backup_id {
             println!("Backup created: {backup_id}");
         }
     } else {
-        eprintln!(
-            "Failed to move MCP server: {}",
-            result.error.unwrap_or_default()
-        );
+        let err = result.error.unwrap_or_default();
+        eprintln!("Failed to move MCP server: {err}");
         std::process::exit(1);
     }
 
