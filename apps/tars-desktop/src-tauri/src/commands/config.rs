@@ -7,7 +7,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::State;
 
-use tars_core::config::{ConfigItemData, ConfigScope, McpOps, McpServerConfig, McpTransport};
+use tars_core::config::{
+    ConfigItemData, ConfigScope, McpOps, McpServerConfig, McpServerUpdate, McpTransport,
+};
 
 use crate::state::AppState;
 
@@ -226,11 +228,113 @@ pub struct McpUpdateParams {
 /// Update an MCP server
 #[tauri::command]
 pub async fn mcp_update(
-    _params: McpUpdateParams,
-    _state: State<'_, AppState>,
+    params: McpUpdateParams,
+    project_path: Option<String>,
+    state: State<'_, AppState>,
 ) -> Result<McpOperationResult, String> {
-    // TODO: Implement in Phase 4
-    Err("Not yet implemented".into())
+    // Parse scope if provided
+    let scope = params
+        .scope
+        .as_ref()
+        .map(|s| s.parse::<ConfigScope>())
+        .transpose()
+        .map_err(|e| format!("{e}"))?;
+
+    // Build update struct from HashMap
+    let mut update = McpServerUpdate::default();
+
+    // Helper to extract string values
+    let get_string = |key: &str| {
+        params
+            .updates
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    };
+
+    // Helper to extract string arrays
+    let get_string_array = |key: &str| {
+        params
+            .updates
+            .get(key)
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect::<Vec<_>>()
+            })
+    };
+
+    // Helper to extract object as HashMap
+    let get_object = |key: &str| {
+        params
+            .updates
+            .get(key)
+            .and_then(|v| v.as_object())
+            .map(|obj| {
+                obj.iter()
+                    .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                    .collect::<HashMap<_, _>>()
+            })
+    };
+
+    // Extract fields from updates
+    if let Some(command) = get_string("command") {
+        update.command = Some(command);
+    }
+    if let Some(args) = get_string_array("args") {
+        if !args.is_empty() {
+            update.args = Some(args);
+        }
+    }
+    if let Some(add_args) = get_string_array("addArgs") {
+        if !add_args.is_empty() {
+            update.add_args = Some(add_args);
+        }
+    }
+    if let Some(env) = get_object("env") {
+        if !env.is_empty() {
+            update.env = Some(env);
+        }
+    }
+    if let Some(add_env) = get_object("addEnv") {
+        if !add_env.is_empty() {
+            update.add_env = Some(add_env);
+        }
+    }
+    if let Some(remove_env) = get_string_array("removeEnv") {
+        if !remove_env.is_empty() {
+            update.remove_env = Some(remove_env);
+        }
+    }
+    if let Some(url) = get_string("url") {
+        update.url = Some(url);
+    }
+
+    // Set up backup directory
+    let backup_dir = state.data_dir().join("backups");
+    std::fs::create_dir_all(&backup_dir)
+        .map_err(|e| format!("Failed to create backup directory: {e}"))?;
+
+    // Create operations manager
+    let ops = McpOps::new(project_path.map(PathBuf::from)).with_backup_dir(backup_dir);
+
+    let dry_run = params.dry_run.unwrap_or(false);
+    let result = ops
+        .update(&params.name, scope, update, dry_run)
+        .map_err(|e| e.to_string())?;
+
+    Ok(McpOperationResult {
+        success: result.success,
+        backup_id: result.backup_id,
+        file_path: result
+            .files_modified
+            .first()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default(),
+        diff: None,
+        error: result.error,
+    })
 }
 
 /// Parameters for `mcp_move` command
