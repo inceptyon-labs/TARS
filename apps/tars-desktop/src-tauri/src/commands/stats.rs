@@ -177,16 +177,77 @@ fn count_lines(path: &Path, ext: &str) -> (usize, usize, usize, usize) {
     (total, code, comments, blanks)
 }
 
-// Scan for TODO and FIXME markers
-fn count_todos(path: &Path) -> (usize, usize) {
+// Scan for TODO and FIXME markers in comments only
+fn count_todos(path: &Path, ext: &str) -> (usize, usize) {
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
         Err(_) => return (0, 0),
     };
 
-    let content_upper = content.to_uppercase();
-    let todos = content_upper.matches("TODO").count();
-    let fixmes = content_upper.matches("FIXME").count();
+    let (line_comment, block_start, block_end) = match ext {
+        "rs" | "ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs" | "go" | "java" | "kt" | "kts"
+        | "swift" | "c" | "h" | "cpp" | "cc" | "cxx" | "hpp" | "hxx" | "cs" | "php" | "vue"
+        | "svelte" | "scss" | "less" | "dart" => ("//", "/*", "*/"),
+        "py" | "rb" | "erb" | "sh" | "bash" | "zsh" | "yaml" | "yml" | "toml" => {
+            ("#", "\"\"\"", "\"\"\"")
+        }
+        "html" | "htm" | "xml" | "md" | "markdown" => ("", "<!--", "-->"),
+        "css" | "sass" => ("", "/*", "*/"),
+        "sql" => ("--", "/*", "*/"),
+        _ => ("", "", ""),
+    };
+
+    let mut todos = 0;
+    let mut fixmes = 0;
+    let mut in_block_comment = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let upper = trimmed.to_uppercase();
+
+        // Track block comment state
+        if in_block_comment {
+            if upper.contains("TODO") {
+                todos += 1;
+            }
+            if upper.contains("FIXME") {
+                fixmes += 1;
+            }
+            if !block_end.is_empty() && trimmed.contains(block_end) {
+                in_block_comment = false;
+            }
+            continue;
+        }
+
+        // Check for block comment start
+        if !block_start.is_empty() && trimmed.contains(block_start) {
+            in_block_comment = true;
+            if upper.contains("TODO") {
+                todos += 1;
+            }
+            if upper.contains("FIXME") {
+                fixmes += 1;
+            }
+            if !block_end.is_empty() && trimmed.contains(block_end) {
+                in_block_comment = false;
+            }
+            continue;
+        }
+
+        // Check line comments
+        if !line_comment.is_empty() && trimmed.contains(line_comment) {
+            // Only check the part after the comment marker
+            if let Some(idx) = trimmed.find(line_comment) {
+                let comment_part = &trimmed[idx..].to_uppercase();
+                if comment_part.contains("TODO") {
+                    todos += 1;
+                }
+                if comment_part.contains("FIXME") {
+                    fixmes += 1;
+                }
+            }
+        }
+    }
 
     (todos, fixmes)
 }
@@ -221,7 +282,7 @@ fn collect_language_stats(root: &Path) -> (HashMap<String, LanguageStats>, usize
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                     if let Some(lang) = get_language(ext) {
                         let (total, code, comments, blanks) = count_lines(&path, ext);
-                        let (t, f) = count_todos(&path);
+                        let (t, f) = count_todos(&path, ext);
 
                         *todos += t;
                         *fixmes += f;
