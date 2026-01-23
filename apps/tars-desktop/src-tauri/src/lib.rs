@@ -147,6 +147,7 @@ pub fn run() {
             commands::mcp_remove,
             commands::mcp_update,
             commands::mcp_move,
+            commands::mcp_refresh,
             commands::config_rollback,
             // Plugin commands
             commands::plugin_list,
