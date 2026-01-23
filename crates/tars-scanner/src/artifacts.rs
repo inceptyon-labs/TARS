@@ -114,6 +114,8 @@ pub enum HookSource {
     Skill { name: String },
     /// From an agent
     Agent { name: String },
+    /// From a plugin
+    Plugin { plugin_id: String, path: PathBuf },
 }
 
 /// Hook trigger events

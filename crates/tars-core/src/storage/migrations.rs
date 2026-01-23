@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 1;
+const CURRENT_VERSION: i32 = 2;
 
 /// Run all pending migrations
 ///
@@ -15,6 +15,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 1 {
         migrate_v1(conn)?;
+    }
+
+    if version < 2 {
+        migrate_v2(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -72,6 +76,25 @@ fn migrate_v1(conn: &Connection) -> Result<(), DatabaseError> {
         CREATE INDEX IF NOT EXISTS idx_profiles_name ON profiles(name);
         CREATE INDEX IF NOT EXISTS idx_backups_project ON backups(project_id);
         CREATE INDEX IF NOT EXISTS idx_inventory_scope ON inventory_cache(scope);
+        ",
+    )?;
+
+    Ok(())
+}
+
+fn migrate_v2(conn: &Connection) -> Result<(), DatabaseError> {
+    conn.execute_batch(
+        r"
+        -- Plugin version tracking table
+        -- Tracks when plugin versions actually changed (not just checked)
+        CREATE TABLE IF NOT EXISTS plugin_versions (
+            plugin_key TEXT PRIMARY KEY,
+            version TEXT NOT NULL,
+            version_changed_at TEXT NOT NULL,
+            last_checked_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_plugin_versions_key ON plugin_versions(plugin_key);
         ",
     )?;
 
