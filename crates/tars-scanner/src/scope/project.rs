@@ -101,11 +101,14 @@ pub fn scan_project_with_plugins(
     let plugin_agents = extract_project_plugin_agents(plugin_inventory, path)?;
     agents.extend(plugin_agents);
 
-    let hooks = if claude_dir_exists {
+    // Scan project hooks and merge with project-scoped plugin hooks
+    let mut hooks = if claude_dir_exists {
         scan_hooks_directory(&claude_dir.join("hooks"))?
     } else {
         Vec::new()
     };
+    let plugin_hooks = extract_project_plugin_hooks(plugin_inventory, path)?;
+    hooks.extend(plugin_hooks);
 
     Ok(ProjectScope {
         path: path.to_path_buf(),
@@ -268,6 +271,64 @@ fn extract_project_plugin_mcp(
     }
 
     Ok(all_mcp)
+}
+
+/// Extract hooks from plugins installed at project scope for a specific project
+fn extract_project_plugin_hooks(
+    plugin_inventory: &PluginInventory,
+    project_path: &Path,
+) -> ScanResult<Vec<HookInfo>> {
+    let mut all_hooks = Vec::new();
+
+    for plugin in &plugin_inventory.installed {
+        if !is_plugin_for_project(plugin, project_path) {
+            continue;
+        }
+
+        let plugin_id = match &plugin.marketplace {
+            Some(marketplace) => format!("{}@{}", plugin.id, marketplace),
+            None => plugin.id.clone(),
+        };
+
+        if let Some(hooks_path) = resolve_plugin_hooks_path(plugin) {
+            if let Ok(content) = fs::read_to_string(&hooks_path) {
+                if let Ok(parsed_hooks) = parse_plugin_hooks_json(&hooks_path, &content, &plugin_id)
+                {
+                    all_hooks.extend(parsed_hooks);
+                }
+            }
+        }
+    }
+
+    Ok(all_hooks)
+}
+
+fn resolve_plugin_hooks_path(plugin: &crate::plugins::InstalledPlugin) -> Option<PathBuf> {
+    // Check manifest-specified hooks path first
+    if let Some(path) = plugin.manifest.hooks.as_ref() {
+        if path.is_absolute() && path.exists() {
+            return Some(path.clone());
+        }
+        let relative_candidates = [
+            plugin.path.join(path),
+            plugin.path.join(".claude-plugin").join(path),
+        ];
+        if let Some(found) = relative_candidates
+            .into_iter()
+            .find(|candidate| candidate.exists())
+        {
+            return Some(found);
+        }
+    }
+
+    // Try default locations
+    let candidates = [
+        plugin.path.join("hooks.json"),
+        plugin.path.join(".claude-plugin").join("hooks.json"),
+        plugin.path.join("hooks").join("hooks.json"),
+    ];
+
+    candidates.into_iter().find(|path| path.exists())
 }
 
 fn resolve_plugin_mcp_path(plugin: &crate::plugins::InstalledPlugin) -> Option<PathBuf> {
@@ -478,6 +539,94 @@ fn scan_hooks_directory(hooks_dir: &Path) -> ScanResult<Vec<HookInfo>> {
     }
 
     Ok(hooks)
+}
+
+/// Parse hooks.json from a plugin, tagging with Plugin source
+/// Plugin hooks.json uses the same format as settings.json hooks:
+/// { "hooks": { "EventName": [{ "matcher": "...", "hooks": [{ "type": "command", "command": "..." }] }] } }
+fn parse_plugin_hooks_json(
+    path: &Path,
+    content: &str,
+    plugin_id: &str,
+) -> ScanResult<Vec<HookInfo>> {
+    use crate::artifacts::{HookDefinition, HookSource, HookTrigger};
+    use serde::Deserialize;
+    use std::collections::HashMap;
+
+    #[derive(Deserialize)]
+    struct HooksFile {
+        #[serde(default)]
+        hooks: HashMap<String, Vec<HookMatcher>>,
+    }
+
+    #[derive(Deserialize)]
+    struct HookMatcher {
+        matcher: String,
+        hooks: Vec<HookDef>,
+    }
+
+    #[derive(Deserialize)]
+    struct HookDef {
+        #[serde(rename = "type")]
+        hook_type: String,
+        #[serde(default)]
+        command: Option<String>,
+        #[serde(default)]
+        prompt: Option<String>,
+    }
+
+    let hooks_file: HooksFile = serde_json::from_str(content)?;
+    let mut result = Vec::new();
+
+    for (event_name, matchers) in hooks_file.hooks {
+        let trigger = match event_name.as_str() {
+            "PreToolUse" => HookTrigger::PreToolUse,
+            "PostToolUse" => HookTrigger::PostToolUse,
+            "PermissionRequest" => HookTrigger::PermissionRequest,
+            "UserPromptSubmit" => HookTrigger::UserPromptSubmit,
+            "SessionStart" => HookTrigger::SessionStart,
+            "SessionEnd" => HookTrigger::SessionEnd,
+            "Notification" => HookTrigger::Notification,
+            "Stop" => HookTrigger::Stop,
+            "SubagentStop" => HookTrigger::SubagentStop,
+            "PreCompact" => HookTrigger::PreCompact,
+            _ => continue,
+        };
+
+        for matcher in matchers {
+            for hook_def in matcher.hooks {
+                let definition = match hook_def.hook_type.as_str() {
+                    "command" => {
+                        if let Some(cmd) = hook_def.command {
+                            HookDefinition::Command { command: cmd }
+                        } else {
+                            continue;
+                        }
+                    }
+                    "prompt" => {
+                        if let Some(prompt) = hook_def.prompt {
+                            HookDefinition::Prompt { prompt }
+                        } else {
+                            continue;
+                        }
+                    }
+                    _ => continue,
+                };
+
+                result.push(HookInfo {
+                    source: HookSource::Plugin {
+                        plugin_id: plugin_id.to_string(),
+                        path: path.to_path_buf(),
+                    },
+                    trigger,
+                    matcher: Some(matcher.matcher.clone()),
+                    definition,
+                });
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 fn parse_hooks_json(path: &Path, content: &str) -> ScanResult<Vec<HookInfo>> {
