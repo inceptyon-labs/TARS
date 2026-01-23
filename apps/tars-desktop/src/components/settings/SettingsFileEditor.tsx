@@ -207,6 +207,7 @@ export function SettingsFileEditor({
         style={{ resize: 'vertical' }}
       >
         <Editor
+          key={`${scope}-${projectPath ?? 'user'}`}
           height="100%"
           language="json"
           value={settingsValue}

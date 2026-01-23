@@ -756,6 +756,19 @@ export async function getHookEventTypes(): Promise<string[]> {
   return invoke('get_hook_event_types');
 }
 
+// Hook script info
+export interface HookScriptInfo {
+  path: string;
+  content: string | null;
+  exists: boolean;
+  is_plugin_script: boolean;
+  plugin_name: string | null;
+}
+
+export async function getHookScript(command: string): Promise<HookScriptInfo> {
+  return invoke('get_hook_script', { command });
+}
+
 // Prompt commands (stored in ~/.tars/prompts/, not in Claude config)
 import type { Prompt, PromptSummary } from '../types';
 
@@ -866,6 +879,14 @@ export async function installPlugin(
   projectPath?: string | null
 ): Promise<void> {
   return invoke('plugin_install', { plugin, scope, projectPath });
+}
+
+// Track plugin versions and return when each actually changed
+// Returns a map of plugin_key -> version_changed_at (ISO 8601)
+export async function trackPluginVersions(
+  plugins: [string, string][] // Array of [plugin_key, current_version]
+): Promise<Record<string, string>> {
+  return invoke('track_plugin_versions', { plugins });
 }
 
 // TARS app update commands

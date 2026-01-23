@@ -29,6 +29,7 @@ import {
   listProjects,
   deleteProfileCleanup,
   installPlugin as installPluginByKey,
+  trackPluginVersions,
 } from '../lib/ipc';
 import type {
   AvailablePlugin,
@@ -119,6 +120,23 @@ export function PluginsPage() {
   });
 
   const plugins: PluginInventory = inventory?.plugins || { marketplaces: [], installed: [] };
+
+  // Track plugin versions to get accurate "version changed at" times
+  const { data: versionTracking = {} } = useQuery({
+    queryKey: [
+      'plugin-versions',
+      plugins.installed.map((p) => `${p.id}@${p.marketplace}:${p.version}`),
+    ],
+    queryFn: async () => {
+      if (plugins.installed.length === 0) return {};
+      const pluginData: [string, string][] = plugins.installed.map((p) => [
+        `${p.id}@${p.marketplace}`,
+        p.version || 'unknown',
+      ]);
+      return trackPluginVersions(pluginData);
+    },
+    enabled: plugins.installed.length > 0,
+  });
   const PROFILE_MARKETPLACE = 'tars-profiles';
 
   // Sort marketplaces by name for stable ordering
@@ -549,7 +567,10 @@ export function PluginsPage() {
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
+    if (diffDays === 0) {
+      // Show time for today
+      return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
@@ -815,9 +836,12 @@ export function PluginsPage() {
                           ) : (
                             <span
                               className="text-xs text-muted-foreground cursor-help"
-                              title={`Installed: ${formatFullDate(plugin.installed_at)}\nLast updated: ${formatFullDate(plugin.last_updated)}`}
+                              title={`Installed: ${formatFullDate(plugin.installed_at)}\nVersion updated: ${formatFullDate(versionTracking[`${plugin.id}@${plugin.marketplace}`] || plugin.last_updated)}`}
                             >
-                              {formatRelativeDate(plugin.last_updated)}
+                              {formatRelativeDate(
+                                versionTracking[`${plugin.id}@${plugin.marketplace}`] ||
+                                  plugin.last_updated
+                              )}
                             </span>
                           )}
                         </TableCell>

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Play,
   MessageSquare,
+  FileCode,
 } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -21,6 +22,8 @@ import {
   getHookEventTypes,
   listProjects,
   listProfiles,
+  getHookScript,
+  type HookScriptInfo,
 } from '../lib/ipc';
 import { Button } from '../components/ui/button';
 import {
@@ -67,6 +70,10 @@ export function HooksPage() {
     hookIndex?: number;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Script viewer state
+  const [scriptInfo, setScriptInfo] = useState<HookScriptInfo | null>(null);
+  const [loadingScript, setLoadingScript] = useState(false);
 
   // New hook form state
   const [newEventType, setNewEventType] = useState('');
@@ -151,6 +158,20 @@ export function HooksPage() {
       }
       return next;
     });
+  }, []);
+
+  const handleViewScript = useCallback(async (command: string) => {
+    setLoadingScript(true);
+    try {
+      const info = await getHookScript(command);
+      setScriptInfo(info);
+    } catch (err) {
+      toast.error('Failed to load script', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setLoadingScript(false);
+    }
   }, []);
 
   function handleAddEvent() {
@@ -509,6 +530,18 @@ export function HooksPage() {
                                     {hook.type === 'command' ? hook.command : hook.prompt}
                                   </code>
                                 </div>
+                                {hook.type === 'command' && hook.command && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleViewScript(hook.command!)}
+                                    disabled={loadingScript}
+                                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary"
+                                    title="View script"
+                                  >
+                                    <FileCode className="h-3 w-3" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -731,6 +764,56 @@ export function HooksPage() {
         onConfirm={handleDelete}
         loading={deleting}
       />
+
+      {/* Script Viewer Dialog */}
+      <Dialog open={!!scriptInfo} onOpenChange={(open) => !open && setScriptInfo(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCode className="h-5 w-5" />
+              Hook Script
+              {scriptInfo?.is_plugin_script && scriptInfo?.plugin_name && (
+                <span className="text-xs font-normal text-muted-foreground ml-2">
+                  (from plugin: {scriptInfo.plugin_name})
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs break-all">
+              {scriptInfo?.path}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto min-h-[300px]">
+            {scriptInfo?.exists ? (
+              scriptInfo.content ? (
+                <pre className="text-xs font-mono bg-muted/50 p-4 rounded-lg overflow-auto whitespace-pre">
+                  {scriptInfo.content}
+                </pre>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Script exists but content could not be read.</p>
+                </div>
+              )
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Script file not found at the specified path.</p>
+                {scriptInfo?.is_plugin_script && (
+                  <p className="text-xs mt-2">
+                    The script path may contain variables that could not be resolved.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          {scriptInfo?.is_plugin_script && (
+            <p className="text-xs text-muted-foreground">Plugin scripts are read-only.</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScriptInfo(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -4,8 +4,9 @@
 
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
-use tars_core::storage::ProfileStore;
+use tars_core::storage::{PluginVersionStore, ProfileStore};
 use tars_scanner::artifacts::{AgentInfo, CommandInfo, SkillInfo};
 use tars_scanner::scope::user::{
     scan_agents_directory, scan_commands_directory, scan_skills_directory,
@@ -193,4 +194,30 @@ pub async fn discover_claude_projects(
     projects.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     Ok(projects)
+}
+
+/// Track plugin versions and return when each version actually changed
+/// This is used to display accurate "Updated" times in the UI
+#[tauri::command]
+pub async fn track_plugin_versions(
+    plugins: Vec<(String, String)>, // Vec of (plugin_key, current_version)
+    state: State<'_, AppState>,
+) -> Result<HashMap<String, String>, String> {
+    state.with_db(|db| {
+        let store = PluginVersionStore::new(db.connection());
+        let mut result = HashMap::new();
+
+        for (plugin_key, current_version) in plugins {
+            match store.track_version(&plugin_key, &current_version) {
+                Ok(version_changed_at) => {
+                    result.insert(plugin_key, version_changed_at.to_rfc3339());
+                }
+                Err(e) => {
+                    eprintln!("Failed to track version for {plugin_key}: {e}");
+                }
+            }
+        }
+
+        Ok(result)
+    })
 }

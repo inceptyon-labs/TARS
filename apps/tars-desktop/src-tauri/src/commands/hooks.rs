@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tars_scanner::plugins::{InstalledPlugin, PluginInventory};
+use tars_scanner::types::Scope;
 use tauri::State;
 use uuid::Uuid;
 
@@ -42,8 +44,14 @@ pub struct HookDefinition {
 /// A hook matcher with its hooks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HookMatcher {
+    /// Pattern to match against (defaults to "*" if not specified)
+    #[serde(default = "default_matcher")]
     pub matcher: String,
     pub hooks: Vec<HookDefinition>,
+}
+
+fn default_matcher() -> String {
+    "*".to_string()
 }
 
 /// Hook configuration for a specific event
@@ -166,11 +174,88 @@ fn write_hooks_to_settings(path: &PathBuf, events: &[HookEvent]) -> Result<(), S
     Ok(())
 }
 
+/// Read hooks from a plugin's hooks.json file
+/// Plugin hooks.json uses the same format as settings.json hooks
+fn read_hooks_from_plugin(plugin: &InstalledPlugin) -> Vec<HookEvent> {
+    let hooks_path = resolve_plugin_hooks_path(plugin);
+    let Some(path) = hooks_path else {
+        return vec![];
+    };
+
+    // Plugin hooks.json uses the same format as settings.json
+    read_hooks_from_settings(&path).unwrap_or_default()
+}
+
+/// Resolve the hooks.json path for a plugin
+fn resolve_plugin_hooks_path(plugin: &InstalledPlugin) -> Option<PathBuf> {
+    // Check manifest-specified hooks path first
+    if let Some(path) = plugin.manifest.hooks.as_ref() {
+        if path.is_absolute() && path.exists() {
+            return Some(path.clone());
+        }
+        let relative_candidates = [
+            plugin.path.join(path),
+            plugin.path.join(".claude-plugin").join(path),
+        ];
+        if let Some(found) = relative_candidates
+            .into_iter()
+            .find(|candidate| candidate.exists())
+        {
+            return Some(found);
+        }
+    }
+
+    // Try default locations
+    let candidates = [
+        plugin.path.join("hooks.json"),
+        plugin.path.join(".claude-plugin").join("hooks.json"),
+        plugin.path.join("hooks").join("hooks.json"),
+    ];
+
+    candidates.into_iter().find(|path| path.exists())
+}
+
+/// Merge plugin hook events into existing events
+fn merge_hook_events(
+    mut base_events: Vec<HookEvent>,
+    plugin_events: Vec<HookEvent>,
+) -> Vec<HookEvent> {
+    for plugin_event in plugin_events {
+        // Find if this event type already exists
+        if let Some(existing) = base_events
+            .iter_mut()
+            .find(|e| e.event == plugin_event.event)
+        {
+            // Merge matchers
+            existing.matchers.extend(plugin_event.matchers);
+        } else {
+            base_events.push(plugin_event);
+        }
+    }
+    base_events
+}
+
 /// Get hooks from user scope
 #[tauri::command]
 pub async fn get_user_hooks() -> Result<HooksConfig, String> {
     let path = get_user_settings_path()?;
-    let events = read_hooks_from_settings(&path)?;
+    let mut events = read_hooks_from_settings(&path)?;
+
+    // Also scan hooks from user-scoped plugins
+    if let Ok(plugin_inventory) = PluginInventory::scan() {
+        for plugin in &plugin_inventory.installed {
+            // Only include user/managed scope plugins that are enabled
+            if !matches!(plugin.scope, Scope::User | Scope::Managed) {
+                continue;
+            }
+            if !plugin.enabled {
+                continue;
+            }
+
+            let plugin_events = read_hooks_from_plugin(plugin);
+            events = merge_hook_events(events, plugin_events);
+        }
+    }
 
     Ok(HooksConfig {
         path: path.display().to_string(),
@@ -183,7 +268,39 @@ pub async fn get_user_hooks() -> Result<HooksConfig, String> {
 #[tauri::command]
 pub async fn get_project_hooks(project_path: String) -> Result<HooksConfig, String> {
     let path = get_project_settings_path(&project_path);
-    let events = read_hooks_from_settings(&path)?;
+    let mut events = read_hooks_from_settings(&path)?;
+
+    // Also scan hooks from project-scoped plugins for this project
+    if let Ok(plugin_inventory) = PluginInventory::scan() {
+        let project_path_buf = PathBuf::from(&project_path);
+        for plugin in &plugin_inventory.installed {
+            // Only include project/local scope plugins for this specific project
+            if !matches!(plugin.scope, Scope::Project | Scope::Local) {
+                continue;
+            }
+            if !plugin.enabled {
+                continue;
+            }
+
+            // Check if plugin is for this project
+            let is_for_project = plugin.project_path.as_ref().is_some_and(|pp| {
+                let plugin_project = PathBuf::from(pp);
+                plugin_project == project_path_buf
+                    || plugin_project
+                        .canonicalize()
+                        .ok()
+                        .zip(project_path_buf.canonicalize().ok())
+                        .is_some_and(|(a, b)| a == b)
+            });
+
+            if !is_for_project {
+                continue;
+            }
+
+            let plugin_events = read_hooks_from_plugin(plugin);
+            events = merge_hook_events(events, plugin_events);
+        }
+    }
 
     Ok(HooksConfig {
         path: path.display().to_string(),
@@ -268,4 +385,121 @@ pub async fn get_hook_event_types() -> Vec<String> {
         .iter()
         .map(std::string::ToString::to_string)
         .collect()
+}
+
+/// Info about a resolved hook script
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookScriptInfo {
+    /// Resolved path to the script
+    pub path: String,
+    /// Script content (if readable)
+    pub content: Option<String>,
+    /// Whether the script exists
+    pub exists: bool,
+    /// Whether the script is from a plugin (read-only)
+    pub is_plugin_script: bool,
+    /// Plugin name if from a plugin
+    pub plugin_name: Option<String>,
+}
+
+/// Resolve and read a hook script
+/// Handles `${CLAUDE_PLUGIN_ROOT}` variable resolution
+#[tauri::command]
+pub async fn get_hook_script(command: String) -> Result<HookScriptInfo, String> {
+    // Check if this is a plugin script with ${CLAUDE_PLUGIN_ROOT}
+    if command.contains("${CLAUDE_PLUGIN_ROOT}") {
+        // Extract just the script path (remove arguments)
+        let script_path = extract_script_path(&command);
+
+        // Need to find which plugin this belongs to
+        if let Ok(plugin_inventory) = PluginInventory::scan() {
+            for plugin in &plugin_inventory.installed {
+                if !plugin.enabled {
+                    continue;
+                }
+
+                // Resolve the variable in the extracted script path
+                let resolved =
+                    script_path.replace("${CLAUDE_PLUGIN_ROOT}", &plugin.path.to_string_lossy());
+                let resolved_path = PathBuf::from(&resolved);
+
+                if resolved_path.exists() {
+                    let content = std::fs::read_to_string(&resolved_path).ok();
+                    return Ok(HookScriptInfo {
+                        path: resolved,
+                        content,
+                        exists: true,
+                        is_plugin_script: true,
+                        plugin_name: Some(plugin.id.clone()),
+                    });
+                }
+            }
+        }
+
+        // Variable not resolved, return as-is
+        return Ok(HookScriptInfo {
+            path: script_path.to_string(),
+            content: None,
+            exists: false,
+            is_plugin_script: true,
+            plugin_name: None,
+        });
+    }
+
+    // Regular path - extract script path and expand ~ to home directory
+    let script_path = extract_script_path(&command);
+    let expanded_path = expand_tilde(script_path);
+    let path = PathBuf::from(&expanded_path);
+    let exists = path.exists();
+    let content = if exists {
+        std::fs::read_to_string(&path).ok()
+    } else {
+        None
+    };
+
+    Ok(HookScriptInfo {
+        path: expanded_path,
+        content,
+        exists,
+        is_plugin_script: false,
+        plugin_name: None,
+    })
+}
+
+/// Expand ~ to the user's home directory
+fn expand_tilde(path: &str) -> String {
+    if path.starts_with("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return format!("{}{}", home.display(), &path[1..]);
+        }
+    }
+    path.to_string()
+}
+
+/// Extract the script path from a command that may have arguments
+/// e.g., "~/.claude/script.sh arg1 arg2" -> "~/.claude/script.sh"
+/// Handles quoted paths and shell redirections
+fn extract_script_path(command: &str) -> &str {
+    let trimmed = command.trim();
+
+    // Handle "sh " or "bash " prefix
+    let without_shell = trimmed
+        .strip_prefix("sh ")
+        .or_else(|| trimmed.strip_prefix("bash "))
+        .unwrap_or(trimmed)
+        .trim_start();
+
+    // Find where the path ends (first space, unless it's in quotes)
+    if let Some(quoted) = without_shell.strip_prefix('"') {
+        // Quoted path - find closing quote
+        if let Some(end) = quoted.find('"') {
+            return &quoted[..end];
+        }
+    }
+
+    // Unquoted - find first space or shell operator
+    without_shell
+        .split(|c: char| c.is_whitespace() || c == '>' || c == '|' || c == '&' || c == ';')
+        .next()
+        .unwrap_or(without_shell)
 }
