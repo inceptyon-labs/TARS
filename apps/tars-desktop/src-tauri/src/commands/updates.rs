@@ -390,6 +390,39 @@ async fn fetch_npm_latest_version(package: &str) -> Result<String, String> {
         .ok_or_else(|| "No version field in npm response".to_string())
 }
 
+/// Check if a git-based plugin has an update by comparing installed commit with marketplace HEAD
+fn check_git_update(plugins_dir: &PathBuf, marketplace: &str, installed_commit: &str) -> bool {
+    let marketplace_head = match get_marketplace_git_head(plugins_dir, marketplace) {
+        Some(head) => head,
+        None => return false,
+    };
+
+    // Compare full SHAs (installed_commit might be truncated)
+    !marketplace_head.starts_with(installed_commit)
+        && !installed_commit.starts_with(&marketplace_head)
+}
+
+/// Get the current git HEAD commit of a marketplace
+fn get_marketplace_git_head(plugins_dir: &PathBuf, marketplace: &str) -> Option<String> {
+    let marketplace_path = plugins_dir.join("marketplaces").join(marketplace);
+
+    // Try to read HEAD commit using git command
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(&marketplace_path)
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !sha.is_empty() {
+            return Some(sha);
+        }
+    }
+
+    None
+}
+
 /// Compare semantic versions
 fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
     let parse_version = |s: &str| -> Vec<u32> {
@@ -441,6 +474,11 @@ pub struct PluginUpdatesResponse {
 pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
     let inventory = PluginInventory::scan().map_err(|e: tars_scanner::ScanError| e.to_string())?;
 
+    // Get plugins directory for marketplace git checks
+    let plugins_dir = dirs::home_dir()
+        .map(|h| h.join(".claude").join("plugins"))
+        .ok_or_else(|| "Cannot find home directory".to_string())?;
+
     let mut updates = Vec::new();
 
     for installed in &inventory.installed {
@@ -468,17 +506,36 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
             continue;
         };
 
-        // Compare versions
-        let installed_version = installed.manifest.version.clone();
+        // Compare versions - prefer manifest version, fallback to installed_plugins.json version
+        let installed_version = if installed.manifest.version == "unknown" {
+            installed.version.clone()
+        } else {
+            installed.manifest.version.clone()
+        };
         let available_version = available
             .version
             .clone()
             .unwrap_or_else(|| "unknown".to_string());
 
+        // Determine if update is available
         let update_available = if available_version != "unknown" && installed_version != "unknown" {
+            // Standard semver comparison
             version_compare(&available_version, &installed_version) == std::cmp::Ordering::Greater
+        } else if available_version == "unknown" {
+            // Git-based plugin: compare git commits
+            check_git_update(&plugins_dir, marketplace_name, &installed.version)
         } else {
             false
+        };
+
+        // For display, use marketplace git HEAD as available version for git-based plugins
+        let display_available_version = if available_version == "unknown" {
+            get_marketplace_git_head(&plugins_dir, marketplace_name).map_or_else(
+                || "unknown".to_string(),
+                |sha| sha[..12.min(sha.len())].to_string(), // Truncate SHA for display
+            )
+        } else {
+            available_version
         };
 
         let scope_type = match installed.scope {
@@ -495,7 +552,7 @@ pub async fn check_plugin_updates() -> Result<PluginUpdatesResponse, String> {
             plugin_name: installed.manifest.name.clone(),
             marketplace: marketplace_name.clone(),
             installed_version,
-            available_version,
+            available_version: display_available_version,
             update_available,
             scope_type,
             project_path: installed.project_path.clone(),

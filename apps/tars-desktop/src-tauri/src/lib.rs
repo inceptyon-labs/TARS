@@ -50,6 +50,7 @@ pub fn run() {
             commands::scan_projects,
             commands::scan_profiles,
             commands::discover_claude_projects,
+            commands::track_plugin_versions,
             // Project commands
             commands::list_projects,
             commands::add_project,
@@ -136,6 +137,7 @@ pub fn run() {
             commands::get_profile_hooks,
             commands::save_profile_hooks,
             commands::get_hook_event_types,
+            commands::get_hook_script,
             // Profile MCP commands
             commands::list_profile_mcp_servers,
             commands::remove_profile_mcp_server,
