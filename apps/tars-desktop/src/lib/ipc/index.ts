@@ -439,6 +439,26 @@ export async function removeProfileMcpServer(profileId: string, name: string): P
   });
 }
 
+// MCP refresh result
+export interface McpRefreshResult {
+  success: boolean;
+  serverName: string;
+  refreshType: string; // "npm_install", "git_pull", "npx_skip", "unknown"
+  commandRun?: string;
+  output?: string;
+  error?: string;
+}
+
+export async function mcpRefresh(
+  name: string,
+  projectPath?: string | null
+): Promise<McpRefreshResult> {
+  return invoke('mcp_refresh', {
+    name,
+    projectPath: projectPath ?? null,
+  });
+}
+
 // Profile plugin commands
 export interface PluginManifestInfo {
   id: string;

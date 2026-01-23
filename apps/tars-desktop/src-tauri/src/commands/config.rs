@@ -77,6 +77,22 @@ pub struct McpOperationResult {
     pub error: Option<String>,
 }
 
+/// Result from `mcp_refresh` command
+#[derive(Debug, Serialize)]
+pub struct McpRefreshResult {
+    pub success: bool,
+    #[serde(rename = "serverName")]
+    pub server_name: String,
+    #[serde(rename = "refreshType")]
+    pub refresh_type: String, // "npm_install", "git_pull", "npx_skip", "unknown"
+    #[serde(rename = "commandRun", skip_serializing_if = "Option::is_none")]
+    pub command_run: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
 /// List all MCP servers
 #[tauri::command]
 pub async fn mcp_list(
@@ -504,4 +520,199 @@ pub async fn config_rollback(
         files_restored,
         error: None,
     })
+}
+
+// ============================================================================
+// MCP Refresh Command
+// ============================================================================
+
+/// Strategy for refreshing an MCP server
+#[derive(Debug)]
+enum McpRefreshStrategy {
+    /// npx always fetches the latest version
+    NpxSkip,
+    /// Run `npm install` in the given directory
+    NpmInstall(PathBuf),
+    /// Run `git pull` then `npm install` in the given directory
+    GitPullNpmInstall(PathBuf),
+    /// Unknown server type - cannot refresh
+    Unknown,
+}
+
+/// Detect the refresh strategy based on command and args
+fn detect_refresh_strategy(command: Option<&str>, args: &[String]) -> McpRefreshStrategy {
+    let cmd = match command {
+        Some(c) => c,
+        None => return McpRefreshStrategy::Unknown,
+    };
+
+    // Check for npx command
+    if cmd == "npx" || cmd.ends_with("/npx") {
+        return McpRefreshStrategy::NpxSkip;
+    }
+
+    // Check for node running a local file
+    if cmd == "node" || cmd.ends_with("/node") {
+        if let Some(script_path) = args.first() {
+            let path = PathBuf::from(script_path);
+            if path.is_absolute() {
+                // Find the directory containing package.json
+                if let Some(project_dir) = find_npm_project_dir(&path) {
+                    // Check if it's a git repo
+                    if project_dir.join(".git").exists() {
+                        return McpRefreshStrategy::GitPullNpmInstall(project_dir);
+                    }
+                    return McpRefreshStrategy::NpmInstall(project_dir);
+                }
+            }
+        }
+        return McpRefreshStrategy::Unknown;
+    }
+
+    // Check for absolute path to a binary
+    let cmd_path = PathBuf::from(cmd);
+    if cmd_path.is_absolute() && cmd_path.exists() {
+        // Find the directory containing package.json
+        if let Some(project_dir) = find_npm_project_dir(&cmd_path) {
+            // Check if it's a git repo
+            if project_dir.join(".git").exists() {
+                return McpRefreshStrategy::GitPullNpmInstall(project_dir);
+            }
+            return McpRefreshStrategy::NpmInstall(project_dir);
+        }
+    }
+
+    McpRefreshStrategy::Unknown
+}
+
+/// Find the nearest directory containing package.json by walking up from the given path
+fn find_npm_project_dir(start_path: &PathBuf) -> Option<PathBuf> {
+    let mut current = if start_path.is_file() {
+        start_path.parent()?.to_path_buf()
+    } else {
+        start_path.clone()
+    };
+
+    // Walk up to 5 levels to find package.json
+    for _ in 0..5 {
+        if current.join("package.json").exists() {
+            return Some(current);
+        }
+        current = current.parent()?.to_path_buf();
+    }
+
+    None
+}
+
+/// Refresh an MCP server by running the appropriate update command
+#[tauri::command]
+pub async fn mcp_refresh(
+    name: String,
+    project_path: Option<String>,
+) -> Result<McpRefreshResult, String> {
+    let ops = McpOps::new(project_path.map(PathBuf::from));
+
+    // Find the server by name
+    let items = ops.list().map_err(|e| e.to_string())?;
+    let server = items
+        .into_iter()
+        .find(|item| item.name == name)
+        .ok_or_else(|| format!("MCP server '{name}' not found"))?;
+
+    // Extract command and args from the config
+    let (command, args) = if let ConfigItemData::McpServer(config) = &server.config {
+        (config.command.clone(), config.args.clone())
+    } else {
+        return Err("Invalid server configuration".to_string());
+    };
+
+    // Detect refresh strategy
+    let strategy = detect_refresh_strategy(command.as_deref(), &args);
+
+    match strategy {
+        McpRefreshStrategy::NpxSkip => Ok(McpRefreshResult {
+            success: true,
+            server_name: name,
+            refresh_type: "npx_skip".to_string(),
+            command_run: None,
+            output: Some("npx always fetches the latest version - no refresh needed".to_string()),
+            error: None,
+        }),
+
+        McpRefreshStrategy::NpmInstall(dir) => {
+            let output = run_command_in_dir("npm", &["install"], &dir)?;
+            Ok(McpRefreshResult {
+                success: true,
+                server_name: name,
+                refresh_type: "npm_install".to_string(),
+                command_run: Some(format!("npm install (in {})", dir.display())),
+                output: Some(output),
+                error: None,
+            })
+        }
+
+        McpRefreshStrategy::GitPullNpmInstall(dir) => {
+            // First try git pull
+            let git_output = match run_command_in_dir("git", &["pull"], &dir) {
+                Ok(out) => out,
+                Err(e) => format!("git pull failed: {e}"),
+            };
+
+            // Then run npm install regardless of git pull result
+            let npm_output = run_command_in_dir("npm", &["install"], &dir)?;
+
+            let combined_output = format!("=== git pull ===\n{git_output}\n\n=== npm install ===\n{npm_output}");
+
+            Ok(McpRefreshResult {
+                success: true,
+                server_name: name,
+                refresh_type: "git_pull".to_string(),
+                command_run: Some(format!("git pull && npm install (in {})", dir.display())),
+                output: Some(combined_output),
+                error: None,
+            })
+        }
+
+        McpRefreshStrategy::Unknown => Ok(McpRefreshResult {
+            success: false,
+            server_name: name,
+            refresh_type: "unknown".to_string(),
+            command_run: None,
+            output: None,
+            error: Some("Cannot determine how to refresh this MCP server. Only local Node.js projects are supported.".to_string()),
+        }),
+    }
+}
+
+/// Run a command in the specified directory and return the combined stdout/stderr
+fn run_command_in_dir(cmd: &str, args: &[&str], dir: &PathBuf) -> Result<String, String> {
+    use std::process::Command;
+
+    let output = Command::new(cmd)
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .map_err(|e| format!("Failed to execute {cmd}: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    let combined = if stderr.is_empty() {
+        stdout.to_string()
+    } else if stdout.is_empty() {
+        stderr.to_string()
+    } else {
+        format!("{stdout}\n{stderr}")
+    };
+
+    if output.status.success() {
+        Ok(combined)
+    } else {
+        Err(format!(
+            "{} failed with exit code {:?}:\n{}",
+            cmd,
+            output.status.code(),
+            combined
+        ))
+    }
 }

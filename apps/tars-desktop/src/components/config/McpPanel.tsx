@@ -9,7 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import {
@@ -25,7 +25,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ConfirmDialog } from './ConfirmDialog';
 import { McpForm } from './McpForm';
-import { listProfileMcpServers, listProjects, removeProfileMcpServer } from '../../lib/ipc';
+import {
+  listProfileMcpServers,
+  listProjects,
+  removeProfileMcpServer,
+  mcpRefresh,
+} from '../../lib/ipc';
 import type { McpServer, OperationResult, Scope } from './types';
 
 interface McpListResult {
@@ -56,6 +61,7 @@ export function McpPanel() {
   const [serverToMove, setServerToMove] = useState<McpServer | null>(null);
   const [moveTargetScope, setMoveTargetScope] = useState<Scope>('user');
   const [moving, setMoving] = useState(false);
+  const [refreshingServer, setRefreshingServer] = useState<string | null>(null);
 
   // Fetch projects for the selector
   const { data: projects = [] } = useQuery({
@@ -182,6 +188,34 @@ export function McpPanel() {
       (s) => s !== server.scope
     ) as Scope[];
     setMoveTargetScope(otherScopes[0] || 'user');
+  };
+
+  const handleRefresh = async (server: McpServer) => {
+    setRefreshingServer(server.name);
+    try {
+      const result = await mcpRefresh(server.name, selectedProjectPath);
+
+      if (result.success) {
+        if (result.refreshType === 'npx_skip') {
+          toast.info(`"${server.name}" uses npx`, {
+            description: 'npx always fetches the latest version - no refresh needed',
+          });
+        } else {
+          toast.success(`Refreshed "${server.name}"`, {
+            description: result.commandRun || 'Update complete',
+          });
+        }
+      } else {
+        toast.error(`Cannot refresh "${server.name}"`, {
+          description: result.error || 'Unknown server type',
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error('Failed to refresh server', { description: message });
+    } finally {
+      setRefreshingServer(null);
+    }
   };
 
   // Group servers by scope
@@ -337,6 +371,19 @@ export function McpPanel() {
                               </span>
                             ) : (
                               <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRefresh(server)}
+                                  disabled={refreshingServer === server.name}
+                                  title="Refresh (npm install / git pull)"
+                                >
+                                  {refreshingServer === server.name ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-4 w-4" />
+                                  )}
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
