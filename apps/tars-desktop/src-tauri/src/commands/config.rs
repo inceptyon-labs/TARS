@@ -684,15 +684,81 @@ pub async fn mcp_refresh(
     }
 }
 
+/// Resolve the full path to a command by checking common locations
+/// This is needed because GUI apps on macOS don't inherit shell PATH
+fn resolve_command(cmd: &str) -> String {
+    // If it's already an absolute path, use it directly
+    if cmd.starts_with('/') {
+        return cmd.to_string();
+    }
+
+    // Common locations for npm, node, git on macOS/Linux
+    let common_paths = [
+        // Homebrew (Apple Silicon)
+        "/opt/homebrew/bin",
+        // Homebrew (Intel)
+        "/usr/local/bin",
+        // System paths
+        "/usr/bin",
+        // Common nvm locations
+        &format!(
+            "{}/.nvm/versions/node",
+            std::env::var("HOME").unwrap_or_default()
+        ),
+        // fnm
+        &format!(
+            "{}/.local/share/fnm/aliases/default/bin",
+            std::env::var("HOME").unwrap_or_default()
+        ),
+        // volta
+        &format!("{}/.volta/bin", std::env::var("HOME").unwrap_or_default()),
+        // asdf
+        &format!("{}/.asdf/shims", std::env::var("HOME").unwrap_or_default()),
+        // n (node version manager)
+        "/usr/local/n/versions/node",
+    ];
+
+    // For nvm, we need to find the active version directory
+    if let Ok(home) = std::env::var("HOME") {
+        let nvm_dir = format!("{home}/.nvm/versions/node");
+        if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+            // Find the most recent node version (they're named like v20.10.0)
+            let mut versions: Vec<_> = entries
+                .filter_map(std::result::Result::ok)
+                .filter(|e| e.path().is_dir())
+                .collect();
+            versions.sort_by_key(|b| std::cmp::Reverse(b.file_name()));
+            if let Some(latest) = versions.first() {
+                let bin_path = latest.path().join("bin").join(cmd);
+                if bin_path.exists() {
+                    return bin_path.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
+
+    // Check common paths
+    for base in &common_paths {
+        let full_path = format!("{base}/{cmd}");
+        if std::path::Path::new(&full_path).exists() {
+            return full_path;
+        }
+    }
+
+    // Fall back to just the command name (will use PATH)
+    cmd.to_string()
+}
+
 /// Run a command in the specified directory and return the combined stdout/stderr
 fn run_command_in_dir(cmd: &str, args: &[&str], dir: &PathBuf) -> Result<String, String> {
     use std::process::Command;
 
-    let output = Command::new(cmd)
+    let resolved_cmd = resolve_command(cmd);
+    let output = Command::new(&resolved_cmd)
         .args(args)
         .current_dir(dir)
         .output()
-        .map_err(|e| format!("Failed to execute {cmd}: {e}"))?;
+        .map_err(|e| format!("Failed to execute {cmd} (tried {resolved_cmd}): {e}"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
