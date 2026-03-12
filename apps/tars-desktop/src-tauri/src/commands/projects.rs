@@ -670,8 +670,8 @@ fn read_icon_as_data_url(path: &std::path::Path) -> Option<String> {
     let mime = icon_mime(ext)?;
 
     let bytes = std::fs::read(path).ok()?;
-    // Skip files larger than 512KB
-    if bytes.len() > 512 * 1024 {
+    // Skip files larger than 2MB
+    if bytes.len() > 2 * 1024 * 1024 {
         return None;
     }
 
