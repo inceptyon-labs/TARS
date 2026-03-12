@@ -1,6 +1,7 @@
 import { Trash2, FolderOpen, GitBranch } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { homeDir } from '@tauri-apps/api/path';
+import { getProjectIcon } from '../lib/ipc';
 import type { ProjectInfo } from '../lib/types';
 import type { ProjectGitStatus } from '../lib/ipc';
 
@@ -18,6 +19,30 @@ function shortenPath(path: string, home: string | null): string {
     return '~' + path.slice(home.length);
   }
   return path;
+}
+
+function ProjectIcon({ projectPath }: { projectPath: string }) {
+  const [iconUrl, setIconUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getProjectIcon(projectPath)
+      .then((url) => {
+        if (!cancelled) setIconUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setIconUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectPath]);
+
+  if (iconUrl) {
+    return <img src={iconUrl} alt="" className="h-4 w-4 shrink-0 rounded-sm object-contain" />;
+  }
+
+  return <FolderOpen className="h-4 w-4 shrink-0 text-primary/70" />;
 }
 
 export function ProjectList({
@@ -51,7 +76,7 @@ export function ProjectList({
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <FolderOpen className="h-4 w-4 shrink-0 text-primary/70" />
+                  <ProjectIcon projectPath={project.path} />
                   <span className="font-medium truncate">{project.name}</span>
                   {gitStatus?.is_git_repo && (
                     <span
