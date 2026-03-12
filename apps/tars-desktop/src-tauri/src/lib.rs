@@ -63,6 +63,7 @@ pub fn run() {
             commands::save_project_notes,
             commands::get_context_stats,
             commands::get_projects_git_status,
+            commands::get_project_icon,
             commands::get_project_stats,
             // Profile commands
             commands::list_profiles,

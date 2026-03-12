@@ -77,6 +77,10 @@ export async function getProjectsGitStatus(paths: string[]): Promise<ProjectGitS
   return invoke('get_projects_git_status', { paths });
 }
 
+export async function getProjectIcon(projectPath: string): Promise<string | null> {
+  return invoke('get_project_icon', { projectPath });
+}
+
 export interface ClaudeMdInfo {
   path: string;
   content: string | null;

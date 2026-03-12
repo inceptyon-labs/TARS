@@ -67,6 +67,7 @@ import {
   getContextStats,
   addLocalTool,
   removeLocalTool,
+  getProjectIcon,
 } from '../lib/ipc';
 import { Button } from './ui/button';
 import { ProfileToolPicker } from './ProfileToolPicker';
@@ -222,6 +223,23 @@ export function ProjectOverview({
   const [editorKey, setEditorKey] = useState(0);
   const editorRef = useRef<MDXEditorMethods>(null);
   const [isToolPickerOpen, setIsToolPickerOpen] = useState(false);
+  const [projectIconUrl, setProjectIconUrl] = useState<string | null>(null);
+
+  // Load project icon
+  useEffect(() => {
+    let cancelled = false;
+    setProjectIconUrl(null);
+    getProjectIcon(projectPath)
+      .then((url) => {
+        if (!cancelled) setProjectIconUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setProjectIconUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectPath]);
 
   // Get project data from inventory
   const projectData = inventory.projects.find((p) => p.path === projectPath);
@@ -484,7 +502,16 @@ export function ProjectOverview({
         <div className="tars-panel rounded-lg p-4 mb-6">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-semibold">{projectData?.name || 'Project'}</h2>
+              <div className="flex items-center gap-2.5">
+                {projectIconUrl && (
+                  <img
+                    src={projectIconUrl}
+                    alt=""
+                    className="h-7 w-7 shrink-0 rounded-md object-contain"
+                  />
+                )}
+                <h2 className="text-xl font-semibold">{projectData?.name || 'Project'}</h2>
+              </div>
               <p className="text-sm text-muted-foreground font-mono mt-1">{projectPath}</p>
               {projectData?.git && (
                 <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">

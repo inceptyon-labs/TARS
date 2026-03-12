@@ -615,6 +615,196 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
     })
 }
 
+/// Image extensions we accept for project icons
+const ICON_EXTENSIONS: &[&str] = &["svg", "png", "ico", "jpg", "jpeg", "webp"];
+
+/// Directories to skip during recursive icon search
+const SKIP_DIRS: &[&str] = &[
+    "node_modules",
+    ".git",
+    "target",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    ".turbo",
+    ".cache",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "vendor",
+    ".gradle",
+    ".idea",
+    ".vscode",
+    "coverage",
+    "test",
+    "tests",
+    "docs",
+    "doc",
+    "tmp",
+    ".output",
+];
+
+/// File stem patterns that indicate a project logo/icon
+const ICON_STEMS: &[&str] = &[
+    "logo", "icon", "favicon", "app-icon", "appicon", "brand", "mark", "symbol",
+];
+
+/// Return the MIME type for an image extension, or None if not supported
+fn icon_mime(ext: &str) -> Option<&'static str> {
+    match ext {
+        "svg" => Some("image/svg+xml"),
+        "png" => Some("image/png"),
+        "ico" => Some("image/x-icon"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    }
+}
+
+/// Try to read a path and return it as a base64 data URL
+fn read_icon_as_data_url(path: &std::path::Path) -> Option<String> {
+    use base64::Engine;
+
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let mime = icon_mime(ext)?;
+
+    let bytes = std::fs::read(path).ok()?;
+    // Skip files larger than 512KB
+    if bytes.len() > 512 * 1024 {
+        return None;
+    }
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Some(format!("data:{mime};base64,{b64}"))
+}
+
+/// Check if a filename stem matches known icon patterns (case-insensitive)
+fn is_icon_stem(stem: &str) -> bool {
+    let lower = stem.to_lowercase();
+    ICON_STEMS.iter().any(|s| {
+        lower == *s || lower.starts_with(&format!("{s}-")) || lower.starts_with(&format!("{s}_"))
+    })
+}
+
+/// Recursively search for icon files, up to a max depth
+fn find_icon_recursive(dir: &std::path::Path, depth: u8, max_depth: u8) -> Option<PathBuf> {
+    if depth > max_depth {
+        return None;
+    }
+
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return None,
+    };
+
+    let mut subdirs = Vec::new();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let name = file_name.to_string_lossy();
+
+        if path.is_dir() {
+            // Skip known heavy/irrelevant directories
+            let dir_name = name.to_lowercase();
+            if !SKIP_DIRS.iter().any(|s| dir_name == *s) {
+                subdirs.push(path);
+            }
+            continue;
+        }
+
+        // Check if this file is a candidate icon
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if !ICON_EXTENSIONS.contains(&ext) {
+            continue;
+        }
+
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        if is_icon_stem(stem) {
+            return Some(path);
+        }
+    }
+
+    // Recurse into subdirectories (breadth-first by sorting shallow dirs first)
+    for subdir in subdirs {
+        if let Some(found) = find_icon_recursive(&subdir, depth + 1, max_depth) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+/// Get a project's icon/logo as a base64 data URL
+///
+/// First checks common hardcoded paths, then falls back to a recursive
+/// search for files with icon/logo-like names (max depth 4).
+#[tauri::command]
+pub async fn get_project_icon(project_path: String) -> Result<Option<String>, String> {
+    let project = PathBuf::from(&project_path);
+
+    // Phase 1: Check well-known hardcoded paths (fast)
+    let candidates: &[&str] = &[
+        "logo.svg",
+        "logo.png",
+        "icon.svg",
+        "icon.png",
+        "favicon.svg",
+        "favicon.ico",
+        "favicon.png",
+        "public/logo.svg",
+        "public/logo.png",
+        "public/favicon.svg",
+        "public/favicon.ico",
+        "public/favicon.png",
+        "public/icon.svg",
+        "public/icon.png",
+        "assets/logo.svg",
+        "assets/logo.png",
+        "assets/icon.svg",
+        "assets/icon.png",
+        "src/assets/logo.svg",
+        "src/assets/logo.png",
+        "src/assets/icon.svg",
+        "src/assets/icon.png",
+        "src-tauri/icons/icon.png",
+        "src-tauri/icons/32x32.png",
+        "app/favicon.ico",
+        "app/icon.png",
+        "app/icon.svg",
+        "static/favicon.ico",
+        "static/logo.svg",
+        "static/logo.png",
+        "resources/icon.png",
+        "images/logo.svg",
+        "images/logo.png",
+        "img/logo.svg",
+        "img/logo.png",
+        ".github/logo.svg",
+        ".github/logo.png",
+        ".github/icon.png",
+    ];
+
+    for candidate in candidates {
+        let path = project.join(candidate);
+        if path.exists() {
+            if let Some(data_url) = read_icon_as_data_url(&path) {
+                return Ok(Some(data_url));
+            }
+        }
+    }
+
+    // Phase 2: Recursive search for icon-like files (max depth 4, skips heavy dirs)
+    if let Some(found) = find_icon_recursive(&project, 0, 4) {
+        if let Some(data_url) = read_icon_as_data_url(&found) {
+            return Ok(Some(data_url));
+        }
+    }
+
+    Ok(None)
+}
+
 /// Git status for a single project
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectGitStatus {
