@@ -42,7 +42,7 @@ export default defineConfig(async () => ({
           // Data fetching and state
           "vendor-data": ["@tanstack/react-query", "zustand", "zod"],
           // Heavy editor dependencies (loaded separately)
-          "vendor-editor": ["@monaco-editor/react"],
+          "vendor-editor": ["@monaco-editor/react", "monaco-editor"],
         },
       },
     },
