@@ -73,6 +73,8 @@ import { Button } from './ui/button';
 import { ProfileToolPicker } from './ProfileToolPicker';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
 import { ProjectNotes } from './ProjectNotes';
+import { ProjectMetadataPanel } from './ProjectMetadataPanel';
+import { ProjectSecretsPanel } from './ProjectSecretsPanel';
 import type { ToolRef } from '../lib/types';
 
 const CLAUDE_CONTEXT_LIMIT = 200000;
@@ -542,10 +544,18 @@ export function ProjectOverview({
           )}
         </div>
 
+        {/* Project Info - structured metadata */}
+        {projectTools?.project_id && (
+          <ProjectMetadataPanel projectId={projectTools.project_id} projectPath={projectPath} />
+        )}
+
+        {/* Secrets - encrypted key-value store */}
+        {projectTools?.project_id && <ProjectSecretsPanel projectId={projectTools.project_id} />}
+
         {/* Project Statistics */}
         <ProjectStatsPanel projectPath={projectPath} />
 
-        {/* Notes Section - at the top, gitignored personal notes */}
+        {/* Notes Section - gitignored personal notes */}
         <ProjectNotes projectPath={projectPath} />
 
         {/* Project Tools Section - shows tools from profile and local */}

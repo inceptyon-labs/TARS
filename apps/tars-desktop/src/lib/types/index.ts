@@ -667,3 +667,47 @@ export interface PluginAssignResult {
   installed: boolean;
   output: string;
 }
+
+// Project metadata types
+export interface CustomField {
+  key: string;
+  value: string;
+}
+
+export interface ProjectMetadata {
+  deploy_target: string | null;
+  domain: string | null;
+  production_url: string | null;
+  staging_url: string | null;
+  deploy_command: string | null;
+  database_provider: string | null;
+  database_name: string | null;
+  object_storage: string | null;
+  object_storage_bucket: string | null;
+  start_command: string | null;
+  requires_tunnel: boolean;
+  tunnel_provider: string | null;
+  tunnel_id: string | null;
+  github_url: string | null;
+  app_store_url: string | null;
+  app_store_connect_url: string | null;
+  play_store_url: string | null;
+  package_registry_url: string | null;
+  ci_cd: string | null;
+  monitoring: string | null;
+  custom_fields: CustomField[];
+}
+
+// Project secrets types
+export interface SecretSummary {
+  id: number;
+  project_id: string;
+  key: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SecretValue {
+  key: string;
+  value: string;
+}
