@@ -943,6 +943,9 @@ import type {
   ProfileUpdateCheck,
   PluginAssignResult,
   SourceMode,
+  ProjectMetadata,
+  SecretSummary,
+  SecretValue,
 } from '../types';
 
 export async function getClaudeUsageStats(): Promise<ClaudeUsageStats> {
@@ -994,4 +997,37 @@ export async function installProfileToUser(profileId: string): Promise<PluginAss
 // Uninstall profile plugin from user scope
 export async function uninstallProfileFromUser(profileId: string): Promise<void> {
   return invoke('uninstall_profile_from_user', { profileId });
+}
+
+// Project metadata commands
+export async function getProjectMetadata(projectId: string): Promise<ProjectMetadata | null> {
+  return invoke('get_project_metadata', { projectId });
+}
+
+export async function saveProjectMetadata(
+  projectId: string,
+  metadata: ProjectMetadata
+): Promise<void> {
+  return invoke('save_project_metadata', { projectId, metadata });
+}
+
+// Project secrets commands
+export async function listProjectSecrets(projectId: string): Promise<SecretSummary[]> {
+  return invoke('list_project_secrets', { projectId });
+}
+
+export async function getProjectSecret(projectId: string, key: string): Promise<SecretValue> {
+  return invoke('get_project_secret', { projectId, key });
+}
+
+export async function saveProjectSecret(
+  projectId: string,
+  key: string,
+  value: string
+): Promise<void> {
+  return invoke('save_project_secret', { projectId, key, value });
+}
+
+export async function deleteProjectSecret(projectId: string, key: string): Promise<boolean> {
+  return invoke('delete_project_secret', { projectId, key });
 }

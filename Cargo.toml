@@ -3,7 +3,7 @@ members = ["crates/*", "apps/tars-desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.51"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
@@ -48,6 +48,11 @@ similar = "2.4"
 
 # Archive
 zip = "0.6"
+
+# Encryption
+aes-gcm = "0.10"
+rand = "0.8"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 
 # Internal crates
 tars-scanner = { path = "crates/tars-scanner" }

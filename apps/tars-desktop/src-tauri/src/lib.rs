@@ -199,6 +199,14 @@ pub fn run() {
             commands::check_tars_update,
             commands::install_tars_update,
             commands::get_tars_version,
+            // Project metadata commands
+            commands::get_project_metadata,
+            commands::save_project_metadata,
+            // Project secrets commands
+            commands::list_project_secrets,
+            commands::get_project_secret,
+            commands::save_project_secret,
+            commands::delete_project_secret,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
