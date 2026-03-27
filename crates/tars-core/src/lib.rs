@@ -25,6 +25,7 @@
 pub mod apply;
 pub mod backup;
 pub mod config;
+pub mod crypto;
 pub mod diff;
 pub mod export;
 pub mod profile;

@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 2;
+const CURRENT_VERSION: i32 = 3;
 
 /// Run all pending migrations
 ///
@@ -19,6 +19,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 2 {
         migrate_v2(conn)?;
+    }
+
+    if version < 3 {
+        migrate_v3(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -76,6 +80,38 @@ fn migrate_v1(conn: &Connection) -> Result<(), DatabaseError> {
         CREATE INDEX IF NOT EXISTS idx_profiles_name ON profiles(name);
         CREATE INDEX IF NOT EXISTS idx_backups_project ON backups(project_id);
         CREATE INDEX IF NOT EXISTS idx_inventory_scope ON inventory_cache(scope);
+        ",
+    )?;
+
+    Ok(())
+}
+
+fn migrate_v3(conn: &Connection) -> Result<(), DatabaseError> {
+    conn.execute_batch(
+        r"
+        -- Project metadata table
+        -- Stores structured project info (hosting, database, storage, etc.)
+        CREATE TABLE IF NOT EXISTS project_metadata (
+            project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+            data TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        -- Project secrets table
+        -- Stores encrypted key-value secrets per project
+        -- Values are AES-256-GCM encrypted, key stored in OS keychain
+        CREATE TABLE IF NOT EXISTS project_secrets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            key TEXT NOT NULL,
+            encrypted_value TEXT NOT NULL,
+            nonce TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, key)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_project_secrets_project ON project_secrets(project_id);
         ",
     )?;
 
