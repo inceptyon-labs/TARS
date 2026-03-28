@@ -683,7 +683,11 @@ fn read_icon_as_data_url(path: &std::path::Path) -> Option<String> {
 fn is_icon_stem(stem: &str) -> bool {
     let lower = stem.to_lowercase();
     ICON_STEMS.iter().any(|s| {
-        lower == *s || lower.starts_with(&format!("{s}-")) || lower.starts_with(&format!("{s}_"))
+        lower == *s
+            || lower.starts_with(&format!("{s}-"))
+            || lower.starts_with(&format!("{s}_"))
+            || lower.ends_with(&format!("-{s}"))
+            || lower.ends_with(&format!("_{s}"))
     })
 }
 
