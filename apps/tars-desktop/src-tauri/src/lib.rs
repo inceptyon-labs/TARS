@@ -206,6 +206,7 @@ pub fn run() {
             commands::list_project_secrets,
             commands::get_project_secret,
             commands::save_project_secret,
+            commands::update_project_secret,
             commands::delete_project_secret,
         ])
         .run(tauri::generate_context!())
