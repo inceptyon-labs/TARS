@@ -702,12 +702,22 @@ export interface ProjectMetadata {
 export interface SecretSummary {
   id: number;
   project_id: string;
-  key: string;
+  name: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface SecretValue {
+export interface SecretResponse {
+  id: number;
+  name: string;
   key: string;
-  value: string;
+  url: string;
+  notes: string;
+}
+
+export interface SecretInput {
+  name: string;
+  key: string;
+  url: string;
+  notes: string;
 }

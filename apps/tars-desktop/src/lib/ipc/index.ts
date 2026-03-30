@@ -945,7 +945,8 @@ import type {
   SourceMode,
   ProjectMetadata,
   SecretSummary,
-  SecretValue,
+  SecretResponse,
+  SecretInput,
 } from '../types';
 
 export async function getClaudeUsageStats(): Promise<ClaudeUsageStats> {
@@ -1016,18 +1017,22 @@ export async function listProjectSecrets(projectId: string): Promise<SecretSumma
   return invoke('list_project_secrets', { projectId });
 }
 
-export async function getProjectSecret(projectId: string, key: string): Promise<SecretValue> {
-  return invoke('get_project_secret', { projectId, key });
+export async function getProjectSecret(projectId: string, name: string): Promise<SecretResponse> {
+  return invoke('get_project_secret', { projectId, name });
 }
 
-export async function saveProjectSecret(
+export async function saveProjectSecret(projectId: string, input: SecretInput): Promise<void> {
+  return invoke('save_project_secret', { projectId, input });
+}
+
+export async function updateProjectSecret(
   projectId: string,
-  key: string,
-  value: string
-): Promise<void> {
-  return invoke('save_project_secret', { projectId, key, value });
+  secretId: number,
+  input: SecretInput
+): Promise<boolean> {
+  return invoke('update_project_secret', { projectId, secretId, input });
 }
 
-export async function deleteProjectSecret(projectId: string, key: string): Promise<boolean> {
-  return invoke('delete_project_secret', { projectId, key });
+export async function deleteProjectSecret(projectId: string, name: string): Promise<boolean> {
+  return invoke('delete_project_secret', { projectId, name });
 }
