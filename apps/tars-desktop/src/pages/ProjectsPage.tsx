@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, FolderOpen, RefreshCw, AlertCircle, Search, FolderGit2 } from 'lucide-react';
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   listProjects,
@@ -12,6 +12,9 @@ import {
   getProjectTools,
   getProjectsGitStatus,
   getProjectCategories,
+  getProjectMetadata,
+  saveProjectMetadata,
+  fetchGithubDescription,
 } from '../lib/ipc';
 import type { ProjectGitStatus } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
@@ -31,6 +34,8 @@ export function ProjectsPage() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const scanRequestRef = useRef(0); // Guard against stale scan results
+
+  const [searchQuery, setSearchQuery] = useState('');
 
   const isDialogOpen = useUIStore((state) => state.isAddProjectDialogOpen);
   const setDialogOpen = useUIStore((state) => state.setAddProjectDialogOpen);
@@ -74,6 +79,42 @@ export function ProjectsPage() {
       return bDate.localeCompare(aDate);
     });
   }, [projects, gitStatusMap]);
+
+  // Filter projects by search query
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return sortedProjects;
+    const q = searchQuery.toLowerCase();
+    return sortedProjects.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.path.toLowerCase().includes(q)
+    );
+  }, [sortedProjects, searchQuery]);
+
+  // Refresh GitHub descriptions for projects that have a github_url but no description
+  async function refreshGithubDescriptions() {
+    for (const project of projects) {
+      try {
+        const meta = await getProjectMetadata(project.id);
+        if (meta?.github_url && meta.description === null) {
+          const desc = await fetchGithubDescription(meta.github_url);
+          if (desc) {
+            await saveProjectMetadata(project.id, { ...meta, description: desc });
+            queryClient.invalidateQueries({ queryKey: ['project-metadata', project.id] });
+          }
+        }
+      } catch {
+        // Skip failures silently
+      }
+    }
+  }
+
+  // Auto-fetch GitHub descriptions on initial load
+  const hasRefreshedDescriptions = useRef(false);
+  useEffect(() => {
+    if (projects.length > 0 && !hasRefreshedDescriptions.current) {
+      hasRefreshedDescriptions.current = true;
+      refreshGithubDescriptions();
+    }
+  }, [projects]);
 
   const addMutation = useMutation({
     mutationFn: addProject,
@@ -223,6 +264,8 @@ export function ProjectsPage() {
                   type="search"
                   placeholder="Search projects..."
                   className="tars-input w-full pl-9 pr-3 py-2 text-sm rounded"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
@@ -232,9 +275,14 @@ export function ProjectsPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               </div>
               <button
-                onClick={() => queryClient.invalidateQueries({ queryKey: ['projects-git-status'] })}
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['projects'] });
+                  queryClient.invalidateQueries({ queryKey: ['projects-git-status'] });
+                  queryClient.invalidateQueries({ queryKey: ['project-categories'] });
+                  refreshGithubDescriptions();
+                }}
                 className="p-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                title="Refresh git status"
+                title="Refresh projects"
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
@@ -260,7 +308,7 @@ export function ProjectsPage() {
               </div>
             ) : (
               <ProjectList
-                projects={sortedProjects}
+                projects={filteredProjects}
                 selectedPath={selectedPath}
                 gitStatusMap={gitStatusMap}
                 categoryMap={categoryMap}
