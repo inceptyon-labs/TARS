@@ -7,6 +7,8 @@ use tars_core::storage::secrets::SecretInput;
 use tars_core::storage::{MetadataStore, SecretStore};
 use tauri::State;
 
+use std::collections::HashMap;
+
 // ── Metadata commands ──────────────────────────────────────────────
 
 /// Get project metadata
@@ -40,6 +42,92 @@ pub async fn save_project_metadata(
             .save(uuid, &metadata)
             .map_err(|e| format!("Failed to save metadata: {e}"))
     })
+}
+
+/// Get categories for all projects: path → "Apps" | "Websites" | "Tools"
+#[tauri::command]
+pub async fn get_project_categories(
+    state: State<'_, AppState>,
+) -> Result<HashMap<String, String>, String> {
+    state.with_db(|db| {
+        let project_store = tars_core::storage::projects::ProjectStore::new(db.connection());
+        let meta_store = MetadataStore::new(db.connection());
+        let projects = project_store
+            .list()
+            .map_err(|e| format!("Failed to list projects: {e}"))?;
+
+        let mut result = HashMap::new();
+        for proj in projects {
+            let category = match meta_store.get(proj.id) {
+                Ok(Some(meta)) => {
+                    let has_mobile = meta.platforms.iter().any(|p| p == "iOS" || p == "Android");
+                    let has_web = meta.platforms.iter().any(|p| p == "Web");
+                    if has_mobile {
+                        "Apps"
+                    } else if has_web {
+                        "Websites"
+                    } else {
+                        "Tools"
+                    }
+                }
+                _ => "Tools",
+            };
+            result.insert(proj.path.display().to_string(), category.to_string());
+        }
+        Ok(result)
+    })
+}
+
+/// Fetch description from a GitHub repo URL using the `gh` CLI (supports private repos)
+#[tauri::command]
+pub async fn fetch_github_description(github_url: String) -> Result<Option<String>, String> {
+    // Parse owner/repo from URL like https://github.com/owner/repo
+    let path = github_url
+        .trim_end_matches('/')
+        .strip_prefix("https://github.com/")
+        .or_else(|| {
+            github_url
+                .trim_end_matches('/')
+                .strip_prefix("http://github.com/")
+        })
+        .ok_or_else(|| "Not a GitHub URL".to_string())?;
+
+    let parts: Vec<&str> = path.splitn(3, '/').collect();
+    if parts.len() < 2 {
+        return Err("Could not parse owner/repo from URL".to_string());
+    }
+    let (owner, repo) = (parts[0], parts[1]);
+    let nwo = format!("{owner}/{repo}");
+
+    let nwo_clone = nwo.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("gh")
+            .args([
+                "repo",
+                "view",
+                &nwo_clone,
+                "--json",
+                "description",
+                "-q",
+                ".description",
+            ])
+            .output()
+    })
+    .await
+    .map_err(|e| format!("Task failed: {e}"))?
+    .map_err(|e| format!("Failed to run gh CLI: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("gh repo view failed: {stderr}"));
+    }
+
+    let desc = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if desc.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(desc))
+    }
 }
 
 // ── Secrets commands ───────────────────────────────────────────────

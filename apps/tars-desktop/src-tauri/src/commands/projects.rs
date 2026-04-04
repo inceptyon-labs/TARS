@@ -643,11 +643,24 @@ const SKIP_DIRS: &[&str] = &[
     "doc",
     "tmp",
     ".output",
+    ".archive",
+    "contracts",
+    "pods",
+    "mockups",
+    "store_assets",
 ];
 
 /// File stem patterns that indicate a project logo/icon
 const ICON_STEMS: &[&str] = &[
-    "logo", "icon", "favicon", "app-icon", "appicon", "brand", "mark", "symbol",
+    "logo",
+    "icon",
+    "favicon",
+    "app-icon",
+    "appicon",
+    "brand",
+    "mark",
+    "symbol",
+    "ic_launcher",
 ];
 
 /// Return the MIME type for an image extension, or None if not supported
@@ -745,8 +758,50 @@ fn find_icon_recursive(dir: &std::path::Path, depth: u8, max_depth: u8) -> Optio
 /// First checks common hardcoded paths, then falls back to a recursive
 /// search for files with icon/logo-like names (max depth 4).
 #[tauri::command]
-pub async fn get_project_icon(project_path: String) -> Result<Option<String>, String> {
+pub async fn get_project_icon(
+    project_path: String,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
     let project = PathBuf::from(&project_path);
+
+    // Phase 0: Check metadata for user-configured icon_path
+    let custom_icon = state
+        .with_db(|db| {
+            let store = tars_core::storage::projects::ProjectStore::new(db.connection());
+            if let Ok(Some(proj)) = store.get_by_path(&project) {
+                let meta_store = tars_core::storage::MetadataStore::new(db.connection());
+                if let Ok(Some(meta)) = meta_store.get(proj.id) {
+                    return Ok(meta.icon_path);
+                }
+            }
+            Ok(None)
+        })
+        .unwrap_or(None);
+
+    if let Some(ref custom) = custom_icon {
+        let path = project.join(custom);
+        if path.exists() {
+            if let Some(data_url) = read_icon_as_data_url(&path) {
+                return Ok(Some(data_url));
+            }
+        }
+    }
+
+    // Phase 0b: .tars/ override
+    let overrides: &[&str] = &[
+        ".tars/icon.png",
+        ".tars/icon.svg",
+        ".tars/logo.png",
+        ".tars/logo.svg",
+    ];
+    for ov in overrides {
+        let path = project.join(ov);
+        if path.exists() {
+            if let Some(data_url) = read_icon_as_data_url(&path) {
+                return Ok(Some(data_url));
+            }
+        }
+    }
 
     // Phase 1: Check well-known hardcoded paths (fast)
     let candidates: &[&str] = &[
@@ -777,6 +832,9 @@ pub async fn get_project_icon(project_path: String) -> Result<Option<String>, St
         "app/favicon.ico",
         "app/icon.png",
         "app/icon.svg",
+        "src/app/icon.png",
+        "src/app/favicon.ico",
+        "src/app/apple-icon.png",
         "static/favicon.ico",
         "static/logo.svg",
         "static/logo.png",
@@ -788,6 +846,13 @@ pub async fn get_project_icon(project_path: String) -> Result<Option<String>, St
         ".github/logo.svg",
         ".github/logo.png",
         ".github/icon.png",
+        // iOS (Xcode) - high-res AppIcon
+        "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+        "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png",
+        "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png",
+        // Android
+        "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+        "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
     ];
 
     for candidate in candidates {
@@ -816,6 +881,7 @@ pub struct ProjectGitStatus {
     pub is_git_repo: bool,
     pub branch: Option<String>,
     pub is_dirty: bool,
+    pub last_commit_at: Option<String>,
 }
 
 /// Create a git command with security hardening
@@ -836,8 +902,19 @@ fn get_git_status_for_path(path: &PathBuf) -> ProjectGitStatus {
             is_git_repo: false,
             branch: None,
             is_dirty: false,
+            last_commit_at: None,
         };
     }
+
+    // Get last commit date
+    let last_commit_at = secure_git_command()
+        .args(["log", "-1", "--format=%cI"])
+        .current_dir(path)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty());
 
     let output = secure_git_command()
         .args(["status", "-sb"])
@@ -869,6 +946,7 @@ fn get_git_status_for_path(path: &PathBuf) -> ProjectGitStatus {
                 is_git_repo: true,
                 branch,
                 is_dirty,
+                last_commit_at,
             }
         }
         _ => ProjectGitStatus {
@@ -876,6 +954,7 @@ fn get_git_status_for_path(path: &PathBuf) -> ProjectGitStatus {
             is_git_repo: true,
             branch: Some("unknown".to_string()),
             is_dirty: false,
+            last_commit_at,
         },
     }
 }

@@ -71,6 +71,7 @@ export interface ProjectGitStatus {
   is_git_repo: boolean;
   branch: string | null;
   is_dirty: boolean;
+  last_commit_at: string | null;
 }
 
 export async function getProjectsGitStatus(paths: string[]): Promise<ProjectGitStatus[]> {
@@ -1010,6 +1011,14 @@ export async function saveProjectMetadata(
   metadata: ProjectMetadata
 ): Promise<void> {
   return invoke('save_project_metadata', { projectId, metadata });
+}
+
+export async function getProjectCategories(): Promise<Record<string, string>> {
+  return invoke('get_project_categories');
+}
+
+export async function fetchGithubDescription(githubUrl: string): Promise<string | null> {
+  return invoke('fetch_github_description', { githubUrl });
 }
 
 // Project secrets commands
