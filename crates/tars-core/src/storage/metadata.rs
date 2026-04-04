@@ -9,8 +9,25 @@ use uuid::Uuid;
 /// Structured project metadata
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProjectMetadata {
-    /// Hosting & Deployment
+    /// Description
+    #[serde(default)]
+    pub description: Option<String>,
+
+    /// Custom icon path (relative to project root)
+    #[serde(default)]
+    pub icon_path: Option<String>,
+
+    /// Platforms & Framework
+    #[serde(default)]
+    pub platforms: Vec<String>,
+    #[serde(default)]
+    pub app_framework: Option<String>,
+
+    /// Hosting & Deployment (Web)
+    #[serde(default)]
     pub deploy_target: Option<String>,
+    #[serde(default)]
+    pub web_hosting: Option<String>,
     pub domain: Option<String>,
     pub production_url: Option<String>,
     pub staging_url: Option<String>,
@@ -19,6 +36,8 @@ pub struct ProjectMetadata {
     /// Data & Storage
     pub database_provider: Option<String>,
     pub database_name: Option<String>,
+    #[serde(default)]
+    pub database_dashboard_url: Option<String>,
     pub object_storage: Option<String>,
     pub object_storage_bucket: Option<String>,
 
@@ -38,6 +57,22 @@ pub struct ProjectMetadata {
     /// Infrastructure
     pub ci_cd: Option<String>,
     pub monitoring: Option<String>,
+
+    /// iOS
+    #[serde(default)]
+    pub ios_deploy_target: Option<String>,
+    #[serde(default)]
+    pub ios_bundle_id: Option<String>,
+    #[serde(default)]
+    pub ios_signing_team: Option<String>,
+    #[serde(default)]
+    pub ios_cloudkit_container: Option<String>,
+    #[serde(default)]
+    pub ios_cloudkit_dashboard_url: Option<String>,
+    #[serde(default)]
+    pub ios_uses_push_notifications: bool,
+    #[serde(default)]
+    pub ios_provisioning: Option<String>,
 
     /// Custom key-value pairs
     #[serde(default)]

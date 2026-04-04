@@ -109,7 +109,7 @@ impl<'a> ProjectStore<'a> {
             r"
             SELECT id, name, path, created_at, updated_at
             FROM projects
-            ORDER BY name
+            ORDER BY updated_at DESC
             ",
         )?;
 
