@@ -261,9 +261,10 @@ export function ProjectsPage() {
             <div className="relative flex items-center gap-2">
               <div className="relative flex-1">
                 <input
-                  type="search"
+                  type="text"
                   placeholder="Search projects..."
-                  className="tars-input w-full pl-9 pr-3 py-2 text-sm rounded"
+                  className="tars-input w-full py-2 text-sm rounded"
+                  style={{ paddingLeft: '2.25rem' }}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoComplete="off"
