@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, FolderOpen, RefreshCw, AlertCircle, Search, FolderGit2 } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   listProjects,
@@ -11,6 +11,7 @@ import {
   unassignProfilePlugin,
   getProjectTools,
   getProjectsGitStatus,
+  getProjectCategories,
 } from '../lib/ipc';
 import type { ProjectGitStatus } from '../lib/ipc';
 import { useUIStore } from '../stores/ui-store';
@@ -55,6 +56,24 @@ export function ProjectsPage() {
     },
     {} as Record<string, ProjectGitStatus>
   );
+
+  // Fetch project categories
+  const { data: categoryMap = {} } = useQuery({
+    queryKey: ['project-categories'],
+    queryFn: getProjectCategories,
+    enabled: projects.length > 0,
+    staleTime: 30000,
+  });
+
+  // Sort projects by most recent git commit
+  const sortedProjects = useMemo(() => {
+    if (Object.keys(gitStatusMap).length === 0) return projects;
+    return [...projects].sort((a, b) => {
+      const aDate = gitStatusMap[a.path]?.last_commit_at || '';
+      const bDate = gitStatusMap[b.path]?.last_commit_at || '';
+      return bDate.localeCompare(aDate);
+    });
+  }, [projects, gitStatusMap]);
 
   const addMutation = useMutation({
     mutationFn: addProject,
@@ -241,9 +260,10 @@ export function ProjectsPage() {
               </div>
             ) : (
               <ProjectList
-                projects={projects}
+                projects={sortedProjects}
                 selectedPath={selectedPath}
                 gitStatusMap={gitStatusMap}
+                categoryMap={categoryMap}
                 onSelect={(project) => handleScan(project)}
                 onRemove={(id) => removeMutation.mutate(id)}
               />

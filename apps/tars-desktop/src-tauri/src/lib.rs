@@ -202,6 +202,8 @@ pub fn run() {
             // Project metadata commands
             commands::get_project_metadata,
             commands::save_project_metadata,
+            commands::fetch_github_description,
+            commands::get_project_categories,
             // Project secrets commands
             commands::list_project_secrets,
             commands::get_project_secret,

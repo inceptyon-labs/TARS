@@ -14,16 +14,41 @@ import {
   Info,
   Pencil,
   ExternalLink,
+  Smartphone,
+  Layers,
+  Copy,
+  Check,
+  FolderOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getProjectMetadata, saveProjectMetadata } from '../lib/ipc';
+import { open } from '@tauri-apps/plugin-dialog';
+import { getProjectMetadata, saveProjectMetadata, fetchGithubDescription } from '../lib/ipc';
 import type { ProjectMetadata, CustomField } from '../lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-const DEPLOY_TARGETS = [
+// ── Option constants ───────────────────────────────────────────
+
+const PLATFORMS = ['iOS', 'Android', 'Web', 'macOS', 'Windows', 'Linux', 'tvOS', 'watchOS'];
+
+const APP_FRAMEWORK_OPTIONS = [
+  'SwiftUI',
+  'UIKit',
+  'Flutter',
+  'React Native',
+  'Expo',
+  'Capacitor',
+  'Tauri',
+  'Electron',
+  '.NET MAUI',
+  'KMP',
+  'Ionic',
+  'Other',
+];
+
+const WEB_HOSTING_OPTIONS = [
   'Vercel',
   'Cloudflare Pages',
   'Cloudflare Workers',
@@ -37,7 +62,6 @@ const DEPLOY_TARGETS = [
   'DigitalOcean',
   'Hetzner',
   'Self-hosted',
-  'Local only',
   'Other',
 ];
 
@@ -53,6 +77,7 @@ const DATABASE_PROVIDERS = [
   'Local Postgres',
   'Local MySQL',
   'SQLite',
+  'CloudKit',
   'MongoDB Atlas',
   'Redis Cloud',
   'None',
@@ -75,6 +100,10 @@ const OBJECT_STORAGE_OPTIONS = [
 
 const TUNNEL_PROVIDERS = ['Cloudflare Tunnel', 'ngrok', 'localtunnel', 'Tailscale', 'Other'];
 
+const IOS_DEPLOY_TARGETS = ['iOS 15.0', 'iOS 16.0', 'iOS 17.0', 'iOS 18.0', 'iOS 18.4', 'Other'];
+
+const IOS_PROVISIONING_OPTIONS = ['Automatic', 'Development', 'Ad Hoc', 'App Store', 'Enterprise'];
+
 const CI_CD_OPTIONS = [
   'GitHub Actions',
   'CircleCI',
@@ -93,13 +122,19 @@ interface ProjectMetadataPanelProps {
 }
 
 const EMPTY_METADATA: ProjectMetadata = {
+  description: null,
+  icon_path: null,
+  platforms: [],
+  app_framework: null,
   deploy_target: null,
+  web_hosting: null,
   domain: null,
   production_url: null,
   staging_url: null,
   deploy_command: null,
   database_provider: null,
   database_name: null,
+  database_dashboard_url: null,
   object_storage: null,
   object_storage_bucket: null,
   start_command: null,
@@ -113,6 +148,13 @@ const EMPTY_METADATA: ProjectMetadata = {
   package_registry_url: null,
   ci_cd: null,
   monitoring: null,
+  ios_deploy_target: null,
+  ios_bundle_id: null,
+  ios_signing_team: null,
+  ios_cloudkit_container: null,
+  ios_cloudkit_dashboard_url: null,
+  ios_uses_push_notifications: false,
+  ios_provisioning: null,
   custom_fields: [],
 };
 
@@ -174,13 +216,87 @@ function TextField({
   );
 }
 
+function CopyableCode({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="text-sm font-mono bg-muted/50 px-2 py-1 rounded text-primary hover:bg-muted transition-colors inline-flex items-center gap-1.5 cursor-pointer group"
+      title="Click to copy"
+    >
+      <span>{value}</span>
+      {copied ? (
+        <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
+      ) : (
+        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 flex-shrink-0 transition-opacity" />
+      )}
+    </button>
+  );
+}
+
+function PlatformChips({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (platforms: string[]) => void;
+}) {
+  const toggle = (platform: string) => {
+    if (selected.includes(platform)) {
+      onChange(selected.filter((p) => p !== platform));
+    } else {
+      onChange([...selected, platform]);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">Platforms</Label>
+      <div className="flex flex-wrap gap-1.5">
+        {PLATFORMS.map((platform) => {
+          const isSelected = selected.includes(platform);
+          return (
+            <button
+              key={platform}
+              onClick={() => toggle(platform)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+                isSelected
+                  ? 'bg-primary/10 border-primary text-primary'
+                  : 'bg-transparent border-input text-muted-foreground hover:border-muted-foreground/50'
+              }`}
+            >
+              {platform}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── View mode helpers ───────────────────────────────────────────
 
 function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
 }
 
-function ViewValue({ value, mono }: { value: string; mono?: boolean }) {
+function ViewValue({
+  value,
+  mono,
+  copyable,
+}: {
+  value: string;
+  mono?: boolean;
+  copyable?: boolean;
+}) {
   if (isUrl(value)) {
     return (
       <a
@@ -195,13 +311,10 @@ function ViewValue({ value, mono }: { value: string; mono?: boolean }) {
       </a>
     );
   }
-  return (
-    <span
-      className={`text-sm text-foreground ${mono ? 'font-mono bg-muted/50 px-1.5 py-0.5 rounded' : ''}`}
-    >
-      {value}
-    </span>
-  );
+  if (copyable || mono) {
+    return <CopyableCode value={value} />;
+  }
+  return <span className="text-sm text-foreground">{value}</span>;
 }
 
 function ViewRow({ label, value, mono }: { label: string; value: string | null; mono?: boolean }) {
@@ -223,7 +336,6 @@ interface ViewSectionProps {
 }
 
 function ViewSection({ icon, title, children }: ViewSectionProps) {
-  // Only render if there are non-null children
   const childArray = Array.isArray(children) ? children : [children];
   const hasContent = childArray.some((c) => c !== null && c !== undefined && c !== false);
   if (!hasContent) return null;
@@ -241,7 +353,7 @@ function ViewSection({ icon, title, children }: ViewSectionProps) {
 
 // ── Main component ──────────────────────────────────────────────
 
-export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
+export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadataPanelProps) {
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -256,15 +368,43 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
 
   useEffect(() => {
     if (savedMetadata) {
-      setMetadata(savedMetadata);
+      // Migrate legacy deploy_target → web_hosting
+      const migrated = { ...savedMetadata };
+      if (!migrated.platforms) migrated.platforms = [];
+      if (migrated.deploy_target && !migrated.web_hosting) {
+        migrated.web_hosting = migrated.deploy_target;
+        migrated.deploy_target = null;
+      }
+      setMetadata(migrated);
       setIsDirty(false);
     }
   }, [savedMetadata]);
+
+  // Auto-fetch description from GitHub only if never set (null).
+  // Empty string means user intentionally cleared it — don't re-fetch.
+  useEffect(() => {
+    if (!savedMetadata?.github_url || savedMetadata.description !== null) return;
+    let cancelled = false;
+    fetchGithubDescription(savedMetadata.github_url)
+      .then((desc) => {
+        if (cancelled || !desc) return;
+        const updated = { ...savedMetadata, description: desc };
+        saveProjectMetadata(projectId, updated).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['project-metadata', projectId] });
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [savedMetadata?.github_url, savedMetadata?.description, projectId, queryClient]);
 
   const saveMutation = useMutation({
     mutationFn: () => saveProjectMetadata(projectId, metadata),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-metadata', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-icon', projectPath] });
+      queryClient.invalidateQueries({ queryKey: ['project-categories'] });
       setIsDirty(false);
       setIsEditing(false);
       toast.success('Project info saved');
@@ -314,16 +454,25 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
     setIsEditing(false);
   };
 
+  // Platform helpers
+  const hasPlat = (p: string) => metadata.platforms.includes(p);
+  const hasWeb = hasPlat('Web');
+  const hasIOS = hasPlat('iOS');
+
   // Count filled fields for badge
   const filledCount =
+    metadata.platforms.length +
     [
-      metadata.deploy_target,
+      metadata.description,
+      metadata.app_framework,
+      metadata.web_hosting,
       metadata.domain,
       metadata.production_url,
       metadata.staging_url,
       metadata.deploy_command,
       metadata.database_provider,
       metadata.database_name,
+      metadata.database_dashboard_url,
       metadata.object_storage,
       metadata.object_storage_bucket,
       metadata.start_command,
@@ -336,8 +485,15 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
       metadata.package_registry_url,
       metadata.tunnel_provider,
       metadata.tunnel_id,
+      metadata.ios_deploy_target,
+      metadata.ios_bundle_id,
+      metadata.ios_signing_team,
+      metadata.ios_cloudkit_container,
+      metadata.ios_cloudkit_dashboard_url,
+      metadata.ios_provisioning,
     ].filter(Boolean).length +
     (metadata.requires_tunnel ? 1 : 0) +
+    (metadata.ios_uses_push_notifications ? 1 : 0) +
     metadata.custom_fields.filter((f) => f.key && f.value).length;
 
   // Save on Cmd/Ctrl+S
@@ -361,7 +517,7 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
       return (
         <div className="px-4 py-6 text-center">
           <p className="text-sm text-muted-foreground/60 mb-3">
-            No project info yet. Add hosting, database, deploy commands, and more.
+            No project info yet. Add platforms, hosting, database, and more.
           </p>
           <Button
             size="sm"
@@ -378,26 +534,62 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
 
     return (
       <div className="p-4 space-y-4">
-        <ViewSection icon={<Cloud className="h-3.5 w-3.5" />} title="Hosting & Deployment">
-          <ViewRow label="Deploy Target" value={metadata.deploy_target} />
-          <ViewRow label="Domain" value={metadata.domain} />
-          <ViewRow label="Production" value={metadata.production_url} />
-          <ViewRow label="Staging" value={metadata.staging_url} />
-          {metadata.deploy_command && (
+        <ViewSection icon={<Layers className="h-3.5 w-3.5" />} title="Platforms & Framework">
+          {metadata.platforms.length > 0 && (
             <div className="flex items-baseline gap-3 min-w-0">
               <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
-                Deploy
+                Platforms
               </span>
-              <code className="text-sm font-mono bg-muted/50 px-2 py-1 rounded text-primary">
-                {metadata.deploy_command}
-              </code>
+              <div className="flex flex-wrap gap-1">
+                {metadata.platforms.map((p) => (
+                  <span
+                    key={p}
+                    className="px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary"
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
+          <ViewRow label="Framework" value={metadata.app_framework} />
         </ViewSection>
+
+        {hasWeb && (
+          <ViewSection icon={<Cloud className="h-3.5 w-3.5" />} title="Web Hosting & Deployment">
+            <ViewRow label="Hosting" value={metadata.web_hosting} />
+            <ViewRow label="Domain" value={metadata.domain} />
+            <ViewRow label="Production" value={metadata.production_url} />
+            <ViewRow label="Staging" value={metadata.staging_url} />
+            {metadata.deploy_command && (
+              <div className="flex items-baseline gap-3 min-w-0">
+                <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
+                  Deploy
+                </span>
+                <CopyableCode value={metadata.deploy_command} />
+              </div>
+            )}
+          </ViewSection>
+        )}
+
+        {hasIOS && (
+          <ViewSection icon={<Smartphone className="h-3.5 w-3.5" />} title="iOS">
+            <ViewRow label="Deploy Target" value={metadata.ios_deploy_target} />
+            <ViewRow label="Bundle ID" value={metadata.ios_bundle_id} mono />
+            <ViewRow label="Signing Team" value={metadata.ios_signing_team} />
+            <ViewRow label="CloudKit Container" value={metadata.ios_cloudkit_container} mono />
+            <ViewRow label="CloudKit Dashboard" value={metadata.ios_cloudkit_dashboard_url} />
+            {metadata.ios_uses_push_notifications && (
+              <ViewRow label="Push Notifications" value="Enabled" />
+            )}
+            <ViewRow label="Provisioning" value={metadata.ios_provisioning} />
+          </ViewSection>
+        )}
 
         <ViewSection icon={<Database className="h-3.5 w-3.5" />} title="Data & Storage">
           <ViewRow label="Database" value={metadata.database_provider} />
           <ViewRow label="DB Name / ID" value={metadata.database_name} />
+          <ViewRow label="Dashboard" value={metadata.database_dashboard_url} />
           <ViewRow label="Object Storage" value={metadata.object_storage} />
           <ViewRow label="Bucket / Path" value={metadata.object_storage_bucket} />
         </ViewSection>
@@ -408,9 +600,7 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
               <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
                 Start
               </span>
-              <code className="text-sm font-mono bg-muted/50 px-2 py-1 rounded text-primary">
-                {metadata.start_command}
-              </code>
+              <CopyableCode value={metadata.start_command} />
             </div>
           )}
           {metadata.requires_tunnel && (
@@ -453,46 +643,176 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
 
   const renderEditMode = () => (
     <div className="p-4 space-y-6">
-      {/* Hosting & Deployment */}
+      {/* Description & Icon */}
+      <TextField
+        label="Description"
+        value={metadata.description}
+        onChange={(v) => update('description', v)}
+        placeholder="Short project description (auto-filled from GitHub)"
+      />
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Icon Path</Label>
+        <div className="flex gap-2">
+          <Input
+            className="h-8 text-sm font-mono flex-1"
+            value={metadata.icon_path || ''}
+            onChange={(e) => update('icon_path', e.target.value || null)}
+            placeholder="relative/path/to/icon.png"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 px-2 shrink-0"
+            onClick={async () => {
+              try {
+                const selected = await open({
+                  multiple: false,
+                  title: 'Select Project Icon',
+                  defaultPath: projectPath,
+                  filters: [
+                    { name: 'Images', extensions: ['png', 'svg', 'ico', 'jpg', 'jpeg', 'webp'] },
+                  ],
+                });
+                if (selected && typeof selected === 'string') {
+                  // Convert absolute path to relative
+                  const prefix = projectPath.endsWith('/') ? projectPath : projectPath + '/';
+                  const relative = selected.startsWith(prefix)
+                    ? selected.slice(prefix.length)
+                    : selected;
+                  update('icon_path', relative);
+                }
+              } catch {}
+            }}
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Platforms & Framework */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <Cloud className="h-3.5 w-3.5" />
-          Hosting & Deployment
+          <Layers className="h-3.5 w-3.5" />
+          Platforms & Framework
         </div>
+        <PlatformChips selected={metadata.platforms} onChange={(v) => update('platforms', v)} />
         <div className="grid grid-cols-2 gap-3">
           <SelectField
-            label="Deploy Target"
-            value={metadata.deploy_target}
-            options={DEPLOY_TARGETS}
-            onChange={(v) => update('deploy_target', v)}
-          />
-          <TextField
-            label="Domain"
-            value={metadata.domain}
-            onChange={(v) => update('domain', v)}
-            placeholder="example.com"
-          />
-          <TextField
-            label="Production URL"
-            value={metadata.production_url}
-            onChange={(v) => update('production_url', v)}
-            placeholder="https://..."
-          />
-          <TextField
-            label="Staging URL"
-            value={metadata.staging_url}
-            onChange={(v) => update('staging_url', v)}
-            placeholder="https://staging...."
+            label="App Framework"
+            value={metadata.app_framework}
+            options={APP_FRAMEWORK_OPTIONS}
+            onChange={(v) => update('app_framework', v)}
           />
         </div>
-        <TextField
-          label="Deploy Command"
-          value={metadata.deploy_command}
-          onChange={(v) => update('deploy_command', v)}
-          placeholder="bun run deploy, vercel --prod, fly deploy, etc."
-          mono
-        />
       </div>
+
+      {/* Web Hosting & Deployment — shown when Web platform selected */}
+      {hasWeb && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Cloud className="h-3.5 w-3.5" />
+            Web Hosting & Deployment
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField
+              label="Hosting"
+              value={metadata.web_hosting}
+              options={WEB_HOSTING_OPTIONS}
+              onChange={(v) => update('web_hosting', v)}
+            />
+            <TextField
+              label="Domain"
+              value={metadata.domain}
+              onChange={(v) => update('domain', v)}
+              placeholder="example.com"
+            />
+            <TextField
+              label="Production URL"
+              value={metadata.production_url}
+              onChange={(v) => update('production_url', v)}
+              placeholder="https://..."
+            />
+            <TextField
+              label="Staging URL"
+              value={metadata.staging_url}
+              onChange={(v) => update('staging_url', v)}
+              placeholder="https://staging...."
+            />
+          </div>
+          <TextField
+            label="Deploy Command"
+            value={metadata.deploy_command}
+            onChange={(v) => update('deploy_command', v)}
+            placeholder="bun run deploy, vercel --prod, fly deploy, etc."
+            mono
+          />
+        </div>
+      )}
+
+      {/* iOS — shown when iOS platform selected */}
+      {hasIOS && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Smartphone className="h-3.5 w-3.5" />
+            iOS
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField
+              label="Deploy Target"
+              value={metadata.ios_deploy_target}
+              options={IOS_DEPLOY_TARGETS}
+              onChange={(v) => update('ios_deploy_target', v)}
+            />
+            <TextField
+              label="Bundle ID"
+              value={metadata.ios_bundle_id}
+              onChange={(v) => update('ios_bundle_id', v)}
+              placeholder="com.example.myapp"
+              mono
+            />
+            <TextField
+              label="Signing Team ID"
+              value={metadata.ios_signing_team}
+              onChange={(v) => update('ios_signing_team', v)}
+              placeholder="ABCD1234EF"
+            />
+            <TextField
+              label="CloudKit Container"
+              value={metadata.ios_cloudkit_container}
+              onChange={(v) => update('ios_cloudkit_container', v)}
+              placeholder="iCloud.com.example.myapp"
+              mono
+            />
+            <TextField
+              label="CloudKit Dashboard URL"
+              value={metadata.ios_cloudkit_dashboard_url}
+              onChange={(v) => update('ios_cloudkit_dashboard_url', v)}
+              placeholder="https://icloud.developer.apple.com/dashboard/..."
+            />
+            <SelectField
+              label="Provisioning"
+              value={metadata.ios_provisioning}
+              options={IOS_PROVISIONING_OPTIONS}
+              onChange={(v) => update('ios_provisioning', v)}
+            />
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Push Notifications?</Label>
+              <button
+                onClick={() =>
+                  update('ios_uses_push_notifications', !metadata.ios_uses_push_notifications)
+                }
+                className={`h-8 w-full rounded-md border text-sm text-left px-3 transition-colors ${
+                  metadata.ios_uses_push_notifications
+                    ? 'bg-primary/10 border-primary text-primary'
+                    : 'bg-transparent border-input text-muted-foreground'
+                }`}
+              >
+                {metadata.ios_uses_push_notifications ? 'Yes' : 'No'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Data & Storage */}
       <div className="space-y-3">
@@ -512,6 +832,12 @@ export function ProjectMetadataPanel({ projectId }: ProjectMetadataPanelProps) {
             value={metadata.database_name}
             onChange={(v) => update('database_name', v)}
             placeholder="my-app-db"
+          />
+          <TextField
+            label="Dashboard URL"
+            value={metadata.database_dashboard_url}
+            onChange={(v) => update('database_dashboard_url', v)}
+            placeholder="https://console.neon.tech/..."
           />
           <SelectField
             label="Object Storage"

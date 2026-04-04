@@ -228,6 +228,7 @@ export interface ProjectGitStatus {
   is_git_repo: boolean;
   branch: string | null;
   is_dirty: boolean;
+  last_commit_at: string | null;
 }
 
 // Profile types
@@ -675,13 +676,19 @@ export interface CustomField {
 }
 
 export interface ProjectMetadata {
+  description: string | null;
+  icon_path: string | null;
+  platforms: string[];
+  app_framework: string | null;
   deploy_target: string | null;
+  web_hosting: string | null;
   domain: string | null;
   production_url: string | null;
   staging_url: string | null;
   deploy_command: string | null;
   database_provider: string | null;
   database_name: string | null;
+  database_dashboard_url: string | null;
   object_storage: string | null;
   object_storage_bucket: string | null;
   start_command: string | null;
@@ -695,6 +702,13 @@ export interface ProjectMetadata {
   package_registry_url: string | null;
   ci_cd: string | null;
   monitoring: string | null;
+  ios_deploy_target: string | null;
+  ios_bundle_id: string | null;
+  ios_signing_team: string | null;
+  ios_cloudkit_container: string | null;
+  ios_cloudkit_dashboard_url: string | null;
+  ios_uses_push_notifications: boolean;
+  ios_provisioning: string | null;
   custom_fields: CustomField[];
 }
 
