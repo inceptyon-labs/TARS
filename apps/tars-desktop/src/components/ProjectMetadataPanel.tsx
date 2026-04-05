@@ -104,6 +104,21 @@ const IOS_DEPLOY_TARGETS = ['iOS 15.0', 'iOS 16.0', 'iOS 17.0', 'iOS 18.0', 'iOS
 
 const IOS_PROVISIONING_OPTIONS = ['Automatic', 'Development', 'Ad Hoc', 'App Store', 'Enterprise'];
 
+const ANDROID_MIN_SDK_OPTIONS = [
+  'API 24 (7.0)',
+  'API 26 (8.0)',
+  'API 28 (9.0)',
+  'API 29 (10)',
+  'API 30 (11)',
+  'API 31 (12)',
+  'API 33 (13)',
+  'API 34 (14)',
+  'API 35 (15)',
+  'Other',
+];
+
+const ANDROID_TARGET_SDK_OPTIONS = ['API 33 (13)', 'API 34 (14)', 'API 35 (15)', 'Other'];
+
 const CI_CD_OPTIONS = [
   'GitHub Actions',
   'CircleCI',
@@ -155,6 +170,13 @@ const EMPTY_METADATA: ProjectMetadata = {
   ios_cloudkit_dashboard_url: null,
   ios_uses_push_notifications: false,
   ios_provisioning: null,
+  ios_deploy_command: null,
+  android_package_name: null,
+  android_min_sdk: null,
+  android_target_sdk: null,
+  android_signing_key: null,
+  android_deploy_command: null,
+  google_play_console_url: null,
   custom_fields: [],
 };
 
@@ -458,6 +480,7 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
   const hasPlat = (p: string) => metadata.platforms.includes(p);
   const hasWeb = hasPlat('Web');
   const hasIOS = hasPlat('iOS');
+  const hasAndroid = hasPlat('Android');
 
   // Count filled fields for badge
   const filledCount =
@@ -491,6 +514,13 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
       metadata.ios_cloudkit_container,
       metadata.ios_cloudkit_dashboard_url,
       metadata.ios_provisioning,
+      metadata.ios_deploy_command,
+      metadata.android_package_name,
+      metadata.android_min_sdk,
+      metadata.android_target_sdk,
+      metadata.android_signing_key,
+      metadata.android_deploy_command,
+      metadata.google_play_console_url,
     ].filter(Boolean).length +
     (metadata.requires_tunnel ? 1 : 0) +
     (metadata.ios_uses_push_notifications ? 1 : 0) +
@@ -583,6 +613,32 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
               <ViewRow label="Push Notifications" value="Enabled" />
             )}
             <ViewRow label="Provisioning" value={metadata.ios_provisioning} />
+            {metadata.ios_deploy_command && (
+              <div className="flex items-baseline gap-3 min-w-0">
+                <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
+                  Deploy
+                </span>
+                <CopyableCode value={metadata.ios_deploy_command} />
+              </div>
+            )}
+          </ViewSection>
+        )}
+
+        {hasAndroid && (
+          <ViewSection icon={<Smartphone className="h-3.5 w-3.5" />} title="Android">
+            <ViewRow label="Package Name" value={metadata.android_package_name} mono />
+            <ViewRow label="Min SDK" value={metadata.android_min_sdk} />
+            <ViewRow label="Target SDK" value={metadata.android_target_sdk} />
+            <ViewRow label="Signing Key" value={metadata.android_signing_key} />
+            <ViewRow label="Play Console" value={metadata.google_play_console_url} />
+            {metadata.android_deploy_command && (
+              <div className="flex items-baseline gap-3 min-w-0">
+                <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
+                  Deploy
+                </span>
+                <CopyableCode value={metadata.android_deploy_command} />
+              </div>
+            )}
           </ViewSection>
         )}
 
@@ -811,6 +867,63 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
               </button>
             </div>
           </div>
+          <TextField
+            label="Deploy Command"
+            value={metadata.ios_deploy_command}
+            onChange={(v) => update('ios_deploy_command', v)}
+            placeholder="fastlane beta, xcodebuild archive, etc."
+            mono
+          />
+        </div>
+      )}
+
+      {/* Android — shown when Android platform selected */}
+      {hasAndroid && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Smartphone className="h-3.5 w-3.5" />
+            Android
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextField
+              label="Package Name"
+              value={metadata.android_package_name}
+              onChange={(v) => update('android_package_name', v)}
+              placeholder="com.example.myapp"
+              mono
+            />
+            <SelectField
+              label="Min SDK"
+              value={metadata.android_min_sdk}
+              options={ANDROID_MIN_SDK_OPTIONS}
+              onChange={(v) => update('android_min_sdk', v)}
+            />
+            <SelectField
+              label="Target SDK"
+              value={metadata.android_target_sdk}
+              options={ANDROID_TARGET_SDK_OPTIONS}
+              onChange={(v) => update('android_target_sdk', v)}
+            />
+            <TextField
+              label="Signing Key Alias"
+              value={metadata.android_signing_key}
+              onChange={(v) => update('android_signing_key', v)}
+              placeholder="upload-key"
+            />
+          </div>
+          <TextField
+            label="Google Play Console URL"
+            value={metadata.google_play_console_url}
+            onChange={(v) => update('google_play_console_url', v)}
+            placeholder="https://play.google.com/console/..."
+          />
+          <TextField
+            label="Deploy Command"
+            value={metadata.android_deploy_command}
+            onChange={(v) => update('android_deploy_command', v)}
+            placeholder="fastlane android deploy, ./gradlew bundleRelease, etc."
+            mono
+          />
         </div>
       )}
 
