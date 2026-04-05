@@ -73,6 +73,22 @@ pub struct ProjectMetadata {
     pub ios_uses_push_notifications: bool,
     #[serde(default)]
     pub ios_provisioning: Option<String>,
+    #[serde(default)]
+    pub ios_deploy_command: Option<String>,
+
+    /// Android
+    #[serde(default)]
+    pub android_package_name: Option<String>,
+    #[serde(default)]
+    pub android_min_sdk: Option<String>,
+    #[serde(default)]
+    pub android_target_sdk: Option<String>,
+    #[serde(default)]
+    pub android_signing_key: Option<String>,
+    #[serde(default)]
+    pub android_deploy_command: Option<String>,
+    #[serde(default)]
+    pub google_play_console_url: Option<String>,
 
     /// Custom key-value pairs
     #[serde(default)]

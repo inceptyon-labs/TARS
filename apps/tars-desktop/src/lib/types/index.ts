@@ -709,6 +709,13 @@ export interface ProjectMetadata {
   ios_cloudkit_dashboard_url: string | null;
   ios_uses_push_notifications: boolean;
   ios_provisioning: string | null;
+  ios_deploy_command: string | null;
+  android_package_name: string | null;
+  android_min_sdk: string | null;
+  android_target_sdk: string | null;
+  android_signing_key: string | null;
+  android_deploy_command: string | null;
+  google_play_console_url: string | null;
   custom_fields: CustomField[];
 }
 
