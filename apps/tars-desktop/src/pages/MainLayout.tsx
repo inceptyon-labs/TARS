@@ -21,6 +21,7 @@ import {
   GripVertical,
   FileCog,
   Radio,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/ui-store';
@@ -36,6 +37,7 @@ const UPDATE_POLL_INTERVAL = 10 * 60 * 1000;
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderGit2 },
+  { name: 'Gallery', href: '/gallery', icon: LayoutGrid },
   { name: 'Profiles', href: '/profiles', icon: Layers },
   { name: 'Skills', href: '/skills', icon: Cpu },
   { name: 'Agents', href: '/agents', icon: Bot },

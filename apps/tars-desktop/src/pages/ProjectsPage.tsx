@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, FolderOpen, RefreshCw, AlertCircle, Search, FolderGit2 } from 'lucide-react';
 import { useState, useRef, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   listProjects,
@@ -26,6 +27,7 @@ import type { Inventory, ProjectInfo, ProjectToolsResponse } from '../lib/types'
 
 export function ProjectsPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectInfo | null>(null);
   const [inventory, setInventory] = useState<Inventory | null>(null);
@@ -212,6 +214,20 @@ export function ProjectsPage() {
       }
     }
   }
+
+  // Auto-select project from query param (e.g. /projects?project=<id>)
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    const projectId = searchParams.get('project');
+    if (projectId && projects.length > 0 && !deepLinkHandled.current) {
+      const project = projects.find((p) => p.id === projectId);
+      if (project) {
+        deepLinkHandled.current = true;
+        handleScan(project);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [projects, searchParams]);
 
   async function handleRefreshTools() {
     if (selectedProject) {

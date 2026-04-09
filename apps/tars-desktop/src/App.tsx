@@ -42,6 +42,9 @@ const UsagePage = lazy(() => import('./pages/UsagePage').then((m) => ({ default:
 const ClaudeSettingsPage = lazy(() =>
   import('./pages/ClaudeSettingsPage').then((m) => ({ default: m.ClaudeSettingsPage }))
 );
+const GalleryPage = lazy(() =>
+  import('./pages/GalleryPage').then((m) => ({ default: m.GalleryPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -107,9 +110,17 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<MainLayout />}>
-              <Route index element={<Navigate to="/projects" replace />} />
+              <Route index element={<Navigate to="/gallery" replace />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="profiles" element={<ProfilesPage />} />
+              <Route
+                path="gallery"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <GalleryPage />
+                  </Suspense>
+                }
+              />
               <Route
                 path="skills"
                 element={
