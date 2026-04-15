@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Structured project metadata
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProjectMetadata {
     /// Description
@@ -73,8 +74,12 @@ pub struct ProjectMetadata {
     pub ios_uses_push_notifications: bool,
     #[serde(default)]
     pub ios_provisioning: Option<String>,
+    /// Legacy single deploy command (migrated to `ios_deploy_commands`)
     #[serde(default)]
     pub ios_deploy_command: Option<String>,
+    /// Multiple deploy commands for iOS
+    #[serde(default)]
+    pub ios_deploy_commands: Vec<String>,
 
     /// Android
     #[serde(default)]
@@ -85,10 +90,42 @@ pub struct ProjectMetadata {
     pub android_target_sdk: Option<String>,
     #[serde(default)]
     pub android_signing_key: Option<String>,
+    /// Legacy single deploy command (migrated to `android_deploy_commands`)
     #[serde(default)]
     pub android_deploy_command: Option<String>,
+    /// Multiple deploy commands for Android
+    #[serde(default)]
+    pub android_deploy_commands: Vec<String>,
     #[serde(default)]
     pub google_play_console_url: Option<String>,
+
+    /// macOS
+    #[serde(default)]
+    pub macos_bundle_id: Option<String>,
+    #[serde(default)]
+    pub macos_signing_team: Option<String>,
+    #[serde(default)]
+    pub macos_app_category: Option<String>,
+    #[serde(default)]
+    pub macos_hardened_runtime: bool,
+    #[serde(default)]
+    pub macos_app_sandbox: bool,
+    #[serde(default)]
+    pub macos_provisioning: Option<String>,
+    #[serde(default)]
+    pub macos_deploy_commands: Vec<String>,
+
+    /// Homebrew
+    #[serde(default)]
+    pub homebrew_formula_name: Option<String>,
+    #[serde(default)]
+    pub homebrew_tap: Option<String>,
+    #[serde(default)]
+    pub homebrew_deploy_commands: Vec<String>,
+
+    /// Multiple web deploy commands
+    #[serde(default)]
+    pub deploy_commands: Vec<String>,
 
     /// Custom key-value pairs
     #[serde(default)]
