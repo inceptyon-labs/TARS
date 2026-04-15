@@ -710,12 +710,25 @@ export interface ProjectMetadata {
   ios_uses_push_notifications: boolean;
   ios_provisioning: string | null;
   ios_deploy_command: string | null;
+  ios_deploy_commands: string[];
   android_package_name: string | null;
   android_min_sdk: string | null;
   android_target_sdk: string | null;
   android_signing_key: string | null;
   android_deploy_command: string | null;
+  android_deploy_commands: string[];
   google_play_console_url: string | null;
+  macos_bundle_id: string | null;
+  macos_signing_team: string | null;
+  macos_app_category: string | null;
+  macos_hardened_runtime: boolean;
+  macos_app_sandbox: boolean;
+  macos_provisioning: string | null;
+  macos_deploy_commands: string[];
+  homebrew_formula_name: string | null;
+  homebrew_tap: string | null;
+  homebrew_deploy_commands: string[];
+  deploy_commands: string[];
   custom_fields: CustomField[];
 }
 

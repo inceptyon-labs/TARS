@@ -45,7 +45,7 @@ export function GalleryPage() {
       project,
       metadata: metadataQueries[i]?.data ?? null,
       iconDataUrl: iconQueries[i]?.data ?? null,
-      category: categories[project.id] ?? 'Tools',
+      category: categories[project.path] ?? 'Tools',
     }));
   }, [projects, metadataQueries, iconQueries, categories]);
 
