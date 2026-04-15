@@ -60,9 +60,12 @@ pub async fn get_project_categories(
         for proj in projects {
             let category = match meta_store.get(proj.id) {
                 Ok(Some(meta)) => {
-                    let has_mobile = meta.platforms.iter().any(|p| p == "iOS" || p == "Android");
+                    let has_app = meta
+                        .platforms
+                        .iter()
+                        .any(|p| p == "iOS" || p == "Android" || p == "macOS");
                     let has_web = meta.platforms.iter().any(|p| p == "Web");
-                    if has_mobile {
+                    if has_app {
                         "Apps"
                     } else if has_web {
                         "Websites"

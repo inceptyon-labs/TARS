@@ -31,7 +31,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 // ── Option constants ───────────────────────────────────────────
 
-const PLATFORMS = ['iOS', 'Android', 'Web', 'macOS', 'Windows', 'Linux', 'tvOS', 'watchOS'];
+const PLATFORMS = [
+  'iOS',
+  'Android',
+  'Web',
+  'macOS',
+  'Windows',
+  'Linux',
+  'tvOS',
+  'watchOS',
+  'Homebrew',
+];
 
 const APP_FRAMEWORK_OPTIONS = [
   'SwiftUI',
@@ -131,6 +141,35 @@ const CI_CD_OPTIONS = [
   'Other',
 ];
 
+const MACOS_PROVISIONING_OPTIONS = [
+  'Automatic',
+  'Development',
+  'Developer ID',
+  'App Store',
+  'Direct Distribution',
+];
+
+const MACOS_APP_CATEGORIES = [
+  'Business',
+  'Developer Tools',
+  'Education',
+  'Entertainment',
+  'Finance',
+  'Games',
+  'Graphics & Design',
+  'Health & Fitness',
+  'Lifestyle',
+  'Music',
+  'News',
+  'Photo & Video',
+  'Productivity',
+  'Reference',
+  'Social Networking',
+  'Utilities',
+  'Weather',
+  'Other',
+];
+
 interface ProjectMetadataPanelProps {
   projectId: string;
   projectPath: string;
@@ -171,12 +210,25 @@ const EMPTY_METADATA: ProjectMetadata = {
   ios_uses_push_notifications: false,
   ios_provisioning: null,
   ios_deploy_command: null,
+  ios_deploy_commands: [],
   android_package_name: null,
   android_min_sdk: null,
   android_target_sdk: null,
   android_signing_key: null,
   android_deploy_command: null,
+  android_deploy_commands: [],
   google_play_console_url: null,
+  macos_bundle_id: null,
+  macos_signing_team: null,
+  macos_app_category: null,
+  macos_hardened_runtime: false,
+  macos_app_sandbox: false,
+  macos_provisioning: null,
+  macos_deploy_commands: [],
+  homebrew_formula_name: null,
+  homebrew_tap: null,
+  homebrew_deploy_commands: [],
+  deploy_commands: [],
   custom_fields: [],
 };
 
@@ -261,6 +313,56 @@ function CopyableCode({ value }: { value: string }) {
         <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 flex-shrink-0 transition-opacity" />
       )}
     </button>
+  );
+}
+
+function MultiCommandField({
+  label,
+  values,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  values: string[];
+  onChange: (vals: string[]) => void;
+  placeholder?: string;
+}) {
+  const addEntry = () => onChange([...values, '']);
+  const updateEntry = (i: number, val: string) =>
+    onChange(values.map((v, idx) => (idx === i ? val : v)));
+  const removeEntry = (i: number) => onChange(values.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <Button size="sm" variant="ghost" onClick={addEntry} className="h-5 text-xs gap-0.5 px-1.5">
+          <Plus className="h-3 w-3" />
+          Add
+        </Button>
+      </div>
+      {values.map((val, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <Input
+            className="h-8 text-sm font-mono flex-1"
+            value={val}
+            onChange={(e) => updateEntry(i, e.target.value)}
+            placeholder={placeholder}
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => removeEntry(i)}
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+      {values.length === 0 && (
+        <p className="text-xs text-muted-foreground/50 italic">No commands configured</p>
+      )}
+    </div>
   );
 }
 
@@ -390,13 +492,32 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
 
   useEffect(() => {
     if (savedMetadata) {
-      // Migrate legacy deploy_target → web_hosting
+      // Migrate legacy fields
       const migrated = { ...savedMetadata };
       if (!migrated.platforms) migrated.platforms = [];
       if (migrated.deploy_target && !migrated.web_hosting) {
         migrated.web_hosting = migrated.deploy_target;
         migrated.deploy_target = null;
       }
+      // Migrate single deploy commands → arrays
+      if (!migrated.deploy_commands) migrated.deploy_commands = [];
+      if (migrated.deploy_command && migrated.deploy_commands.length === 0) {
+        migrated.deploy_commands = [migrated.deploy_command];
+        migrated.deploy_command = null;
+      }
+      if (!migrated.ios_deploy_commands) migrated.ios_deploy_commands = [];
+      if (migrated.ios_deploy_command && migrated.ios_deploy_commands.length === 0) {
+        migrated.ios_deploy_commands = [migrated.ios_deploy_command];
+        migrated.ios_deploy_command = null;
+      }
+      if (!migrated.android_deploy_commands) migrated.android_deploy_commands = [];
+      if (migrated.android_deploy_command && migrated.android_deploy_commands.length === 0) {
+        migrated.android_deploy_commands = [migrated.android_deploy_command];
+        migrated.android_deploy_command = null;
+      }
+      // Ensure new array fields exist
+      if (!migrated.macos_deploy_commands) migrated.macos_deploy_commands = [];
+      if (!migrated.homebrew_deploy_commands) migrated.homebrew_deploy_commands = [];
       setMetadata(migrated);
       setIsDirty(false);
     }
@@ -481,6 +602,8 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
   const hasWeb = hasPlat('Web');
   const hasIOS = hasPlat('iOS');
   const hasAndroid = hasPlat('Android');
+  const hasMacOS = hasPlat('macOS');
+  const hasHomebrew = hasPlat('Homebrew');
 
   // Count filled fields for badge
   const filledCount =
@@ -514,16 +637,27 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
       metadata.ios_cloudkit_container,
       metadata.ios_cloudkit_dashboard_url,
       metadata.ios_provisioning,
-      metadata.ios_deploy_command,
       metadata.android_package_name,
       metadata.android_min_sdk,
       metadata.android_target_sdk,
       metadata.android_signing_key,
-      metadata.android_deploy_command,
       metadata.google_play_console_url,
+      metadata.macos_bundle_id,
+      metadata.macos_signing_team,
+      metadata.macos_app_category,
+      metadata.macos_provisioning,
+      metadata.homebrew_formula_name,
+      metadata.homebrew_tap,
     ].filter(Boolean).length +
     (metadata.requires_tunnel ? 1 : 0) +
     (metadata.ios_uses_push_notifications ? 1 : 0) +
+    (metadata.macos_hardened_runtime ? 1 : 0) +
+    (metadata.macos_app_sandbox ? 1 : 0) +
+    metadata.deploy_commands.filter(Boolean).length +
+    metadata.ios_deploy_commands.filter(Boolean).length +
+    metadata.android_deploy_commands.filter(Boolean).length +
+    metadata.macos_deploy_commands.filter(Boolean).length +
+    metadata.homebrew_deploy_commands.filter(Boolean).length +
     metadata.custom_fields.filter((f) => f.key && f.value).length;
 
   // Save on Cmd/Ctrl+S
@@ -591,14 +725,14 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
             <ViewRow label="Domain" value={metadata.domain} />
             <ViewRow label="Production" value={metadata.production_url} />
             <ViewRow label="Staging" value={metadata.staging_url} />
-            {metadata.deploy_command && (
-              <div className="flex items-baseline gap-3 min-w-0">
+            {metadata.deploy_commands.filter(Boolean).map((cmd, i) => (
+              <div key={i} className="flex items-baseline gap-3 min-w-0">
                 <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
-                  Deploy
+                  {i === 0 ? 'Deploy' : ''}
                 </span>
-                <CopyableCode value={metadata.deploy_command} />
+                <CopyableCode value={cmd} />
               </div>
-            )}
+            ))}
           </ViewSection>
         )}
 
@@ -613,14 +747,14 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
               <ViewRow label="Push Notifications" value="Enabled" />
             )}
             <ViewRow label="Provisioning" value={metadata.ios_provisioning} />
-            {metadata.ios_deploy_command && (
-              <div className="flex items-baseline gap-3 min-w-0">
+            {metadata.ios_deploy_commands.filter(Boolean).map((cmd, i) => (
+              <div key={i} className="flex items-baseline gap-3 min-w-0">
                 <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
-                  Deploy
+                  {i === 0 ? 'Deploy' : ''}
                 </span>
-                <CopyableCode value={metadata.ios_deploy_command} />
+                <CopyableCode value={cmd} />
               </div>
-            )}
+            ))}
           </ViewSection>
         )}
 
@@ -631,14 +765,50 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
             <ViewRow label="Target SDK" value={metadata.android_target_sdk} />
             <ViewRow label="Signing Key" value={metadata.android_signing_key} />
             <ViewRow label="Play Console" value={metadata.google_play_console_url} />
-            {metadata.android_deploy_command && (
-              <div className="flex items-baseline gap-3 min-w-0">
+            {metadata.android_deploy_commands.filter(Boolean).map((cmd, i) => (
+              <div key={i} className="flex items-baseline gap-3 min-w-0">
                 <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
-                  Deploy
+                  {i === 0 ? 'Deploy' : ''}
                 </span>
-                <CopyableCode value={metadata.android_deploy_command} />
+                <CopyableCode value={cmd} />
               </div>
+            ))}
+          </ViewSection>
+        )}
+
+        {hasMacOS && (
+          <ViewSection icon={<Layers className="h-3.5 w-3.5" />} title="macOS">
+            <ViewRow label="Bundle ID" value={metadata.macos_bundle_id} mono />
+            <ViewRow label="Signing Team" value={metadata.macos_signing_team} />
+            <ViewRow label="Category" value={metadata.macos_app_category} />
+            {metadata.macos_hardened_runtime && (
+              <ViewRow label="Hardened Runtime" value="Enabled" />
             )}
+            {metadata.macos_app_sandbox && <ViewRow label="App Sandbox" value="Enabled" />}
+            <ViewRow label="Provisioning" value={metadata.macos_provisioning} />
+            {metadata.macos_deploy_commands.filter(Boolean).map((cmd, i) => (
+              <div key={i} className="flex items-baseline gap-3 min-w-0">
+                <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
+                  {i === 0 ? 'Deploy' : ''}
+                </span>
+                <CopyableCode value={cmd} />
+              </div>
+            ))}
+          </ViewSection>
+        )}
+
+        {hasHomebrew && (
+          <ViewSection icon={<Terminal className="h-3.5 w-3.5" />} title="Homebrew">
+            <ViewRow label="Formula" value={metadata.homebrew_formula_name} mono />
+            <ViewRow label="Tap" value={metadata.homebrew_tap} mono />
+            {metadata.homebrew_deploy_commands.filter(Boolean).map((cmd, i) => (
+              <div key={i} className="flex items-baseline gap-3 min-w-0">
+                <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
+                  {i === 0 ? 'Deploy' : ''}
+                </span>
+                <CopyableCode value={cmd} />
+              </div>
+            ))}
           </ViewSection>
         )}
 
@@ -795,12 +965,11 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
               placeholder="https://staging...."
             />
           </div>
-          <TextField
-            label="Deploy Command"
-            value={metadata.deploy_command}
-            onChange={(v) => update('deploy_command', v)}
+          <MultiCommandField
+            label="Deploy Commands"
+            values={metadata.deploy_commands}
+            onChange={(v) => update('deploy_commands', v)}
             placeholder="bun run deploy, vercel --prod, fly deploy, etc."
-            mono
           />
         </div>
       )}
@@ -867,12 +1036,11 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
               </button>
             </div>
           </div>
-          <TextField
-            label="Deploy Command"
-            value={metadata.ios_deploy_command}
-            onChange={(v) => update('ios_deploy_command', v)}
+          <MultiCommandField
+            label="Deploy Commands"
+            values={metadata.ios_deploy_commands}
+            onChange={(v) => update('ios_deploy_commands', v)}
             placeholder="fastlane beta, xcodebuild archive, etc."
-            mono
           />
         </div>
       )}
@@ -917,12 +1085,112 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
             onChange={(v) => update('google_play_console_url', v)}
             placeholder="https://play.google.com/console/..."
           />
-          <TextField
-            label="Deploy Command"
-            value={metadata.android_deploy_command}
-            onChange={(v) => update('android_deploy_command', v)}
+          <MultiCommandField
+            label="Deploy Commands"
+            values={metadata.android_deploy_commands}
+            onChange={(v) => update('android_deploy_commands', v)}
             placeholder="fastlane android deploy, ./gradlew bundleRelease, etc."
-            mono
+          />
+        </div>
+      )}
+
+      {/* macOS — shown when macOS platform selected */}
+      {hasMacOS && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Layers className="h-3.5 w-3.5" />
+            macOS
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextField
+              label="Bundle ID"
+              value={metadata.macos_bundle_id}
+              onChange={(v) => update('macos_bundle_id', v)}
+              placeholder="com.example.myapp"
+              mono
+            />
+            <TextField
+              label="Signing Team ID"
+              value={metadata.macos_signing_team}
+              onChange={(v) => update('macos_signing_team', v)}
+              placeholder="ABCD1234EF"
+            />
+            <SelectField
+              label="App Category"
+              value={metadata.macos_app_category}
+              options={MACOS_APP_CATEGORIES}
+              onChange={(v) => update('macos_app_category', v)}
+            />
+            <SelectField
+              label="Provisioning"
+              value={metadata.macos_provisioning}
+              options={MACOS_PROVISIONING_OPTIONS}
+              onChange={(v) => update('macos_provisioning', v)}
+            />
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Hardened Runtime?</Label>
+              <button
+                onClick={() => update('macos_hardened_runtime', !metadata.macos_hardened_runtime)}
+                className={`h-8 w-full rounded-md border text-sm text-left px-3 transition-colors ${
+                  metadata.macos_hardened_runtime
+                    ? 'bg-primary/10 border-primary text-primary'
+                    : 'bg-transparent border-input text-muted-foreground'
+                }`}
+              >
+                {metadata.macos_hardened_runtime ? 'Yes' : 'No'}
+              </button>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">App Sandbox?</Label>
+              <button
+                onClick={() => update('macos_app_sandbox', !metadata.macos_app_sandbox)}
+                className={`h-8 w-full rounded-md border text-sm text-left px-3 transition-colors ${
+                  metadata.macos_app_sandbox
+                    ? 'bg-primary/10 border-primary text-primary'
+                    : 'bg-transparent border-input text-muted-foreground'
+                }`}
+              >
+                {metadata.macos_app_sandbox ? 'Yes' : 'No'}
+              </button>
+            </div>
+          </div>
+          <MultiCommandField
+            label="Deploy Commands"
+            values={metadata.macos_deploy_commands}
+            onChange={(v) => update('macos_deploy_commands', v)}
+            placeholder="fastlane mac, xcodebuild archive, notarytool submit, etc."
+          />
+        </div>
+      )}
+
+      {/* Homebrew — shown when Homebrew platform selected */}
+      {hasHomebrew && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Terminal className="h-3.5 w-3.5" />
+            Homebrew
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextField
+              label="Formula Name"
+              value={metadata.homebrew_formula_name}
+              onChange={(v) => update('homebrew_formula_name', v)}
+              placeholder="my-tool"
+              mono
+            />
+            <TextField
+              label="Tap Repository"
+              value={metadata.homebrew_tap}
+              onChange={(v) => update('homebrew_tap', v)}
+              placeholder="username/homebrew-tap"
+              mono
+            />
+          </div>
+          <MultiCommandField
+            label="Deploy Commands"
+            values={metadata.homebrew_deploy_commands}
+            onChange={(v) => update('homebrew_deploy_commands', v)}
+            placeholder="brew bump-formula-pr, goreleaser, etc."
           />
         </div>
       )}
