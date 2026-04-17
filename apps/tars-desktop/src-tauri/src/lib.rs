@@ -21,6 +21,8 @@ mod commands;
 mod state;
 
 use state::AppState;
+use tars_core::storage::Database;
+use tauri::Manager;
 
 /// Run the Tauri application
 ///
@@ -219,7 +221,61 @@ pub fn run() {
             commands::refresh_models,
             commands::reveal_api_key,
             commands::list_provider_models,
+            // Pricing commands
+            commands::refresh_pricing,
+            commands::get_pricing_metadata,
         ])
+        .setup(|app| {
+            spawn_pricing_refresh_loop(app.handle().clone());
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Spawn a background task that refreshes `LiteLLM` pricing on startup and
+/// then every 7 days. Failures are recorded into `pricing_metadata.last_error`
+/// by the inner command — they never crash the app or block startup.
+fn spawn_pricing_refresh_loop(app_handle: tauri::AppHandle) {
+    use std::time::Duration;
+    use tars_core::pricing::{get_metadata, METADATA_KEY_LAST_REFRESH};
+
+    const REFRESH_INTERVAL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+    // Stagger the first refresh slightly so app startup is not delayed by the
+    // network call. 30 seconds is enough for the UI to render and the user to
+    // start interacting before we hit the network.
+    const STARTUP_DELAY: Duration = Duration::from_secs(30);
+
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(STARTUP_DELAY).await;
+
+        loop {
+            // Skip the network call entirely if a successful refresh ran in
+            // the last week — covers the common case where the user closes
+            // and reopens the app without much downtime.
+            let needs_refresh = {
+                let state: tauri::State<'_, AppState> = app_handle.state();
+                state
+                    .with_db(|db: &Database| {
+                        get_metadata(db.connection(), METADATA_KEY_LAST_REFRESH)
+                            .map_err(|e| e.to_string())
+                    })
+                    .ok()
+                    .flatten()
+                    .is_none_or(|m| {
+                        chrono::Utc::now().signed_duration_since(m.updated_at)
+                            > chrono::Duration::days(7)
+                    })
+            };
+
+            if needs_refresh {
+                let state: tauri::State<'_, AppState> = app_handle.state();
+                if let Err(e) = commands::pricing::refresh_pricing(state).await {
+                    eprintln!("Background pricing refresh failed: {e}");
+                }
+            }
+
+            tokio::time::sleep(REFRESH_INTERVAL).await;
+        }
+    });
 }

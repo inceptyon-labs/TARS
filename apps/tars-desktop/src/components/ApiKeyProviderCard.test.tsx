@@ -307,6 +307,8 @@ describe('ApiKeyProviderCard — interactions', () => {
   });
 });
 
+const noPricingMeta = { last_refresh_at: null, last_error: null, last_error_at: null };
+
 describe('ApiKeyProviderCard — models', () => {
   beforeEach(() => {
     invokeMock.mockReset();
@@ -327,6 +329,7 @@ describe('ApiKeyProviderCard — models', () => {
           },
         ];
       }
+      if (cmd === 'get_pricing_metadata') return noPricingMeta;
       throw new Error(`unexpected ${cmd}`);
     });
     render(<ApiKeyProviderCard provider={openaiMeta} keys={[]} onAddKey={vi.fn()} />);
@@ -339,6 +342,7 @@ describe('ApiKeyProviderCard — models', () => {
   it('shows an empty model state when listProviderModels returns []', async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === 'list_provider_models') return [];
+      if (cmd === 'get_pricing_metadata') return noPricingMeta;
       throw new Error(`unexpected ${cmd}`);
     });
     render(<ApiKeyProviderCard provider={openaiMeta} keys={[]} onAddKey={vi.fn()} />);
@@ -359,6 +363,7 @@ describe('ApiKeyProviderCard — models', () => {
         listed++;
         return [];
       }
+      if (cmd === 'get_pricing_metadata') return noPricingMeta;
       throw new Error(`unexpected ${cmd}`);
     });
     const { user } = renderWithUser(
@@ -371,6 +376,46 @@ describe('ApiKeyProviderCard — models', () => {
       expect(invokeMock).toHaveBeenCalledWith('refresh_models', { providerId: 'openai' })
     );
     await waitFor(() => expect(listed).toBeGreaterThan(baseline));
+  });
+
+  it('shows "prices updated" badge when pricing metadata has a recent refresh', async () => {
+    const recentIso = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'list_provider_models') return [];
+      if (cmd === 'get_pricing_metadata')
+        return { last_refresh_at: recentIso, last_error: null, last_error_at: null };
+      throw new Error(`unexpected ${cmd}`);
+    });
+    render(<ApiKeyProviderCard provider={openaiMeta} keys={[]} onAddKey={vi.fn()} />);
+    expect(await screen.findByText(/prices updated/i)).toBeInTheDocument();
+  });
+
+  it('shows a stale warning when last pricing refresh is older than 14 days', async () => {
+    const staleIso = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'list_provider_models') return [];
+      if (cmd === 'get_pricing_metadata')
+        return { last_refresh_at: staleIso, last_error: null, last_error_at: null };
+      throw new Error(`unexpected ${cmd}`);
+    });
+    render(<ApiKeyProviderCard provider={openaiMeta} keys={[]} onAddKey={vi.fn()} />);
+    expect(await screen.findByText(/pricing data may be stale/i)).toBeInTheDocument();
+  });
+
+  it('shows a fetch-failed warning when last_error is set', async () => {
+    const recentIso = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'list_provider_models') return [];
+      if (cmd === 'get_pricing_metadata')
+        return {
+          last_refresh_at: recentIso,
+          last_error: 'LiteLLM fetch returned HTTP 503',
+          last_error_at: recentIso,
+        };
+      throw new Error(`unexpected ${cmd}`);
+    });
+    render(<ApiKeyProviderCard provider={openaiMeta} keys={[]} onAddKey={vi.fn()} />);
+    expect(await screen.findByText(/last pricing fetch failed/i)).toBeInTheDocument();
   });
 });
 
