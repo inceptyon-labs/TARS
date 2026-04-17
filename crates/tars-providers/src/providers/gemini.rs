@@ -16,6 +16,7 @@ use crate::{
 
 const DEFAULT_BASE_URL: &str = "https://generativelanguage.googleapis.com";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct GeminiProvider {
     client: Client,
@@ -23,24 +24,40 @@ pub struct GeminiProvider {
 }
 
 impl GeminiProvider {
+    /// Construct with default production base URL and HTTPS-only enforcement.
+    ///
+    /// # Panics
+    /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_base_url(DEFAULT_BASE_URL.to_string())
+        Self {
+            client: build_client(true),
+            base_url: DEFAULT_BASE_URL.to_string(),
+        }
     }
 
     /// Construct with a custom base URL (used by tests pointing at a mock).
+    /// HTTPS-only is relaxed here so `wiremock`'s plain HTTP server works.
     ///
     /// # Panics
     /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn with_base_url(base_url: String) -> Self {
-        let client = Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .user_agent("tars/0.4")
-            .build()
-            .expect("reqwest client builds");
-        Self { client, base_url }
+        Self {
+            client: build_client(false),
+            base_url,
+        }
     }
+}
+
+fn build_client(https_only: bool) -> Client {
+    Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .connect_timeout(CONNECT_TIMEOUT)
+        .user_agent("tars/0.4")
+        .https_only(https_only)
+        .build()
+        .expect("reqwest client builds")
 }
 
 impl Default for GeminiProvider {
@@ -83,7 +100,7 @@ impl Provider for GeminiProvider {
         let resp = self
             .client
             .get(&url)
-            .query(&[("key", key)])
+            .query(&[("key", key), ("pageSize", "1000")])
             .send()
             .await
             .map_err(ProviderError::from)?;
@@ -94,13 +111,14 @@ impl Provider for GeminiProvider {
                 valid: true,
                 message: None,
             }),
-            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::BAD_REQUEST => {
-                // Gemini may return 400 INVALID_ARGUMENT for malformed keys
-                Ok(ValidationResult {
-                    valid: false,
-                    message: Some(format!("Key rejected by Gemini (HTTP {})", status.as_u16())),
-                })
-            }
+            // Only auth-specific statuses mark the key invalid. HTTP 400 in
+            // particular is ambiguous (malformed request, quota config, etc.)
+            // and must surface as a real error instead of silently tagging
+            // a working key as rejected.
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Ok(ValidationResult {
+                valid: false,
+                message: Some(format!("Key rejected by Gemini (HTTP {})", status.as_u16())),
+            }),
             other => Err(ProviderError::Http(format!("Gemini returned {other}"))),
         }
     }
@@ -110,7 +128,7 @@ impl Provider for GeminiProvider {
         let resp = self
             .client
             .get(&url)
-            .query(&[("key", key)])
+            .query(&[("key", key), ("pageSize", "1000")])
             .send()
             .await
             .map_err(ProviderError::from)?;
@@ -133,11 +151,9 @@ impl Provider for GeminiProvider {
                     })
                     .collect())
             }
-            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::BAD_REQUEST => {
-                Err(ProviderError::Unauthorized {
-                    status: resp.status().as_u16(),
-                })
-            }
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Err(ProviderError::Unauthorized {
+                status: resp.status().as_u16(),
+            }),
             other => Err(ProviderError::Http(format!("Gemini returned {other}"))),
         }
     }
@@ -174,7 +190,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn validate_key_invalid_on_400() {
+    async fn validate_key_surfaces_400_as_http_error() {
+        // 400 is ambiguous on Gemini (malformed arg, quota config, etc.).
+        // We surface it as a real error rather than tagging the key invalid.
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/v1beta/models"))
@@ -182,8 +200,11 @@ mod tests {
             .mount(&server)
             .await;
 
-        let r = provider(&server).validate_key("bad").await.unwrap();
-        assert!(!r.valid);
+        let err = provider(&server).validate_key("bad").await.unwrap_err();
+        assert!(
+            matches!(err, ProviderError::Http(_)),
+            "expected Http error, got {err:?}"
+        );
     }
 
     #[tokio::test]

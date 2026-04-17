@@ -16,8 +16,10 @@ use crate::{
 };
 
 const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
+// Anthropic's GA API version string. See https://docs.anthropic.com/en/api/versioning
 const API_VERSION: &str = "2023-06-01";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct AnthropicProvider {
     client: Client,
@@ -25,25 +27,40 @@ pub struct AnthropicProvider {
 }
 
 impl AnthropicProvider {
-    /// Construct with default production base URL.
+    /// Construct with default production base URL and HTTPS-only enforcement.
+    ///
+    /// # Panics
+    /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_base_url(DEFAULT_BASE_URL.to_string())
+        Self {
+            client: build_client(true),
+            base_url: DEFAULT_BASE_URL.to_string(),
+        }
     }
 
     /// Construct with a custom base URL (used by tests pointing at a mock).
+    /// HTTPS-only is relaxed here so `wiremock`'s plain HTTP server works.
     ///
     /// # Panics
     /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn with_base_url(base_url: String) -> Self {
-        let client = Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .user_agent("tars/0.4")
-            .build()
-            .expect("reqwest client builds");
-        Self { client, base_url }
+        Self {
+            client: build_client(false),
+            base_url,
+        }
     }
+}
+
+fn build_client(https_only: bool) -> Client {
+    Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .connect_timeout(CONNECT_TIMEOUT)
+        .user_agent("tars/0.4")
+        .https_only(https_only)
+        .build()
+        .expect("reqwest client builds")
 }
 
 impl Default for AnthropicProvider {
@@ -80,6 +97,7 @@ impl Provider for AnthropicProvider {
             .get(&url)
             .header("x-api-key", key)
             .header("anthropic-version", API_VERSION)
+            .query(&[("limit", "1000")])
             .send()
             .await
             .map_err(ProviderError::from)?;
@@ -102,12 +120,17 @@ impl Provider for AnthropicProvider {
     }
 
     async fn list_models(&self, key: &str) -> Result<Vec<ModelInfo>, ProviderError> {
+        // `limit=1000` is the Anthropic-documented max, large enough to fit
+        // every current model in one page. Pagination via `after_id` is not
+        // implemented — the caller caches the result so a future model blow-
+        // out would show up as silently missing entries; revisit if needed.
         let url = format!("{}/v1/models", self.base_url);
         let resp = self
             .client
             .get(&url)
             .header("x-api-key", key)
             .header("anthropic-version", API_VERSION)
+            .query(&[("limit", "1000")])
             .send()
             .await
             .map_err(ProviderError::from)?;

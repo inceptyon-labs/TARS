@@ -33,21 +33,24 @@ pub enum ProviderError {
 impl From<reqwest::Error> for ProviderError {
     fn from(e: reqwest::Error) -> Self {
         if e.is_timeout() {
-            Self::Timeout
-        } else if let Some(status) = e.status() {
+            return Self::Timeout;
+        }
+        if let Some(status) = e.status() {
             if status == reqwest::StatusCode::UNAUTHORIZED
                 || status == reqwest::StatusCode::FORBIDDEN
             {
-                Self::Unauthorized {
+                return Self::Unauthorized {
                     status: status.as_u16(),
-                }
-            } else if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                Self::RateLimited
-            } else {
-                Self::Http(e.to_string())
+                };
             }
-        } else {
-            Self::Http(e.to_string())
+            if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                return Self::RateLimited;
+            }
         }
+        // Strip the URL before stringifying — reqwest's Display includes the
+        // full request URL, which for Gemini carries the API key as a query
+        // parameter. Leaking that into a user-visible error string would
+        // surface the key in logs and the Tauri IPC error channel.
+        Self::Http(e.without_url().to_string())
     }
 }

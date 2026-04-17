@@ -176,13 +176,20 @@ pub async fn validate_api_key(
         .await
         .map_err(|e| format!("Validation failed: {e}"))?;
 
-    // Only fetch balance on successful validation, and only for providers
-    // that expose it. A balance-query failure must not clobber the valid=true
-    // outcome — we still record the key as valid, just without balance.
-    let balance_value = if result.valid && provider.metadata().supports_balance {
-        match provider.get_balance(&record.key).await {
-            Ok(Some(b)) => Some(b.raw),
-            Ok(None) | Err(_) => None,
+    // Only fetch balance on successful validation and only for providers that
+    // expose it. A transient balance-fetch error must not wipe the previously
+    // stored balance: we fall back to `record.balance` so the UI keeps showing
+    // the last known value until the next successful refresh. When the key is
+    // rejected we clear the balance since it no longer applies.
+    let balance_value = if result.valid {
+        if provider.metadata().supports_balance {
+            match provider.get_balance(&record.key).await {
+                Ok(Some(b)) => Some(b.raw),
+                Ok(None) => None,
+                Err(_) => record.balance.clone(),
+            }
+        } else {
+            None
         }
     } else {
         None
