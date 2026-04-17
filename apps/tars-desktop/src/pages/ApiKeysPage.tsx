@@ -1,7 +1,7 @@
 import { Key } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { listApiKeys, listProviders, type ProviderMetadata } from '../lib/ipc';
+import { listApiKeys, listProviders, type ApiKeySummary, type ProviderMetadata } from '../lib/ipc';
 import { ApiKeyProviderCard } from '../components/ApiKeyProviderCard';
 import { AddApiKeyDialog } from '../components/AddApiKeyDialog';
 
@@ -19,15 +19,16 @@ export function ApiKeysPage() {
     queryFn: listApiKeys,
   });
 
+  const keys = keysQuery.data;
   const keysByProvider = useMemo(() => {
-    const map = new Map<string, typeof keysQuery.data>();
-    for (const k of keysQuery.data ?? []) {
+    const map = new Map<string, ApiKeySummary[]>();
+    for (const k of keys ?? []) {
       const list = map.get(k.provider_id) ?? [];
       list.push(k);
       map.set(k.provider_id, list);
     }
     return map;
-  }, [keysQuery.data]);
+  }, [keys]);
 
   return (
     <div className="h-full flex flex-col">

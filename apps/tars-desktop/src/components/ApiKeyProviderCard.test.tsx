@@ -229,11 +229,12 @@ describe('ApiKeyProviderCard — interactions', () => {
 
   it('does NOT call delete_api_key when user cancels confirm', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
+    invokeMock.mockResolvedValue([]);
     const { user } = renderWithUser(
       <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 7 })]} onAddKey={vi.fn()} />
     );
     await user.click(screen.getByRole('button', { name: /delete key/i }));
-    expect(invokeMock).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalledWith('delete_api_key', expect.anything());
   });
 
   it('renders a valid badge when last_valid is true', () => {
@@ -268,6 +269,73 @@ describe('ApiKeyProviderCard — interactions', () => {
     );
     await user.click(screen.getByRole('button', { name: /validate key/i }));
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('validate_api_key', { id: 9 }));
+  });
+});
+
+describe('ApiKeyProviderCard — models', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  it('renders the model table when listProviderModels returns rows', async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'list_provider_models') {
+        return [
+          {
+            provider_id: 'openai',
+            model_id: 'gpt-4o',
+            display_name: 'GPT-4o',
+            context_window: 128_000,
+            input_price: 2.5,
+            output_price: 10,
+            fetched_at: '2026-04-17T00:00:00Z',
+          },
+        ];
+      }
+      throw new Error(`unexpected ${cmd}`);
+    });
+    render(<ApiKeyProviderCard provider={openaiMeta} keys={[]} onAddKey={vi.fn()} />);
+    expect(await screen.findByText('GPT-4o')).toBeInTheDocument();
+    expect(screen.getByText(/\$2\.50/)).toBeInTheDocument();
+    expect(screen.getByText(/\$10\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/128k/i)).toBeInTheDocument();
+  });
+
+  it('shows an empty model state when listProviderModels returns []', async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'list_provider_models') return [];
+      throw new Error(`unexpected ${cmd}`);
+    });
+    render(<ApiKeyProviderCard provider={openaiMeta} keys={[]} onAddKey={vi.fn()} />);
+    expect(await screen.findByText(/no models cached/i)).toBeInTheDocument();
+  });
+
+  it('does not render a model section when the provider does not support models', () => {
+    const noModels = { ...openaiMeta, supports_models: false };
+    render(<ApiKeyProviderCard provider={noModels} keys={[]} onAddKey={vi.fn()} />);
+    expect(screen.queryByRole('heading', { name: /^models$/i })).not.toBeInTheDocument();
+  });
+
+  it('calls refresh_models then re-fetches models when Refresh Models is clicked', async () => {
+    let listed = 0;
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'refresh_models') return 1;
+      if (cmd === 'list_provider_models') {
+        listed++;
+        return [];
+      }
+      throw new Error(`unexpected ${cmd}`);
+    });
+    const { user } = renderWithUser(
+      <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 1 })]} onAddKey={vi.fn()} />
+    );
+    await waitFor(() => expect(listed).toBeGreaterThanOrEqual(1));
+    const baseline = listed;
+    await user.click(screen.getByRole('button', { name: /refresh models/i }));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith('refresh_models', { providerId: 'openai' })
+    );
+    await waitFor(() => expect(listed).toBeGreaterThan(baseline));
   });
 });
 
