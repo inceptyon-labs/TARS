@@ -65,21 +65,10 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
   const [revealedValue, setRevealedValue] = useState<string | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  // Holds the latest reveal.reset so the unmount cleanup can call it without
+  // capturing the first-render reveal object in a stale closure.
+  const revealResetRef = useRef<(() => void) | null>(null);
   const queryClient = useQueryClient();
-
-  // Clear pending auto-hide and mark unmounted so any in-flight IPC mutation
-  // resolving after teardown doesn't setState on a dead component or stash
-  // plaintext key material in mutation cache.
-  useEffect(
-    () => () => {
-      mountedRef.current = false;
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = null;
-      }
-    },
-    []
-  );
 
   const clearAutoHide = () => {
     if (hideTimerRef.current) {
@@ -107,6 +96,24 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
     },
     onError: (err) => toast.error(`Failed to reveal: ${String(err)}`),
   });
+
+  revealResetRef.current = reveal.reset;
+
+  // Clear pending auto-hide, mark unmounted, and drop the plaintext from
+  // mutation cache so any in-flight IPC mutation resolving after teardown
+  // doesn't setState on a dead component or leave decrypted key material in
+  // TanStack Query's mutation state until garbage collection.
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      revealResetRef.current?.();
+    },
+    []
+  );
 
   const remove = useMutation({
     mutationFn: () => deleteApiKey(k.id),

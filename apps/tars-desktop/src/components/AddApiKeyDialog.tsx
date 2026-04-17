@@ -21,12 +21,13 @@ export function AddApiKeyDialog({ provider, onOpenChange }: AddApiKeyDialogProps
   const [keyValue, setKeyValue] = useState('');
   const queryClient = useQueryClient();
 
-  // Reset state whenever the dialog opens for a new provider.
+  // Reset state on every open/close transition so the plaintext key never
+  // lingers in component state after the dialog closes (success, cancel, or
+  // explicit close). Tracking provider's truthiness as the open signal lets
+  // this fire on close (provider→null) too, not only on the next open.
   useEffect(() => {
-    if (provider) {
-      setLabel('');
-      setKeyValue('');
-    }
+    setLabel('');
+    setKeyValue('');
   }, [provider]);
 
   const mutation = useMutation({
@@ -48,6 +49,9 @@ export function AddApiKeyDialog({ provider, onOpenChange }: AddApiKeyDialogProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-keys'] });
       toast.success('Key added');
+      // Drop the plaintext key from React Query's mutation variables/data
+      // before closing — otherwise it sits in mutation state until GC.
+      mutation.reset();
       onOpenChange(false);
     },
     onError: (err) => {
