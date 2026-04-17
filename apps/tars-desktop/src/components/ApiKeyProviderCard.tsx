@@ -64,12 +64,15 @@ interface ApiKeyRowProps {
 function ApiKeyRow({ k }: ApiKeyRowProps) {
   const [revealedValue, setRevealedValue] = useState<string | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
   const queryClient = useQueryClient();
 
-  // Clear any pending auto-hide timer when the row unmounts so we never
-  // setState on an unmounted component.
+  // Clear pending auto-hide and mark unmounted so any in-flight IPC mutation
+  // resolving after teardown doesn't setState on a dead component or stash
+  // plaintext key material in mutation cache.
   useEffect(
     () => () => {
+      mountedRef.current = false;
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;
@@ -83,12 +86,16 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
     hideTimerRef.current = setTimeout(() => {
       setRevealedValue(null);
       hideTimerRef.current = null;
+      // Drop the plaintext from mutation cache too — keeping it would defeat
+      // the auto-hide window.
+      reveal.reset();
     }, REVEAL_TIMEOUT_MS);
   };
 
   const reveal = useMutation({
     mutationFn: () => revealApiKey(k.id),
     onSuccess: (value) => {
+      if (!mountedRef.current) return;
       setRevealedValue(value);
       startAutoHide();
     },
@@ -124,14 +131,19 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
         hideTimerRef.current = null;
       }
       setRevealedValue(null);
+      reveal.reset();
       return;
     }
+    if (reveal.isPending) return;
     reveal.mutate();
   };
 
   const handleCopy = async () => {
     try {
       const value = revealedValue ?? (await revealApiKey(k.id));
+      // Don't write a stale plaintext to the clipboard if the user navigated
+      // away mid-decrypt.
+      if (!mountedRef.current) return;
       await navigator.clipboard.writeText(value);
       toast.success('Key copied to clipboard');
     } catch (err) {
@@ -173,9 +185,10 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
         <button
           type="button"
           onClick={handleToggleReveal}
+          disabled={reveal.isPending}
           aria-label={revealedValue ? 'Hide key' : 'Reveal key'}
           title={revealedValue ? 'Hide key' : 'Reveal key (auto-hides in 10s)'}
-          className="p-1.5 rounded hover:bg-muted/50 transition-colors"
+          className="p-1.5 rounded hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {revealedValue ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
         </button>

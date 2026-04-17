@@ -107,7 +107,7 @@ export function AddApiKeyDialog({ provider, onOpenChange }: AddApiKeyDialogProps
               value={keyValue}
               onChange={(e) => setKeyValue(e.target.value)}
               placeholder={provider.key_format_hint}
-              autoComplete="off"
+              autoComplete="new-password"
               spellCheck={false}
               className="w-full px-3 py-2 text-sm font-mono rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             />

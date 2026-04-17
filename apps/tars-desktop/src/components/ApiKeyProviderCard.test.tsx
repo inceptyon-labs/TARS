@@ -174,6 +174,41 @@ describe('ApiKeyProviderCard — interactions', () => {
     }
   });
 
+  it('does not setState if the component unmounts before reveal resolves', async () => {
+    let resolveReveal: ((value: string) => void) | null = null;
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'reveal_api_key') {
+        return new Promise<string>((resolve) => {
+          resolveReveal = resolve;
+        });
+      }
+      throw new Error(`unexpected ${cmd}`);
+    });
+
+    const { user, unmount } = renderWithUser(
+      <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 1 })]} onAddKey={vi.fn()} />
+    );
+    await user.click(screen.getByRole('button', { name: /reveal key/i }));
+    // Tear down before the IPC resolves.
+    unmount();
+    // Resolve after unmount — must not throw or warn about setState on
+    // unmounted component.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await act(async () => {
+        resolveReveal?.('sk-late');
+        // Yield so the mutation resolution flushes.
+        await Promise.resolve();
+      });
+      const setStateWarnings = errorSpy.mock.calls.filter(
+        ([msg]) => typeof msg === 'string' && msg.includes("can't perform a React state update")
+      );
+      expect(setStateWarnings).toHaveLength(0);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('toggles back to masked when reveal is clicked a second time', async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === 'reveal_api_key') return 'sk-toggled';
