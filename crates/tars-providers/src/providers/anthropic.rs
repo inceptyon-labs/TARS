@@ -32,6 +32,9 @@ impl AnthropicProvider {
     }
 
     /// Construct with a custom base URL (used by tests pointing at a mock).
+    ///
+    /// # Panics
+    /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn with_base_url(base_url: String) -> Self {
         let client = Client::builder()

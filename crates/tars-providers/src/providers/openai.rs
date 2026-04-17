@@ -1,4 +1,4 @@
-//! OpenAI provider implementation.
+//! `OpenAI` provider implementation.
 //!
 //! Auth check and model discovery share the same endpoint: `GET /v1/models`.
 //! A 200 response means the key is valid; a 401/403 means invalid (surfaced as
@@ -37,6 +37,10 @@ impl OpenAiProvider {
     }
 
     /// Construct with a custom base URL (used by tests pointing at a mock).
+    ///
+    /// # Panics
+    /// Panics only if the underlying TLS stack fails to initialize, which is
+    /// treated as a non-recoverable environment error.
     #[must_use]
     pub fn with_base_url(base_url: String) -> Self {
         let client = Client::builder()
