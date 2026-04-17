@@ -210,6 +210,13 @@ pub fn run() {
             commands::save_project_secret,
             commands::update_project_secret,
             commands::delete_project_secret,
+            // API keys vault commands
+            commands::list_providers,
+            commands::add_api_key,
+            commands::list_api_keys,
+            commands::delete_api_key,
+            commands::validate_api_key,
+            commands::refresh_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

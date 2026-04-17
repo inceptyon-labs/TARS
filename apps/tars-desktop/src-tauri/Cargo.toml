@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tars-core = { workspace = true }
 tars-scanner = { workspace = true }
+tars-providers = { workspace = true }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
