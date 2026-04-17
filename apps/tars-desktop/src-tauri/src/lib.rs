@@ -217,6 +217,8 @@ pub fn run() {
             commands::delete_api_key,
             commands::validate_api_key,
             commands::refresh_models,
+            commands::reveal_api_key,
+            commands::list_provider_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
