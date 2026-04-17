@@ -1,9 +1,11 @@
 import { Plus, RefreshCw, Eye, EyeOff, Copy, Trash2, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   deleteApiKey,
+  listProviderModels,
+  refreshModels,
   revealApiKey,
   validateApiKey,
   type ApiKeySummary,
@@ -28,6 +30,17 @@ function formatBalance(balance: unknown): string | null {
     if (typeof v === 'number') return `$${v.toFixed(2)}`;
   }
   return null;
+}
+
+function formatPrice(price: number | null): string {
+  if (price == null) return '—';
+  return `$${price.toFixed(2)}`;
+}
+
+function formatContextWindow(n: number | null): string {
+  if (n == null) return '—';
+  if (n >= 1000) return `${Math.round(n / 1000)}k`;
+  return String(n);
 }
 
 function formatRelativeTime(iso: string | null): string | null {
@@ -200,10 +213,72 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
   );
 }
 
+function ModelTable({ provider }: { provider: ProviderMetadata }) {
+  const modelsQuery = useQuery({
+    queryKey: ['provider-models', provider.id],
+    queryFn: () => listProviderModels(provider.id),
+    enabled: provider.supports_models,
+  });
+
+  if (modelsQuery.isLoading) {
+    return <p className="text-xs text-muted-foreground">Loading models…</p>;
+  }
+  if (modelsQuery.isError) {
+    return <p className="text-xs text-destructive">Failed to load models.</p>;
+  }
+  const rows = modelsQuery.data ?? [];
+  if (rows.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground italic">
+        No models cached. Click Refresh Models to fetch the latest list.
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded border border-border/60">
+      <table className="w-full text-xs">
+        <thead className="bg-muted/30">
+          <tr>
+            <th className="text-left px-2 py-1.5 font-medium">Model</th>
+            <th className="text-right px-2 py-1.5 font-medium">Context</th>
+            <th className="text-right px-2 py-1.5 font-medium">In $/1M</th>
+            <th className="text-right px-2 py-1.5 font-medium">Out $/1M</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((m) => (
+            <tr key={m.model_id} className="border-t border-border/40">
+              <td className="px-2 py-1.5 font-mono">
+                {m.display_name && m.display_name !== m.model_id ? m.display_name : m.model_id}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono">
+                {formatContextWindow(m.context_window)}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono">{formatPrice(m.input_price)}</td>
+              <td className="px-2 py-1.5 text-right font-mono">{formatPrice(m.output_price)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function ApiKeyProviderCard({ provider, keys, onAddKey }: ApiKeyProviderCardProps) {
+  const queryClient = useQueryClient();
   const balanceText = provider.supports_balance
     ? (keys.map((k) => formatBalance(k.balance)).find((b) => b != null) ?? null)
     : null;
+
+  const refresh = useMutation({
+    mutationFn: () => refreshModels(provider.id),
+    onSuccess: (count) => {
+      toast.success(`Refreshed ${count} model${count === 1 ? '' : 's'}`);
+      queryClient.invalidateQueries({ queryKey: ['provider-models', provider.id] });
+    },
+    onError: (err) => toast.error(`Refresh failed: ${String(err)}`),
+  });
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
@@ -237,6 +312,15 @@ export function ApiKeyProviderCard({ provider, keys, onAddKey }: ApiKeyProviderC
         </ul>
       )}
 
+      {provider.supports_models && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Models
+          </h3>
+          <ModelTable provider={provider} />
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -249,9 +333,16 @@ export function ApiKeyProviderCard({ provider, keys, onAddKey }: ApiKeyProviderC
         {provider.supports_models && (
           <button
             type="button"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors"
+            onClick={() => refresh.mutate()}
+            disabled={refresh.isPending || keys.length === 0}
+            title={
+              keys.length === 0
+                ? 'Add a key first to enable model refresh'
+                : 'Re-fetch the model list from the provider'
+            }
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className={`h-3.5 w-3.5 ${refresh.isPending ? 'animate-spin' : ''}`} />
             Refresh Models
           </button>
         )}
