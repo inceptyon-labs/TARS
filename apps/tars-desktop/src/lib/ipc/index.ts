@@ -1103,3 +1103,21 @@ export async function validateApiKey(id: number): Promise<ValidationResult> {
 export async function refreshModels(providerId: ProviderId): Promise<number> {
   return invoke('refresh_models', { providerId });
 }
+
+export async function revealApiKey(id: number): Promise<string> {
+  return invoke('reveal_api_key', { id });
+}
+
+export interface CachedModel {
+  provider_id: ProviderId;
+  model_id: string;
+  display_name: string | null;
+  context_window: number | null;
+  input_price: number | null;
+  output_price: number | null;
+  fetched_at: string;
+}
+
+export async function listProviderModels(providerId: ProviderId): Promise<CachedModel[]> {
+  return invoke('list_provider_models', { providerId });
+}
