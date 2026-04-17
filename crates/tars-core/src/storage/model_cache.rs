@@ -43,14 +43,21 @@ impl<'a> ModelCache<'a> {
         Self { conn }
     }
 
-    /// Atomically replace cached rows for a provider with `models`.
+    /// Atomically replace cached rows for a provider with `models`, preserving
+    /// any user-set `price_override_json` values across the refresh.
     ///
-    /// All rows are stamped with the supplied `fetched_at`. The delete + inserts
-    /// run in a single transaction so a partial failure leaves the prior cache
-    /// intact.
+    /// The transaction:
+    /// 1. Deletes provider rows whose `model_id` is **not** in the new set
+    ///    (these models are no longer offered upstream).
+    /// 2. Upserts the new set via `ON CONFLICT DO UPDATE`, leaving
+    ///    `price_override_json` untouched for rows that already exist.
+    ///
+    /// All rows are stamped with the supplied `fetched_at`. The whole sequence
+    /// runs in a single transaction so a partial failure leaves the prior
+    /// cache intact.
     ///
     /// # Errors
-    /// Returns an error if the transaction or any insert fails.
+    /// Returns an error if the transaction or any statement fails.
     pub fn upsert_all(
         &self,
         provider_id: &str,
@@ -58,10 +65,33 @@ impl<'a> ModelCache<'a> {
         fetched_at: DateTime<Utc>,
     ) -> Result<usize, DatabaseError> {
         let tx = self.conn.unchecked_transaction()?;
-        tx.execute(
-            "DELETE FROM provider_models WHERE provider_id = ?1",
-            params![provider_id],
-        )?;
+
+        // Remove rows no longer offered by the provider. Only model_ids not
+        // present in `models` are dropped — surviving rows keep their
+        // `price_override_json`.
+        let keep: Vec<&str> = models.iter().map(|m| m.model_id.as_str()).collect();
+        if keep.is_empty() {
+            tx.execute(
+                "DELETE FROM provider_models WHERE provider_id = ?1",
+                params![provider_id],
+            )?;
+        } else {
+            let placeholders = (0..keep.len())
+                .map(|i| format!("?{}", i + 2))
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!(
+                "DELETE FROM provider_models
+                 WHERE provider_id = ?1 AND model_id NOT IN ({placeholders})"
+            );
+            let mut stmt = tx.prepare(&sql)?;
+            let mut args: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(keep.len() + 1);
+            args.push(&provider_id);
+            for id in &keep {
+                args.push(id);
+            }
+            stmt.execute(rusqlite::params_from_iter(args.iter().copied()))?;
+        }
 
         let stamp = fetched_at.to_rfc3339();
         let mut inserted = 0_usize;
@@ -72,6 +102,12 @@ impl<'a> ModelCache<'a> {
                     (provider_id, model_id, display_name, context_window,
                      input_price, output_price, price_override_json, fetched_at)
                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7)
+                ON CONFLICT(provider_id, model_id) DO UPDATE SET
+                    display_name = excluded.display_name,
+                    context_window = excluded.context_window,
+                    input_price = excluded.input_price,
+                    output_price = excluded.output_price,
+                    fetched_at = excluded.fetched_at
                 ",
                 params![
                     provider_id,
@@ -327,6 +363,64 @@ mod tests {
 
         let oldest = cache.oldest_fetched_at("openai").unwrap().unwrap();
         assert_eq!(oldest.timestamp(), early.timestamp());
+    }
+
+    #[test]
+    fn upsert_preserves_price_override_json() {
+        let db = Database::in_memory().unwrap();
+        let cache = ModelCache::new(db.connection());
+        let now = Utc::now();
+
+        cache.upsert_all("openai", &sample_rows(), now).unwrap();
+
+        // Simulate a user-set price override on the gpt-4o row.
+        let override_json = r#"{"input":0.001,"output":0.002}"#;
+        db.connection()
+            .execute(
+                "UPDATE provider_models
+                 SET price_override_json = ?1
+                 WHERE provider_id = 'openai' AND model_id = 'gpt-4o'",
+                params![override_json],
+            )
+            .unwrap();
+
+        // Refresh with the same model list; override must be preserved.
+        let later = now + Duration::hours(1);
+        cache.upsert_all("openai", &sample_rows(), later).unwrap();
+
+        let saved: String = db
+            .connection()
+            .query_row(
+                "SELECT price_override_json FROM provider_models
+                 WHERE provider_id = 'openai' AND model_id = 'gpt-4o'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(saved, override_json);
+    }
+
+    #[test]
+    fn upsert_drops_models_no_longer_offered() {
+        let db = Database::in_memory().unwrap();
+        let cache = ModelCache::new(db.connection());
+        let now = Utc::now();
+
+        cache.upsert_all("openai", &sample_rows(), now).unwrap();
+
+        // Refresh with a smaller set — gpt-3.5-turbo must be dropped.
+        let reduced = vec![ModelRow {
+            model_id: "gpt-4o".into(),
+            display_name: Some("GPT-4o".into()),
+            context_window: Some(128_000),
+            input_price: None,
+            output_price: None,
+        }];
+        cache.upsert_all("openai", &reduced, now).unwrap();
+
+        let listed = cache.list_for_provider("openai").unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].model_id, "gpt-4o");
     }
 
     #[test]

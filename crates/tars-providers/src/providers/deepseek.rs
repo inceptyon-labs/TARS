@@ -80,7 +80,6 @@ struct ModelDto {
 
 #[derive(Debug, Deserialize)]
 struct BalanceResponse {
-    #[serde(default)]
     balance_infos: Vec<BalanceInfo>,
 }
 
@@ -139,10 +138,7 @@ impl Provider for DeepseekProvider {
 
         match resp.status() {
             s if s.is_success() => {
-                let parsed: ModelsResponse = resp
-                    .json()
-                    .await
-                    .map_err(|e| ProviderError::Parse(e.to_string()))?;
+                let parsed: ModelsResponse = resp.json().await.map_err(ProviderError::from)?;
                 Ok(parsed
                     .data
                     .into_iter()
@@ -176,31 +172,25 @@ impl Provider for DeepseekProvider {
             s if s.is_success() => {
                 // Capture the raw JSON for display so the UI can show all fields
                 // DeepSeek returns (e.g. granted/topped-up breakdown).
-                let raw: serde_json::Value = resp
-                    .json()
-                    .await
-                    .map_err(|e| ProviderError::Parse(e.to_string()))?;
+                let raw: serde_json::Value = resp.json().await.map_err(ProviderError::from)?;
                 let parsed: BalanceResponse = serde_json::from_value(raw.clone())
                     .map_err(|e| ProviderError::Parse(e.to_string()))?;
-                let first = parsed.balance_infos.into_iter().next();
-                match first {
-                    Some(info) => {
-                        let amount = info
-                            .total_balance
-                            .parse::<f64>()
-                            .map_err(|e| ProviderError::Parse(format!("Bad total_balance: {e}")))?;
-                        Ok(Some(Balance {
-                            currency: info.currency,
-                            amount,
-                            raw,
-                        }))
-                    }
-                    None => Ok(Some(Balance {
-                        currency: String::new(),
-                        amount: 0.0,
-                        raw,
-                    })),
-                }
+                let Some(info) = parsed.balance_infos.into_iter().next() else {
+                    // DeepSeek returned an empty info list. Treat as "no
+                    // balance to show" rather than a fake zero: an empty
+                    // currency + 0.0 amount would be indistinguishable from
+                    // a genuine zero balance in the UI.
+                    return Ok(None);
+                };
+                let amount = info
+                    .total_balance
+                    .parse::<f64>()
+                    .map_err(|e| ProviderError::Parse(format!("Bad total_balance: {e}")))?;
+                Ok(Some(Balance {
+                    currency: info.currency,
+                    amount,
+                    raw,
+                }))
             }
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Err(ProviderError::Unauthorized {
                 status: resp.status().as_u16(),
@@ -280,7 +270,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_balance_handles_empty_infos() {
+    async fn get_balance_empty_infos_returns_none() {
+        // An empty `balance_infos` means DeepSeek has no balance to report;
+        // we intentionally return None rather than a synthetic zero so the
+        // UI can distinguish "no data" from a real zero balance.
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/user/balance"))
@@ -291,13 +284,8 @@ mod tests {
             .mount(&server)
             .await;
 
-        let bal = provider(&server)
-            .get_balance("sk-x")
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(bal.amount.abs() < f64::EPSILON);
-        assert!(bal.currency.is_empty());
+        let bal = provider(&server).get_balance("sk-x").await.unwrap();
+        assert!(bal.is_none());
     }
 
     #[tokio::test]

@@ -125,10 +125,7 @@ impl Provider for OpenAiProvider {
 
         match resp.status() {
             s if s.is_success() => {
-                let parsed: ModelsResponse = resp
-                    .json()
-                    .await
-                    .map_err(|e| ProviderError::Parse(e.to_string()))?;
+                let parsed: ModelsResponse = resp.json().await.map_err(ProviderError::from)?;
                 Ok(parsed
                     .data
                     .into_iter()
