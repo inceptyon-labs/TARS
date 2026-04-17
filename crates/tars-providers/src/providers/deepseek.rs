@@ -18,6 +18,7 @@ use crate::{
 
 const DEFAULT_BASE_URL: &str = "https://api.deepseek.com";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct DeepseekProvider {
     client: Client,
@@ -25,24 +26,40 @@ pub struct DeepseekProvider {
 }
 
 impl DeepseekProvider {
+    /// Construct with default production base URL and HTTPS-only enforcement.
+    ///
+    /// # Panics
+    /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_base_url(DEFAULT_BASE_URL.to_string())
+        Self {
+            client: build_client(true),
+            base_url: DEFAULT_BASE_URL.to_string(),
+        }
     }
 
     /// Construct with a custom base URL (used by tests pointing at a mock).
+    /// HTTPS-only is relaxed here so `wiremock`'s plain HTTP server works.
     ///
     /// # Panics
     /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn with_base_url(base_url: String) -> Self {
-        let client = Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .user_agent("tars/0.4")
-            .build()
-            .expect("reqwest client builds");
-        Self { client, base_url }
+        Self {
+            client: build_client(false),
+            base_url,
+        }
     }
+}
+
+fn build_client(https_only: bool) -> Client {
+    Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .connect_timeout(CONNECT_TIMEOUT)
+        .user_agent("tars/0.4")
+        .https_only(https_only)
+        .build()
+        .expect("reqwest client builds")
 }
 
 impl Default for DeepseekProvider {

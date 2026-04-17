@@ -19,6 +19,7 @@ use crate::{
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct OpenAiProvider {
     client: Client,
@@ -26,30 +27,41 @@ pub struct OpenAiProvider {
 }
 
 impl OpenAiProvider {
-    /// Construct with default production base URL.
+    /// Construct with default production base URL and HTTPS-only enforcement.
     ///
     /// # Panics
     /// Panics only if the underlying TLS stack fails to initialize, which is
     /// treated as a non-recoverable environment error.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_base_url(DEFAULT_BASE_URL.to_string())
+        Self {
+            client: build_client(true),
+            base_url: DEFAULT_BASE_URL.to_string(),
+        }
     }
 
     /// Construct with a custom base URL (used by tests pointing at a mock).
+    /// HTTPS-only is relaxed here so `wiremock`'s plain HTTP server works.
     ///
     /// # Panics
-    /// Panics only if the underlying TLS stack fails to initialize, which is
-    /// treated as a non-recoverable environment error.
+    /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn with_base_url(base_url: String) -> Self {
-        let client = Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .user_agent("tars/0.4")
-            .build()
-            .expect("reqwest client builds");
-        Self { client, base_url }
+        Self {
+            client: build_client(false),
+            base_url,
+        }
     }
+}
+
+fn build_client(https_only: bool) -> Client {
+    Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .connect_timeout(CONNECT_TIMEOUT)
+        .user_agent("tars/0.4")
+        .https_only(https_only)
+        .build()
+        .expect("reqwest client builds")
 }
 
 impl Default for OpenAiProvider {
@@ -93,9 +105,9 @@ impl Provider for OpenAiProvider {
                 valid: true,
                 message: None,
             }),
-            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Ok(ValidationResult {
+            status @ (StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) => Ok(ValidationResult {
                 valid: false,
-                message: Some(format!("Key rejected by OpenAI (HTTP {})", s_code(&resp))),
+                message: Some(format!("Key rejected by OpenAI (HTTP {})", status.as_u16())),
             }),
             other => Err(ProviderError::Http(format!("OpenAI returned {other}"))),
         }
@@ -139,10 +151,6 @@ impl Provider for OpenAiProvider {
     async fn get_balance(&self, _key: &str) -> Result<Option<Balance>, ProviderError> {
         Ok(None)
     }
-}
-
-fn s_code(resp: &reqwest::Response) -> u16 {
-    resp.status().as_u16()
 }
 
 #[cfg(test)]
