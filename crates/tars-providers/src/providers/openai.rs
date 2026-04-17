@@ -196,7 +196,10 @@ mod tests {
             .await;
 
         let err = provider(&server).validate_key("sk-x").await.unwrap_err();
-        matches!(err, ProviderError::Http(_));
+        assert!(
+            matches!(err, ProviderError::Http(_)),
+            "expected Http error, got {err:?}"
+        );
     }
 
     #[tokio::test]

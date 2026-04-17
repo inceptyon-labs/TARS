@@ -293,7 +293,10 @@ mod tests {
             .await;
 
         let err = provider(&server).get_balance("bad").await.unwrap_err();
-        matches!(err, ProviderError::Unauthorized { .. });
+        assert!(
+            matches!(err, ProviderError::Unauthorized { .. }),
+            "expected Unauthorized, got {err:?}"
+        );
     }
 
     #[tokio::test]
