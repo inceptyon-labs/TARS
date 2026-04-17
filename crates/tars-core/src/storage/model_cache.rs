@@ -105,8 +105,8 @@ impl<'a> ModelCache<'a> {
                 ON CONFLICT(provider_id, model_id) DO UPDATE SET
                     display_name = excluded.display_name,
                     context_window = excluded.context_window,
-                    input_price = excluded.input_price,
-                    output_price = excluded.output_price,
+                    input_price = COALESCE(excluded.input_price, input_price),
+                    output_price = COALESCE(excluded.output_price, output_price),
                     fetched_at = excluded.fetched_at
                 ",
                 params![
@@ -428,5 +428,41 @@ mod tests {
         let db = Database::in_memory().unwrap();
         let cache = ModelCache::new(db.connection());
         assert!(cache.list_for_provider("mystery").unwrap().is_empty());
+    }
+
+    #[test]
+    fn upsert_preserves_litellm_prices_when_provider_api_returns_null() {
+        let db = Database::in_memory().unwrap();
+        let cache = ModelCache::new(db.connection());
+        let now = Utc::now();
+
+        // First upsert: provider API returns None for prices (common case).
+        let no_prices = vec![ModelRow {
+            model_id: "gpt-4o".into(),
+            display_name: Some("GPT-4o".into()),
+            context_window: Some(128_000),
+            input_price: None,
+            output_price: None,
+        }];
+        cache.upsert_all("openai", &no_prices, now).unwrap();
+
+        // Simulate LiteLLM pricing refresh populating the prices directly.
+        db.connection()
+            .execute(
+                "UPDATE provider_models SET input_price = 2.5, output_price = 10.0
+                 WHERE provider_id = 'openai' AND model_id = 'gpt-4o'",
+                [],
+            )
+            .unwrap();
+
+        // Second upsert: provider API still returns None for prices.
+        let later = now + Duration::hours(1);
+        cache.upsert_all("openai", &no_prices, later).unwrap();
+
+        // LiteLLM prices must survive the model refresh.
+        let listed = cache.list_for_provider("openai").unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].input_price, Some(2.5));
+        assert_eq!(listed[0].output_price, Some(10.0));
     }
 }

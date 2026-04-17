@@ -12,7 +12,8 @@ pub mod cache;
 pub mod litellm;
 
 pub use cache::{
-    effective_price_for, get_metadata, set_metadata, update_prices, EffectivePrice, PriceUpdateRow,
-    PricingMetadata, METADATA_KEY_LAST_ERROR, METADATA_KEY_LAST_REFRESH,
+    delete_metadata, effective_price_for, get_metadata, set_metadata, update_prices,
+    EffectivePrice, PriceUpdateRow, PricingMetadata, METADATA_KEY_LAST_ERROR,
+    METADATA_KEY_LAST_REFRESH,
 };
 pub use litellm::{parse_litellm_prices, ParsedPrice, LITELLM_PRICES_URL};
