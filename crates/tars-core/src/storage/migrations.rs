@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 4;
+const CURRENT_VERSION: i32 = 5;
 
 /// Run all pending migrations
 ///
@@ -27,6 +27,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 4 {
         migrate_v4(conn)?;
+    }
+
+    if version < 5 {
+        migrate_v5(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -213,4 +217,165 @@ fn migrate_v2(conn: &Connection) -> Result<(), DatabaseError> {
     )?;
 
     Ok(())
+}
+
+fn migrate_v5(conn: &Connection) -> Result<(), DatabaseError> {
+    // API keys vault: encrypted AI provider API keys, not tied to a project.
+    // `provider_id` is the stable string form of tars_providers::ProviderId
+    // (e.g. "openai", "anthropic"). `label` is free-form user text used to
+    // distinguish multiple keys for the same provider.
+    //
+    // `provider_models` caches the model list fetched from each provider.
+    // Pricing columns populate from the Phase-4 LiteLLM import; they are
+    // nullable until first refresh.
+    conn.execute_batch(
+        r"
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider_id TEXT NOT NULL,
+            label TEXT NOT NULL,
+            encrypted_key TEXT NOT NULL,
+            nonce TEXT NOT NULL,
+            last_validated_at TEXT,
+            last_valid INTEGER,
+            balance_json TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(provider_id, label)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_api_keys_provider ON api_keys(provider_id);
+
+        CREATE TABLE IF NOT EXISTS provider_models (
+            provider_id TEXT NOT NULL,
+            model_id TEXT NOT NULL,
+            display_name TEXT,
+            context_window INTEGER,
+            input_price REAL,
+            output_price REAL,
+            price_override_json TEXT,
+            fetched_at TEXT NOT NULL,
+            PRIMARY KEY(provider_id, model_id)
+        );
+        ",
+    )?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::params;
+
+    fn fresh_conn() -> Connection {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        run_migrations(&conn).expect("migrations");
+        conn
+    }
+
+    fn table_columns(conn: &Connection, table: &str) -> Vec<String> {
+        let mut stmt = conn
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .unwrap();
+        stmt.query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    #[test]
+    fn migrations_reach_current_version() {
+        let conn = fresh_conn();
+        let v: i32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(v, CURRENT_VERSION);
+    }
+
+    #[test]
+    fn v5_creates_api_keys_table() {
+        let conn = fresh_conn();
+        let cols = table_columns(&conn, "api_keys");
+        for expected in [
+            "id",
+            "provider_id",
+            "label",
+            "encrypted_key",
+            "nonce",
+            "last_validated_at",
+            "last_valid",
+            "balance_json",
+            "created_at",
+            "updated_at",
+        ] {
+            assert!(
+                cols.contains(&expected.to_string()),
+                "missing col {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn v5_creates_provider_models_table() {
+        let conn = fresh_conn();
+        let cols = table_columns(&conn, "provider_models");
+        for expected in [
+            "provider_id",
+            "model_id",
+            "display_name",
+            "context_window",
+            "input_price",
+            "output_price",
+            "price_override_json",
+            "fetched_at",
+        ] {
+            assert!(
+                cols.contains(&expected.to_string()),
+                "missing col {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn api_keys_unique_on_provider_and_label() {
+        let conn = fresh_conn();
+        let now = "2026-04-17T00:00:00Z";
+        conn.execute(
+            "INSERT INTO api_keys (provider_id, label, encrypted_key, nonce, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+            params!["openai", "work", "enc1", "nonce1", now],
+        )
+        .unwrap();
+        let dup = conn.execute(
+            "INSERT INTO api_keys (provider_id, label, encrypted_key, nonce, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+            params!["openai", "work", "enc2", "nonce2", now],
+        );
+        assert!(dup.is_err(), "duplicate should violate UNIQUE");
+        // Same label different provider is allowed
+        conn.execute(
+            "INSERT INTO api_keys (provider_id, label, encrypted_key, nonce, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+            params!["anthropic", "work", "enc3", "nonce3", now],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn provider_models_pk_on_provider_and_model() {
+        let conn = fresh_conn();
+        let now = "2026-04-17T00:00:00Z";
+        conn.execute(
+            "INSERT INTO provider_models (provider_id, model_id, fetched_at) VALUES (?1, ?2, ?3)",
+            params!["openai", "gpt-4", now],
+        )
+        .unwrap();
+        let dup = conn.execute(
+            "INSERT INTO provider_models (provider_id, model_id, fetched_at) VALUES (?1, ?2, ?3)",
+            params!["openai", "gpt-4", now],
+        );
+        assert!(dup.is_err(), "duplicate (provider,model) should violate PK");
+    }
 }
