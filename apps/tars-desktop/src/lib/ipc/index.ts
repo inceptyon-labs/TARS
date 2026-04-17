@@ -1045,3 +1045,61 @@ export async function updateProjectSecret(
 export async function deleteProjectSecret(projectId: string, name: string): Promise<boolean> {
   return invoke('delete_project_secret', { projectId, name });
 }
+
+// API keys vault — shared reference store for AI provider keys
+export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'deepseek';
+
+export interface ProviderMetadata {
+  id: ProviderId;
+  display_name: string;
+  docs_url: string;
+  key_format_hint: string;
+  supports_models: boolean;
+  supports_balance: boolean;
+}
+
+export interface ApiKeySummary {
+  id: number;
+  provider_id: ProviderId;
+  label: string;
+  last_validated_at: string | null;
+  last_valid: boolean | null;
+  balance: unknown | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiKeyInput {
+  provider_id: ProviderId;
+  label: string;
+  key: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  message: string | null;
+}
+
+export async function listProviders(): Promise<ProviderMetadata[]> {
+  return invoke('list_providers');
+}
+
+export async function addApiKey(input: ApiKeyInput): Promise<number> {
+  return invoke('add_api_key', { input });
+}
+
+export async function listApiKeys(): Promise<ApiKeySummary[]> {
+  return invoke('list_api_keys');
+}
+
+export async function deleteApiKey(id: number): Promise<boolean> {
+  return invoke('delete_api_key', { id });
+}
+
+export async function validateApiKey(id: number): Promise<ValidationResult> {
+  return invoke('validate_api_key', { id });
+}
+
+export async function refreshModels(providerId: ProviderId): Promise<number> {
+  return invoke('refresh_models', { providerId });
+}
