@@ -1,7 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '../test/test-utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '../test/test-utils';
 import { ApiKeyProviderCard } from './ApiKeyProviderCard';
 import type { ApiKeySummary, ProviderMetadata } from '../lib/ipc';
+import { invoke } from '@tauri-apps/api/core';
+
+const invokeMock = vi.mocked(invoke);
 
 const openaiMeta: ProviderMetadata = {
   id: 'openai',
@@ -99,7 +102,175 @@ describe('ApiKeyProviderCard — shell', () => {
 
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
-function renderWithUser(ui: ReactElement) {
-  const user = userEvent.setup();
+function renderWithUser(ui: ReactElement, opts: { fakeTimers?: boolean } = {}) {
+  const user = opts.fakeTimers
+    ? userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+    : userEvent.setup();
   return { user, ...render(ui) };
 }
+
+describe('ApiKeyProviderCard — interactions', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  it('reveals the plaintext key on click and schedules auto-hide at 10s', async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'reveal_api_key') return 'sk-revealed-12345';
+      throw new Error(`unexpected ${cmd}`);
+    });
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const { user } = renderWithUser(
+      <ApiKeyProviderCard
+        provider={openaiMeta}
+        keys={[makeKey({ id: 1, label: 'work' })]}
+        onAddKey={vi.fn()}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: /reveal key/i }));
+    await waitFor(() => {
+      expect(screen.getByText('sk-revealed-12345')).toBeInTheDocument();
+    });
+    // Component must schedule the auto-hide with the documented 10s timeout.
+    const tenSecondCall = setTimeoutSpy.mock.calls.find(([, ms]) => ms === 10_000);
+    expect(tenSecondCall).toBeDefined();
+    setTimeoutSpy.mockRestore();
+  });
+
+  it('auto-hides the revealed key after the 10s timeout fires', async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'reveal_api_key') return 'sk-autohide';
+      throw new Error(`unexpected ${cmd}`);
+    });
+    // Capture the auto-hide callback by spying on setTimeout. We invoke it
+    // manually so we don't have to thread fake timers through userEvent.
+    const realSetTimeout = globalThis.setTimeout;
+    let captured: (() => void) | null = null;
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+      cb: () => void,
+      ms?: number
+    ) => {
+      if (ms === 10_000) {
+        captured = cb;
+        return 0 as unknown as ReturnType<typeof setTimeout>;
+      }
+      return realSetTimeout(cb, ms);
+    }) as typeof setTimeout);
+
+    try {
+      const { user } = renderWithUser(
+        <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 1 })]} onAddKey={vi.fn()} />
+      );
+      await user.click(screen.getByRole('button', { name: /reveal key/i }));
+      await waitFor(() => expect(screen.getByText('sk-autohide')).toBeInTheDocument());
+
+      expect(captured).not.toBeNull();
+      await act(async () => {
+        captured!();
+      });
+      expect(screen.queryByText('sk-autohide')).not.toBeInTheDocument();
+    } finally {
+      setTimeoutSpy.mockRestore();
+    }
+  });
+
+  it('toggles back to masked when reveal is clicked a second time', async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'reveal_api_key') return 'sk-toggled';
+      throw new Error(`unexpected ${cmd}`);
+    });
+    const { user } = renderWithUser(
+      <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 1 })]} onAddKey={vi.fn()} />
+    );
+    await user.click(screen.getByRole('button', { name: /reveal key/i }));
+    await waitFor(() => expect(screen.getByText('sk-toggled')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /hide key/i }));
+    expect(screen.queryByText('sk-toggled')).not.toBeInTheDocument();
+  });
+
+  it('copies the decrypted key to clipboard', async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'reveal_api_key') return 'sk-clip-XYZ';
+      throw new Error(`unexpected ${cmd}`);
+    });
+
+    const { user } = renderWithUser(
+      <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 1 })]} onAddKey={vi.fn()} />
+    );
+    // userEvent.setup() installs a clipboard polyfill on `navigator.clipboard`.
+    // Spy on its writeText so we can assert the component wrote the right value
+    // without disturbing the polyfill itself.
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    try {
+      await user.click(screen.getByRole('button', { name: /copy key/i }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('sk-clip-XYZ'));
+    } finally {
+      writeText.mockRestore();
+    }
+  });
+
+  it('confirms before deleting and calls delete_api_key on confirm', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'delete_api_key') return true;
+      throw new Error(`unexpected ${cmd}`);
+    });
+    const { user } = renderWithUser(
+      <ApiKeyProviderCard
+        provider={openaiMeta}
+        keys={[makeKey({ id: 7, label: 'work' })]}
+        onAddKey={vi.fn()}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: /delete key/i }));
+    expect(confirmSpy).toHaveBeenCalled();
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('delete_api_key', { id: 7 }));
+  });
+
+  it('does NOT call delete_api_key when user cancels confirm', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { user } = renderWithUser(
+      <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 7 })]} onAddKey={vi.fn()} />
+    );
+    await user.click(screen.getByRole('button', { name: /delete key/i }));
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('renders a valid badge when last_valid is true', () => {
+    render(
+      <ApiKeyProviderCard
+        provider={openaiMeta}
+        keys={[makeKey({ id: 1, last_valid: true, last_validated_at: '2026-04-17T12:00:00Z' })]}
+        onAddKey={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/^valid$/i)).toBeInTheDocument();
+  });
+
+  it('renders an invalid badge when last_valid is false', () => {
+    render(
+      <ApiKeyProviderCard
+        provider={openaiMeta}
+        keys={[makeKey({ id: 1, last_valid: false, last_validated_at: '2026-04-17T12:00:00Z' })]}
+        onAddKey={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/^invalid$/i)).toBeInTheDocument();
+  });
+
+  it('calls validate_api_key when Validate is clicked', async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'validate_api_key') return { valid: true, message: null };
+      throw new Error(`unexpected ${cmd}`);
+    });
+    const { user } = renderWithUser(
+      <ApiKeyProviderCard provider={openaiMeta} keys={[makeKey({ id: 9 })]} onAddKey={vi.fn()} />
+    );
+    await user.click(screen.getByRole('button', { name: /validate key/i }));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('validate_api_key', { id: 9 }));
+  });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
