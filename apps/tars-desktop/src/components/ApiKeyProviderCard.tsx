@@ -81,15 +81,11 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
     []
   );
 
-  const startAutoHide = () => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      setRevealedValue(null);
+  const clearAutoHide = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
-      // Drop the plaintext from mutation cache too — keeping it would defeat
-      // the auto-hide window.
-      reveal.reset();
-    }, REVEAL_TIMEOUT_MS);
+    }
   };
 
   const reveal = useMutation({
@@ -97,7 +93,17 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
     onSuccess: (value) => {
       if (!mountedRef.current) return;
       setRevealedValue(value);
-      startAutoHide();
+      // Schedule auto-hide here (rather than via a separate helper that
+      // captures `reveal` before its declaration) to keep the lifecycle of
+      // plaintext exposure obvious in one place.
+      clearAutoHide();
+      hideTimerRef.current = setTimeout(() => {
+        setRevealedValue(null);
+        hideTimerRef.current = null;
+        // Drop the plaintext from mutation cache too — keeping it would
+        // defeat the auto-hide window.
+        reveal.reset();
+      }, REVEAL_TIMEOUT_MS);
     },
     onError: (err) => toast.error(`Failed to reveal: ${String(err)}`),
   });
@@ -126,10 +132,7 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
 
   const handleToggleReveal = () => {
     if (revealedValue) {
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = null;
-      }
+      clearAutoHide();
       setRevealedValue(null);
       reveal.reset();
       return;
@@ -138,11 +141,15 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
     reveal.mutate();
   };
 
+  // Copy routes through the same reveal mutation so it inherits:
+  //   - the isPending guard (no parallel IPC decryptions),
+  //   - the mountedRef guard inside onSuccess,
+  //   - the auto-hide timer + reveal.reset() lifecycle for the plaintext.
+  // The visible reveal-on-copy is intentional: the user sees what they're
+  // about to paste.
   const handleCopy = async () => {
     try {
-      const value = revealedValue ?? (await revealApiKey(k.id));
-      // Don't write a stale plaintext to the clipboard if the user navigated
-      // away mid-decrypt.
+      const value = revealedValue ?? (await reveal.mutateAsync());
       if (!mountedRef.current) return;
       await navigator.clipboard.writeText(value);
       toast.success('Key copied to clipboard');
@@ -195,9 +202,10 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
         <button
           type="button"
           onClick={handleCopy}
+          disabled={reveal.isPending}
           aria-label="Copy key"
           title="Copy to clipboard"
-          className="p-1.5 rounded hover:bg-muted/50 transition-colors"
+          className="p-1.5 rounded hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Copy className="h-3.5 w-3.5" />
         </button>
