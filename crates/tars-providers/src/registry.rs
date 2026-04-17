@@ -38,6 +38,69 @@ const DEEPSEEK: ProviderMetadata = ProviderMetadata {
     supports_balance: true,
 };
 
+const BRAVE_SEARCH: ProviderMetadata = ProviderMetadata {
+    id: ProviderId::BraveSearch,
+    display_name: "Brave Search",
+    docs_url: "https://api-dashboard.search.brave.com/app/keys",
+    key_format_hint: "BSA...",
+    supports_models: false,
+    supports_balance: false,
+};
+
+const ELEVENLABS: ProviderMetadata = ProviderMetadata {
+    id: ProviderId::ElevenLabs,
+    display_name: "ElevenLabs",
+    docs_url: "https://elevenlabs.io/app/settings/api-keys",
+    key_format_hint: "sk_...",
+    supports_models: false,
+    supports_balance: false,
+};
+
+const GROQ: ProviderMetadata = ProviderMetadata {
+    id: ProviderId::Groq,
+    display_name: "Groq",
+    docs_url: "https://console.groq.com/keys",
+    key_format_hint: "gsk_...",
+    supports_models: false,
+    supports_balance: false,
+};
+
+const MISTRAL: ProviderMetadata = ProviderMetadata {
+    id: ProviderId::Mistral,
+    display_name: "Mistral",
+    docs_url: "https://console.mistral.ai/api-keys",
+    key_format_hint: "...",
+    supports_models: false,
+    supports_balance: false,
+};
+
+const XAI: ProviderMetadata = ProviderMetadata {
+    id: ProviderId::XAi,
+    display_name: "xAI",
+    docs_url: "https://console.x.ai",
+    key_format_hint: "xai-...",
+    supports_models: false,
+    supports_balance: false,
+};
+
+const OPENROUTER: ProviderMetadata = ProviderMetadata {
+    id: ProviderId::OpenRouter,
+    display_name: "OpenRouter",
+    docs_url: "https://openrouter.ai/keys",
+    key_format_hint: "sk-or-...",
+    supports_models: false,
+    supports_balance: false,
+};
+
+const PERPLEXITY: ProviderMetadata = ProviderMetadata {
+    id: ProviderId::Perplexity,
+    display_name: "Perplexity",
+    docs_url: "https://www.perplexity.ai/settings/api",
+    key_format_hint: "pplx-...",
+    supports_models: false,
+    supports_balance: false,
+};
+
 /// Get static metadata for a provider
 #[must_use]
 pub const fn metadata_for(id: ProviderId) -> &'static ProviderMetadata {
@@ -46,6 +109,13 @@ pub const fn metadata_for(id: ProviderId) -> &'static ProviderMetadata {
         ProviderId::Anthropic => &ANTHROPIC,
         ProviderId::Gemini => &GEMINI,
         ProviderId::Deepseek => &DEEPSEEK,
+        ProviderId::BraveSearch => &BRAVE_SEARCH,
+        ProviderId::ElevenLabs => &ELEVENLABS,
+        ProviderId::Groq => &GROQ,
+        ProviderId::Mistral => &MISTRAL,
+        ProviderId::XAi => &XAI,
+        ProviderId::OpenRouter => &OPENROUTER,
+        ProviderId::Perplexity => &PERPLEXITY,
     }
 }
 
@@ -70,9 +140,9 @@ mod tests {
     }
 
     #[test]
-    fn all_metadata_returns_four_entries() {
+    fn all_metadata_returns_eleven_entries() {
         let all = all_metadata();
-        assert_eq!(all.len(), 4);
+        assert_eq!(all.len(), 11);
     }
 
     #[test]
@@ -86,9 +156,45 @@ mod tests {
     }
 
     #[test]
-    fn all_providers_support_model_discovery() {
-        for m in all_metadata() {
-            assert!(m.supports_models, "{:?} should support models", m.id);
+    fn model_api_providers_support_model_discovery() {
+        let model_providers = [
+            ProviderId::OpenAi,
+            ProviderId::Anthropic,
+            ProviderId::Gemini,
+            ProviderId::Deepseek,
+        ];
+        for id in model_providers {
+            assert!(
+                metadata_for(id).supports_models,
+                "{id:?} should support models"
+            );
+        }
+    }
+
+    #[test]
+    fn simple_storage_providers_skip_model_and_balance() {
+        let simple = [
+            ProviderId::BraveSearch,
+            ProviderId::ElevenLabs,
+            ProviderId::Groq,
+            ProviderId::Mistral,
+            ProviderId::XAi,
+            ProviderId::OpenRouter,
+            ProviderId::Perplexity,
+        ];
+        for id in simple {
+            let m = metadata_for(id);
+            assert!(
+                !m.supports_models,
+                "{id:?} simple-storage must not claim model discovery"
+            );
+            assert!(
+                !m.supports_balance,
+                "{id:?} simple-storage must not claim balance"
+            );
+            assert!(!m.display_name.is_empty());
+            assert!(!m.docs_url.is_empty());
+            assert!(!m.key_format_hint.is_empty());
         }
     }
 }
