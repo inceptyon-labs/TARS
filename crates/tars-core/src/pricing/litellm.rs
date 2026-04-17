@@ -86,8 +86,8 @@ fn normalise_model_id<'a>(provider_id: &str, raw_key: &'a str) -> &'a str {
 ///
 /// Duplicate `(provider_id, model_id)` tuples (which happen when `LiteLLM`
 /// publishes both bare and prefixed keys for the same model) collapse into
-/// the last-seen entry — the JSON object iteration order is preserved by
-/// `serde_json`'s default `BTreeMap`-free decoder, so this is deterministic.
+/// one entry — which of the two wins is unspecified, but both carry identical
+/// prices so the choice is immaterial.
 ///
 /// # Errors
 /// Returns a `serde_json::Error` if the document is not a JSON object at the
