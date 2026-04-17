@@ -177,15 +177,18 @@ pub async fn validate_api_key(
         .map_err(|e| format!("Validation failed: {e}"))?;
 
     // Only fetch balance on successful validation and only for providers that
-    // expose it. A transient balance-fetch error must not wipe the previously
-    // stored balance: we fall back to `record.balance` so the UI keeps showing
-    // the last known value until the next successful refresh. When the key is
-    // rejected we clear the balance since it no longer applies.
+    // expose it. Error policy:
+    //   - Transient errors (network, 5xx): preserve `record.balance` so the
+    //     UI keeps showing the last known value until the next refresh.
+    //   - Unauthorized: clear — the balance call sees the key as rejected,
+    //     so the prior value is no longer trustworthy even though `validate`
+    //     just succeeded (likely a race with revocation).
+    //   - `Ok(None)`: provider explicitly reported no balance; clear.
     let balance_value = if result.valid {
         if provider.metadata().supports_balance {
             match provider.get_balance(&record.key).await {
                 Ok(Some(b)) => Some(b.raw),
-                Ok(None) => None,
+                Ok(None) | Err(tars_providers::ProviderError::Unauthorized { .. }) => None,
                 Err(_) => record.balance.clone(),
             }
         } else {

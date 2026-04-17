@@ -1,6 +1,8 @@
 //! Google Gemini provider implementation.
 //!
-//! Auth check and model discovery share `GET /v1beta/models?key=<KEY>`.
+//! Auth check and model discovery share `GET /v1beta/models`, with the API
+//! key passed via the `x-goog-api-key` header (not the `?key=` query param)
+//! so it never lands in the request URL or error messages.
 
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
@@ -68,7 +70,6 @@ impl Default for GeminiProvider {
 
 #[derive(Debug, Deserialize)]
 struct ModelsResponse {
-    #[serde(default)]
     models: Vec<ModelDto>,
 }
 
@@ -97,10 +98,16 @@ impl Provider for GeminiProvider {
 
     async fn validate_key(&self, key: &str) -> Result<ValidationResult, ProviderError> {
         let url = format!("{}/v1beta/models", self.base_url);
+        // Pass the key via `x-goog-api-key` header rather than the `?key=`
+        // query parameter so the key never appears in the request URL. Any
+        // reqwest error whose Display embeds the URL (parse failures, DNS
+        // errors, etc.) would otherwise leak the key to log output and the
+        // Tauri error surface.
         let resp = self
             .client
             .get(&url)
-            .query(&[("key", key), ("pageSize", "1000")])
+            .header("x-goog-api-key", key)
+            .query(&[("pageSize", "1000")])
             .send()
             .await
             .map_err(ProviderError::from)?;
@@ -128,17 +135,15 @@ impl Provider for GeminiProvider {
         let resp = self
             .client
             .get(&url)
-            .query(&[("key", key), ("pageSize", "1000")])
+            .header("x-goog-api-key", key)
+            .query(&[("pageSize", "1000")])
             .send()
             .await
             .map_err(ProviderError::from)?;
 
         match resp.status() {
             s if s.is_success() => {
-                let parsed: ModelsResponse = resp
-                    .json()
-                    .await
-                    .map_err(|e| ProviderError::Parse(e.to_string()))?;
+                let parsed: ModelsResponse = resp.json().await.map_err(ProviderError::from)?;
                 Ok(parsed
                     .models
                     .into_iter()
@@ -166,7 +171,7 @@ impl Provider for GeminiProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::matchers::{method, path, query_param};
+    use wiremock::matchers::{header, method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn provider(server: &MockServer) -> GeminiProvider {
@@ -178,7 +183,8 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/v1beta/models"))
-            .and(query_param("key", "AIza-good"))
+            .and(header("x-goog-api-key", "AIza-good"))
+            .and(query_param("pageSize", "1000"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "models": []
             })))
