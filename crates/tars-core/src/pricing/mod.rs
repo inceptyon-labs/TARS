@@ -1,6 +1,6 @@
 //! Pricing data ingestion and storage.
 //!
-//! - [`litellm`]: parse LiteLLM's `model_prices_and_context_window.json` into
+//! - [`litellm`]: parse `LiteLLM`'s `model_prices_and_context_window.json` into
 //!   per-`(provider_id, model_id)` price entries.
 //! - [`cache`]: persist parsed prices into the existing `provider_models` cache
 //!   without disturbing user overrides, and track refresh metadata.

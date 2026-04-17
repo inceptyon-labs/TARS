@@ -1,4 +1,4 @@
-//! LiteLLM `model_prices_and_context_window.json` parser.
+//! `LiteLLM` `model_prices_and_context_window.json` parser.
 //!
 //! Source: <https://github.com/BerriAI/litellm>. The published JSON is a flat
 //! object keyed by model name, e.g. `gpt-4o`. Each value carries pricing as
@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-/// Public location of LiteLLM's pricing manifest. Used by the application
+/// Public location of `LiteLLM`'s pricing manifest. Used by the application
 /// layer when issuing the HTTP fetch.
 pub const LITELLM_PRICES_URL: &str =
     "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
@@ -41,7 +41,7 @@ struct RawEntry {
     output_cost_per_token: Option<f64>,
 }
 
-/// Map a LiteLLM `litellm_provider` value to our internal provider id.
+/// Map a `LiteLLM` `litellm_provider` value to our internal provider id.
 ///
 /// Returns `None` for providers we do not surface in the API-Keys vault, so
 /// their pricing entries are dropped from the result. Mappings cover only
@@ -59,9 +59,9 @@ fn map_provider(litellm_provider: &str) -> Option<&'static str> {
     }
 }
 
-/// Strip provider prefixes that LiteLLM occasionally embeds in keys.
+/// Strip provider prefixes that `LiteLLM` occasionally embeds in keys.
 ///
-/// LiteLLM uses both bare model ids (e.g. `gpt-4o`) and prefixed forms
+/// `LiteLLM` uses both bare model ids (e.g. `gpt-4o`) and prefixed forms
 /// (`openai/gpt-4o`, `anthropic/claude-3-5-sonnet-latest`). The provider
 /// model lists fetched by `tars_providers` always store the bare id, so we
 /// normalise to that form here.
@@ -76,7 +76,7 @@ fn normalise_model_id<'a>(provider_id: &str, raw_key: &'a str) -> &'a str {
     raw_key.strip_prefix(prefix_with_slash).unwrap_or(raw_key)
 }
 
-/// Parse a LiteLLM JSON document into one [`ParsedPrice`] per supported model.
+/// Parse a `LiteLLM` JSON document into one [`ParsedPrice`] per supported model.
 ///
 /// Entries are skipped when:
 /// - the key is the `sample_spec` placeholder published in upstream JSON,
@@ -84,7 +84,7 @@ fn normalise_model_id<'a>(provider_id: &str, raw_key: &'a str) -> &'a str {
 /// - the provider is one we do not map (see [`map_provider`]),
 /// - either of the cost fields is missing or non-finite.
 ///
-/// Duplicate `(provider_id, model_id)` tuples (which happen when LiteLLM
+/// Duplicate `(provider_id, model_id)` tuples (which happen when `LiteLLM`
 /// publishes both bare and prefixed keys for the same model) collapse into
 /// the last-seen entry — the JSON object iteration order is preserved by
 /// `serde_json`'s default `BTreeMap`-free decoder, so this is deterministic.
@@ -259,7 +259,7 @@ mod tests {
             .map(|p| (p.provider_id.as_str(), p.model_id.as_str()))
             .collect();
         let mut sorted = pairs.clone();
-        sorted.sort();
+        sorted.sort_unstable();
         assert_eq!(pairs, sorted);
     }
 
