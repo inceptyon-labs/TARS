@@ -241,7 +241,10 @@ mod tests {
             .await;
 
         let err = provider(&server).list_models("bad").await.unwrap_err();
-        matches!(err, ProviderError::Unauthorized { .. });
+        assert!(
+            matches!(err, ProviderError::Unauthorized { .. }),
+            "expected Unauthorized, got {err:?}"
+        );
     }
 
     #[test]
