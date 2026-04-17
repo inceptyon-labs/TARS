@@ -1121,3 +1121,18 @@ export interface CachedModel {
 export async function listProviderModels(providerId: ProviderId): Promise<CachedModel[]> {
   return invoke('list_provider_models', { providerId });
 }
+
+// Pricing commands
+export interface PricingMetadata {
+  last_refresh_at: string | null;
+  last_error: string | null;
+  last_error_at: string | null;
+}
+
+export async function refreshPricing(): Promise<number> {
+  return invoke('refresh_pricing');
+}
+
+export async function getPricingMetadata(): Promise<PricingMetadata> {
+  return invoke('get_pricing_metadata');
+}
