@@ -8,7 +8,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use tars_core::storage::api_keys::{ApiKeyInput, ApiKeyRecord, ApiKeyStore};
-use tars_core::storage::model_cache::{ModelCache, ModelRow};
+use tars_core::storage::model_cache::{CachedModel, ModelCache, ModelRow};
 use tars_providers::{all_metadata, provider_for, ProviderId};
 use tauri::State;
 
@@ -212,6 +212,75 @@ pub async fn validate_api_key(
     })
 }
 
+/// Cached model row exposed to the frontend.
+///
+/// Mirrors `tars_core::storage::model_cache::CachedModel` but uses an RFC 3339
+/// string for `fetched_at` so the value round-trips cleanly through JSON.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct CachedModelResponse {
+    pub provider_id: String,
+    pub model_id: String,
+    pub display_name: Option<String>,
+    pub context_window: Option<u32>,
+    pub input_price: Option<f64>,
+    pub output_price: Option<f64>,
+    pub fetched_at: String,
+}
+
+impl From<CachedModel> for CachedModelResponse {
+    fn from(m: CachedModel) -> Self {
+        Self {
+            provider_id: m.provider_id,
+            model_id: m.model_id,
+            display_name: m.display_name,
+            context_window: m.context_window,
+            input_price: m.input_price,
+            output_price: m.output_price,
+            fetched_at: m.fetched_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Decrypt and return the plaintext value of a stored API key.
+///
+/// Used by the UI for click-to-reveal and copy-to-clipboard. The plaintext is
+/// only ever held in memory long enough to round-trip through the IPC layer; we
+/// do not log, persist, or otherwise echo it. Callers must treat the result as
+/// short-lived secret material.
+#[tauri::command]
+pub async fn reveal_api_key(id: i64, state: State<'_, AppState>) -> Result<String, String> {
+    let record: ApiKeyRecord = state.with_db(|db| {
+        let store = ApiKeyStore::new(db.connection());
+        store
+            .get(id)
+            .map_err(|e| format!("Failed to load api key: {e}"))?
+            .ok_or_else(|| format!("API key {id} not found"))
+    })?;
+    Ok(record.key)
+}
+
+/// List the cached model catalog for a provider.
+///
+/// Returns the rows previously written by `refresh_models`. Empty result is
+/// valid (no refresh has run yet, or the provider has no models). The UI is
+/// responsible for prompting the user to refresh when this is empty.
+#[tauri::command]
+pub async fn list_provider_models(
+    provider_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<CachedModelResponse>, String> {
+    if ProviderId::parse(&provider_id).is_none() {
+        return Err(format!("Unknown provider: {provider_id}"));
+    }
+    state.with_db(|db| {
+        let cache = ModelCache::new(db.connection());
+        let rows = cache
+            .list_for_provider(&provider_id)
+            .map_err(|e| format!("Failed to list models: {e}"))?;
+        Ok(rows.into_iter().map(CachedModelResponse::from).collect())
+    })
+}
+
 /// Refresh the cached model list for the given provider.
 ///
 /// Picks a stored key for the provider (preferring keys previously marked
@@ -275,4 +344,73 @@ pub async fn refresh_models(
             .upsert_all(&provider_key, &rows, now)
             .map_err(|e| format!("Failed to cache models: {e}"))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    #[test]
+    fn cached_model_response_from_cached_model_preserves_fields() {
+        let fetched = Utc.with_ymd_and_hms(2026, 4, 17, 12, 0, 0).unwrap();
+        let m = CachedModel {
+            provider_id: "openai".into(),
+            model_id: "gpt-4o".into(),
+            display_name: Some("GPT-4o".into()),
+            context_window: Some(128_000),
+            input_price: Some(2.5),
+            output_price: Some(10.0),
+            fetched_at: fetched,
+        };
+        let resp: CachedModelResponse = m.into();
+        assert_eq!(resp.provider_id, "openai");
+        assert_eq!(resp.model_id, "gpt-4o");
+        assert_eq!(resp.display_name.as_deref(), Some("GPT-4o"));
+        assert_eq!(resp.context_window, Some(128_000));
+        assert_eq!(resp.input_price, Some(2.5));
+        assert_eq!(resp.output_price, Some(10.0));
+        // RFC 3339 round-trip — must be parseable back to the same instant.
+        let parsed = chrono::DateTime::parse_from_rfc3339(&resp.fetched_at)
+            .expect("fetched_at must serialize as RFC 3339");
+        assert_eq!(parsed.with_timezone(&Utc), fetched);
+    }
+
+    #[test]
+    fn cached_model_response_handles_optional_fields() {
+        let m = CachedModel {
+            provider_id: "anthropic".into(),
+            model_id: "claude-3-haiku".into(),
+            display_name: None,
+            context_window: None,
+            input_price: None,
+            output_price: None,
+            fetched_at: Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap(),
+        };
+        let resp: CachedModelResponse = m.into();
+        assert!(resp.display_name.is_none());
+        assert!(resp.context_window.is_none());
+        assert!(resp.input_price.is_none());
+        assert!(resp.output_price.is_none());
+    }
+
+    #[test]
+    fn cached_model_response_serializes_to_camel_case_compatible_json() {
+        // The frontend expects snake_case on the wire (matches the existing
+        // ApiKeySummaryResponse convention).
+        let resp = CachedModelResponse {
+            provider_id: "openai".into(),
+            model_id: "gpt-4o".into(),
+            display_name: None,
+            context_window: Some(8000),
+            input_price: None,
+            output_price: None,
+            fetched_at: "2026-04-17T12:00:00+00:00".into(),
+        };
+        let json = serde_json::to_value(&resp).unwrap();
+        assert_eq!(json["provider_id"], "openai");
+        assert_eq!(json["model_id"], "gpt-4o");
+        assert_eq!(json["context_window"], 8000);
+        assert!(json["display_name"].is_null());
+    }
 }
