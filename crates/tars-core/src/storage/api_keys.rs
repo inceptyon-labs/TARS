@@ -243,9 +243,14 @@ impl<'a> ApiKeyStore<'a> {
     ///
     /// Returns the rowid of the inserted record.
     ///
+    /// Note: `provider_id` is not validated against a provider allowlist at
+    /// the storage layer — `tars-core` does not depend on `tars-providers`.
+    /// Callers (typically the Tauri command layer) must ensure the value
+    /// matches a known `tars_providers::ProviderId` before calling.
+    ///
     /// # Errors
-    /// Returns an error if validation fails, encryption fails, or the insert
-    /// fails (e.g. duplicate `(provider_id, label)`).
+    /// Returns an error if the label/key fail validation, encryption fails,
+    /// or the insert fails (e.g. duplicate `(provider_id, label)`).
     pub fn save(&self, input: &ApiKeyInput) -> Result<i64, DatabaseError> {
         if input.provider_id.trim().is_empty() {
             return Err(DatabaseError::Migration(
