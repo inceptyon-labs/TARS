@@ -1,4 +1,4 @@
-//! OpenRouter provider.
+//! `OpenRouter` provider.
 //!
 //! Simple-storage provider: auth-check only via `GET /api/v1/auth/key` with
 //! `Authorization: Bearer`. This endpoint returns rate-limit/credit info

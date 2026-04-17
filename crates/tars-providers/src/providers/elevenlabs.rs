@@ -1,4 +1,4 @@
-//! ElevenLabs provider.
+//! `ElevenLabs` provider.
 //!
 //! Simple-storage provider: auth-check only via `GET /v1/user` with the
 //! `xi-api-key` header. No model list, no balance.

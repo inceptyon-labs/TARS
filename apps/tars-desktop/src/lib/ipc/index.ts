@@ -1047,7 +1047,18 @@ export async function deleteProjectSecret(projectId: string, name: string): Prom
 }
 
 // API keys vault — shared reference store for AI provider keys
-export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'deepseek';
+export type ProviderId =
+  | 'openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'deepseek'
+  | 'brave-search'
+  | 'elevenlabs'
+  | 'groq'
+  | 'mistral'
+  | 'xai'
+  | 'openrouter'
+  | 'perplexity';
 
 export interface ProviderMetadata {
   id: ProviderId;
@@ -1078,6 +1089,12 @@ export interface ApiKeyInput {
 export interface ValidationResult {
   valid: boolean;
   message: string | null;
+  /**
+   * True when the provider exposes no auth-check endpoint (e.g. Perplexity):
+   * the key was stored but no remote validation ran and `last_valid` was not
+   * touched. Absent (undefined) on the wire when false.
+   */
+  unverifiable?: boolean;
 }
 
 export async function listProviders(): Promise<ProviderMetadata[]> {
