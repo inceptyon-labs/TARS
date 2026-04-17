@@ -1,7 +1,7 @@
 //! Cache of provider-reported model catalogs.
 //!
 //! Backs the `provider_models` table created in migration v5. Reads are served
-//! directly from SQLite; writes atomically replace the cached rows for a given
+//! directly from `SQLite`; writes atomically replace the cached rows for a given
 //! provider. The TTL check (`is_stale`) is the sole staleness authority — 24h
 //! is the policy, but the duration is passed in by the caller so tests can
 //! pin it.

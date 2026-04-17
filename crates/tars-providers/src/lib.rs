@@ -2,7 +2,7 @@
 //!
 //! Provides a uniform `Provider` trait that each supported AI provider
 //! implements, a static metadata registry, and concrete HTTP-backed
-//! implementations for OpenAI, Anthropic, Gemini, and DeepSeek.
+//! implementations for `OpenAI`, Anthropic, Gemini, and `DeepSeek`.
 
 pub mod error;
 pub mod factory;

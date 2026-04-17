@@ -1,7 +1,7 @@
-//! DeepSeek provider implementation.
+//! `DeepSeek` provider implementation.
 //!
 //! Uses `GET /user/balance` for both key validation and balance (the balance
-//! endpoint doubles as an auth check). Model discovery is via the OpenAI-
+//! endpoint doubles as an auth check). Model discovery is via the `OpenAI`-
 //! compatible `GET /v1/models`.
 
 use async_trait::async_trait;
@@ -30,6 +30,10 @@ impl DeepseekProvider {
         Self::with_base_url(DEFAULT_BASE_URL.to_string())
     }
 
+    /// Construct with a custom base URL (used by tests pointing at a mock).
+    ///
+    /// # Panics
+    /// Panics only if the underlying TLS stack fails to initialize.
     #[must_use]
     pub fn with_base_url(base_url: String) -> Self {
         let client = Client::builder()
@@ -275,7 +279,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(bal.amount, 0.0);
+        assert!(bal.amount.abs() < f64::EPSILON);
         assert!(bal.currency.is_empty());
     }
 
