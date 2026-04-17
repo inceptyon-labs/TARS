@@ -1,5 +1,6 @@
 //! Storage layer (`SQLite` + file bundles)
 
+pub mod api_keys;
 pub mod backups;
 pub mod db;
 pub mod metadata;
@@ -9,6 +10,7 @@ pub mod profiles;
 pub mod projects;
 pub mod secrets;
 
+pub use api_keys::ApiKeyStore;
 pub use backups::BackupStore;
 pub use db::Database;
 pub use metadata::MetadataStore;
