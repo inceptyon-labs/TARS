@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 5;
+const CURRENT_VERSION: i32 = 6;
 
 /// Run all pending migrations
 ///
@@ -31,6 +31,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 5 {
         migrate_v5(conn)?;
+    }
+
+    if version < 6 {
+        migrate_v6(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -263,6 +267,24 @@ fn migrate_v5(conn: &Connection) -> Result<(), DatabaseError> {
     Ok(())
 }
 
+fn migrate_v6(conn: &Connection) -> Result<(), DatabaseError> {
+    // Pricing metadata: tracks LiteLLM refresh state. Keys include
+    // "last_refresh" (ISO timestamp of last successful fetch) and
+    // "last_error" (error string from most recent failure). Values are
+    // free-form text and interpreted by callers.
+    conn.execute_batch(
+        r"
+        CREATE TABLE IF NOT EXISTS pricing_metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        ",
+    )?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,5 +399,45 @@ mod tests {
             params!["openai", "gpt-4", now],
         );
         assert!(dup.is_err(), "duplicate (provider,model) should violate PK");
+    }
+
+    #[test]
+    fn v6_creates_pricing_metadata_table() {
+        let conn = fresh_conn();
+        let cols = table_columns(&conn, "pricing_metadata");
+        for expected in ["key", "value", "updated_at"] {
+            assert!(
+                cols.contains(&expected.to_string()),
+                "missing col {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn pricing_metadata_key_is_primary() {
+        let conn = fresh_conn();
+        let now = "2026-04-17T00:00:00Z";
+        conn.execute(
+            "INSERT INTO pricing_metadata (key, value, updated_at) VALUES (?1, ?2, ?3)",
+            params!["last_refresh", "2026-04-17T00:00:00Z", now],
+        )
+        .unwrap();
+        let dup = conn.execute(
+            "INSERT INTO pricing_metadata (key, value, updated_at) VALUES (?1, ?2, ?3)",
+            params!["last_refresh", "other", now],
+        );
+        assert!(dup.is_err(), "duplicate key should violate PK");
+    }
+
+    #[test]
+    fn migrations_are_idempotent_from_v5_to_v6() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        // Second call should not error (version already at CURRENT_VERSION).
+        run_migrations(&conn).unwrap();
+        let v: i32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(v, CURRENT_VERSION);
     }
 }
