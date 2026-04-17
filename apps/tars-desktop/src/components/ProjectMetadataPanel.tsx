@@ -540,7 +540,7 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
     return () => {
       cancelled = true;
     };
-  }, [savedMetadata?.github_url, savedMetadata?.description, projectId, queryClient]);
+  }, [savedMetadata, projectId, queryClient]);
 
   const saveMutation = useMutation({
     mutationFn: () => saveProjectMetadata(projectId, metadata),
@@ -907,7 +907,9 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
                     : selected;
                   update('icon_path', relative);
                 }
-              } catch {}
+              } catch {
+                // Ignore errors when opening file picker
+              }
             }}
           >
             <FolderOpen className="h-3.5 w-3.5" />

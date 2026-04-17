@@ -218,7 +218,7 @@ export function PluginsPage() {
         for (const profile of profiles) {
           try {
             await deleteProfileCleanup(profile.id);
-          } catch (err) {
+          } catch {
             failedProfiles.push(profile.name);
           }
         }
