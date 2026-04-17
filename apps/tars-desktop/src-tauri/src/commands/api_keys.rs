@@ -6,6 +6,7 @@
 //! `NotImplemented` error the UI can display gracefully.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use tars_core::storage::api_keys::{ApiKeyInput, ApiKeyStore};
 use tars_providers::{all_metadata, ProviderId};
 use tauri::State;
@@ -25,12 +26,25 @@ pub struct ApiKeySummaryResponse {
     pub updated_at: String,
 }
 
-/// Input payload for creating an API key
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Input payload for creating an API key.
+///
+/// `Deserialize` only — the `key` field is plaintext and must not be
+/// serialized outbound. `Debug` is hand-rolled to redact the key.
+#[derive(Clone, Deserialize)]
 pub struct ApiKeyInputPayload {
     pub provider_id: String,
     pub label: String,
     pub key: String,
+}
+
+impl fmt::Debug for ApiKeyInputPayload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ApiKeyInputPayload")
+            .field("provider_id", &self.provider_id)
+            .field("label", &self.label)
+            .field("key", &"<redacted>")
+            .finish()
+    }
 }
 
 /// Static provider metadata surfaced to the UI

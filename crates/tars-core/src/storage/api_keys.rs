@@ -10,6 +10,7 @@ use crate::crypto;
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use thiserror::Error;
 
 /// Maximum allowed length for a human-facing label
@@ -87,9 +88,9 @@ pub fn validate_key(key: &str) -> Result<(), ApiKeyValidationError> {
 ///
 /// Intentionally does not derive `Serialize`/`Deserialize`: the `key` field
 /// contains decrypted secret material and this struct must never cross the
-/// IPC boundary or be persisted to disk. Callers that need to return data to
-/// the frontend should map to a redacted DTO.
-#[derive(Debug, Clone)]
+/// IPC boundary or be persisted to disk. `Debug` is hand-implemented so the
+/// key is never printed via `{:?}`.
+#[derive(Clone)]
 pub struct ApiKeyRecord {
     pub id: i64,
     pub provider_id: String,
@@ -100,6 +101,22 @@ pub struct ApiKeyRecord {
     pub balance: Option<serde_json::Value>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+impl fmt::Debug for ApiKeyRecord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ApiKeyRecord")
+            .field("id", &self.id)
+            .field("provider_id", &self.provider_id)
+            .field("label", &self.label)
+            .field("key", &"<redacted>")
+            .field("last_validated_at", &self.last_validated_at)
+            .field("last_valid", &self.last_valid)
+            .field("balance", &self.balance)
+            .field("created_at", &self.created_at)
+            .field("updated_at", &self.updated_at)
+            .finish()
+    }
 }
 
 /// Summary of an API key for list views (no decrypted key)
@@ -119,12 +136,22 @@ pub struct ApiKeySummary {
 ///
 /// Implements `Deserialize` so Tauri commands can accept it as a payload, but
 /// intentionally does not derive `Serialize` — the `key` field holds plaintext
-/// secret material.
-#[derive(Debug, Clone, Deserialize)]
+/// secret material. `Debug` is hand-implemented to redact the key.
+#[derive(Clone, Deserialize)]
 pub struct ApiKeyInput {
     pub provider_id: String,
     pub label: String,
     pub key: String,
+}
+
+impl fmt::Debug for ApiKeyInput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ApiKeyInput")
+            .field("provider_id", &self.provider_id)
+            .field("label", &self.label)
+            .field("key", &"<redacted>")
+            .finish()
+    }
 }
 
 /// API key storage operations
@@ -262,6 +289,10 @@ impl<'a> ApiKeyStore<'a> {
         validate_key(&input.key)
             .map_err(|e| DatabaseError::Migration(format!("Invalid key: {e}")))?;
 
+        // Normalize label: trim surrounding whitespace so "work" and " work "
+        // collapse to the same UNIQUE key rather than two visually identical rows.
+        let label = input.label.trim();
+
         let (nonce, encrypted) = crypto::encrypt(&input.key)
             .map_err(|e| DatabaseError::Migration(format!("Failed to encrypt api key: {e}")))?;
         let now = Utc::now().to_rfc3339();
@@ -272,7 +303,7 @@ impl<'a> ApiKeyStore<'a> {
                 (provider_id, label, encrypted_key, nonce, created_at, updated_at)
             VALUES (?1, ?2, ?3, ?4, ?5, ?5)
             ",
-            params![input.provider_id, input.label, encrypted, nonce, now],
+            params![input.provider_id, label, encrypted, nonce, now],
         )?;
 
         Ok(self.conn.last_insert_rowid())
@@ -540,5 +571,66 @@ mod tests {
         let db = Database::in_memory().unwrap();
         let store = ApiKeyStore::new(db.connection());
         assert!(!store.delete(999).unwrap());
+    }
+
+    #[test]
+    fn label_is_trimmed_on_save() {
+        let db = Database::in_memory().unwrap();
+        let store = ApiKeyStore::new(db.connection());
+
+        let input = ApiKeyInput {
+            provider_id: "openai".into(),
+            label: "  work  ".into(),
+            key: "sk-a".into(),
+        };
+        if store.save(&input).is_err() {
+            return; // keychain unavailable
+        }
+        let all = store.list().unwrap();
+        assert_eq!(
+            all[0].label, "work",
+            "leading/trailing whitespace should be stripped"
+        );
+
+        // A visually identical label with whitespace must collide with the first
+        let dup = ApiKeyInput {
+            provider_id: "openai".into(),
+            label: "work".into(),
+            key: "sk-b".into(),
+        };
+        assert!(
+            store.save(&dup).is_err(),
+            "trimmed label should collide via UNIQUE"
+        );
+    }
+
+    #[test]
+    fn debug_redacts_secret_material() {
+        let record = ApiKeyRecord {
+            id: 1,
+            provider_id: "openai".into(),
+            label: "work".into(),
+            key: "sk-super-secret-12345".into(),
+            last_validated_at: None,
+            last_valid: None,
+            balance: None,
+            created_at: "now".into(),
+            updated_at: "now".into(),
+        };
+        let formatted = format!("{record:?}");
+        assert!(
+            !formatted.contains("sk-super-secret-12345"),
+            "plaintext key leaked via Debug: {formatted}"
+        );
+        assert!(formatted.contains("<redacted>"));
+
+        let input = ApiKeyInput {
+            provider_id: "openai".into(),
+            label: "work".into(),
+            key: "sk-another-secret".into(),
+        };
+        let formatted = format!("{input:?}");
+        assert!(!formatted.contains("sk-another-secret"));
+        assert!(formatted.contains("<redacted>"));
     }
 }
