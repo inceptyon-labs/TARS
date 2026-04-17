@@ -6,7 +6,9 @@
 use crate::{
     provider::Provider,
     providers::{
-        AnthropicProvider, BraveSearchProvider, DeepseekProvider, GeminiProvider, OpenAiProvider,
+        AnthropicProvider, BraveSearchProvider, DeepseekProvider, ElevenLabsProvider,
+        GeminiProvider, GroqProvider, MistralProvider, OpenAiProvider, OpenRouterProvider,
+        PerplexityProvider, XAiProvider,
     },
     types::ProviderId,
 };
@@ -22,12 +24,12 @@ pub fn provider_for(id: ProviderId) -> Box<dyn Provider> {
         ProviderId::Gemini => Box::new(GeminiProvider::new()),
         ProviderId::Deepseek => Box::new(DeepseekProvider::new()),
         ProviderId::BraveSearch => Box::new(BraveSearchProvider::new()),
-        ProviderId::ElevenLabs
-        | ProviderId::Groq
-        | ProviderId::Mistral
-        | ProviderId::XAi
-        | ProviderId::OpenRouter
-        | ProviderId::Perplexity => todo!("simple-storage providers wired in later commit"),
+        ProviderId::ElevenLabs => Box::new(ElevenLabsProvider::new()),
+        ProviderId::Groq => Box::new(GroqProvider::new()),
+        ProviderId::Mistral => Box::new(MistralProvider::new()),
+        ProviderId::XAi => Box::new(XAiProvider::new()),
+        ProviderId::OpenRouter => Box::new(OpenRouterProvider::new()),
+        ProviderId::Perplexity => Box::new(PerplexityProvider::new()),
     }
 }
 
@@ -36,15 +38,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn factory_covers_wired_providers() {
-        let wired = [
-            ProviderId::OpenAi,
-            ProviderId::Anthropic,
-            ProviderId::Gemini,
-            ProviderId::Deepseek,
-            ProviderId::BraveSearch,
-        ];
-        for id in wired {
+    fn factory_covers_all_providers() {
+        for &id in ProviderId::ALL {
             let p = provider_for(id);
             assert_eq!(p.id(), id);
         }
