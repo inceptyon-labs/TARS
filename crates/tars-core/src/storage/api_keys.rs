@@ -45,6 +45,9 @@ pub enum ApiKeyValidationError {
 
 /// Validate a label for an API key entry.
 ///
+/// Length is checked by Unicode character count (not bytes), since the limit
+/// is user-facing.
+///
 /// # Errors
 /// Returns an [`ApiKeyValidationError`] if the label is empty, too long, or
 /// contains a null byte.
@@ -53,7 +56,7 @@ pub fn validate_label(label: &str) -> Result<(), ApiKeyValidationError> {
     if trimmed.is_empty() {
         return Err(ApiKeyValidationError::EmptyLabel);
     }
-    if label.len() > MAX_LABEL_LEN {
+    if label.chars().count() > MAX_LABEL_LEN {
         return Err(ApiKeyValidationError::LabelTooLong);
     }
     if label.contains('\0') {
@@ -80,13 +83,17 @@ pub fn validate_key(key: &str) -> Result<(), ApiKeyValidationError> {
     Ok(())
 }
 
-/// A fully decrypted API key record
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A fully decrypted API key record.
+///
+/// Intentionally does not derive `Serialize`/`Deserialize`: the `key` field
+/// contains decrypted secret material and this struct must never cross the
+/// IPC boundary or be persisted to disk. Callers that need to return data to
+/// the frontend should map to a redacted DTO.
+#[derive(Debug, Clone)]
 pub struct ApiKeyRecord {
     pub id: i64,
     pub provider_id: String,
     pub label: String,
-    /// Decrypted secret material — never log or serialize to disk
     pub key: String,
     pub last_validated_at: Option<String>,
     pub last_valid: Option<bool>,
@@ -108,8 +115,12 @@ pub struct ApiKeySummary {
     pub updated_at: String,
 }
 
-/// Input for creating a new API key entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Input for creating a new API key entry.
+///
+/// Implements `Deserialize` so Tauri commands can accept it as a payload, but
+/// intentionally does not derive `Serialize` — the `key` field holds plaintext
+/// secret material.
+#[derive(Debug, Clone, Deserialize)]
 pub struct ApiKeyInput {
     pub provider_id: String,
     pub label: String,
