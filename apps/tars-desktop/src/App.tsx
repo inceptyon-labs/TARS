@@ -45,6 +45,9 @@ const ClaudeSettingsPage = lazy(() =>
 const GalleryPage = lazy(() =>
   import('./pages/GalleryPage').then((m) => ({ default: m.GalleryPage }))
 );
+const ApiKeysPage = lazy(() =>
+  import('./pages/ApiKeysPage').then((m) => ({ default: m.ApiKeysPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -214,6 +217,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <SettingsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="api-keys"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <ApiKeysPage />
                   </Suspense>
                 }
               />
