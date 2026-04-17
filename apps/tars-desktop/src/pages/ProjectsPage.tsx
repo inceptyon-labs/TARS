@@ -116,7 +116,8 @@ export function ProjectsPage() {
       hasRefreshedDescriptions.current = true;
       refreshGithubDescriptions();
     }
-  }, [projects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects.length]);
 
   const addMutation = useMutation({
     mutationFn: addProject,
@@ -227,7 +228,8 @@ export function ProjectsPage() {
         setSearchParams({}, { replace: true });
       }
     }
-  }, [projects, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects.length, searchParams]);
 
   async function handleRefreshTools() {
     if (selectedProject) {

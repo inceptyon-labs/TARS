@@ -156,7 +156,7 @@ export function ProfilesPage() {
     try {
       const details = await getProfile(id);
       setSelectedProfile(details);
-    } catch (err) {
+    } catch {
       // Profile load failed silently - user can retry by clicking again
     } finally {
       setLoadingDetails(false);
