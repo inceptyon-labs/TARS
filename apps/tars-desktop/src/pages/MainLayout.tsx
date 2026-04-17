@@ -22,6 +22,7 @@ import {
   FileCog,
   Radio,
   LayoutGrid,
+  Key,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/ui-store';
@@ -45,6 +46,7 @@ const navigation = [
   { name: 'Hooks', href: '/hooks', icon: Webhook },
   { name: 'MCP Servers', href: '/mcp', icon: Server },
   { name: 'Plugins', href: '/plugins', icon: Plug },
+  { name: 'API Keys', href: '/api-keys', icon: Key },
   { name: 'Claude Settings', href: '/claude-settings', icon: FileCog },
 ];
 
