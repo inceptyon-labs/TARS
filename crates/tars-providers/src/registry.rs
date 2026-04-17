@@ -1,6 +1,4 @@
 //! Static provider metadata registry.
-//!
-//! Real `Provider` implementations are added in issue #7.
 
 use crate::types::{ProviderId, ProviderMetadata};
 
