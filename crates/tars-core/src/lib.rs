@@ -28,6 +28,7 @@ pub mod config;
 pub mod crypto;
 pub mod diff;
 pub mod export;
+pub mod pricing;
 pub mod profile;
 pub mod project;
 pub mod storage;

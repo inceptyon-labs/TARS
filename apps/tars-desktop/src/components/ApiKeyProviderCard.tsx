@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   deleteApiKey,
+  getPricingMetadata,
   listProviderModels,
   refreshModels,
   revealApiKey,
@@ -41,6 +42,13 @@ function formatContextWindow(n: number | null): string {
   if (n == null) return '—';
   if (n >= 1000) return `${Math.round(n / 1000)}k`;
   return String(n);
+}
+
+function isPricingStale(iso: string | null): boolean {
+  if (!iso) return false;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return false;
+  return Date.now() - then > 14 * 24 * 60 * 60 * 1000;
 }
 
 function formatRelativeTime(iso: string | null): string | null {
@@ -248,6 +256,12 @@ function ModelTable({ provider }: { provider: ProviderMetadata }) {
     enabled: provider.supports_models,
   });
 
+  const pricingQuery = useQuery({
+    queryKey: ['pricing-metadata'],
+    queryFn: getPricingMetadata,
+    staleTime: 5 * 60 * 1000,
+  });
+
   if (modelsQuery.isLoading) {
     return <p className="text-xs text-muted-foreground">Loading models…</p>;
   }
@@ -255,40 +269,56 @@ function ModelTable({ provider }: { provider: ProviderMetadata }) {
     return <p className="text-xs text-destructive">Failed to load models.</p>;
   }
   const rows = modelsQuery.data ?? [];
-  if (rows.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground italic">
-        No models cached. Click Refresh Models to fetch the latest list.
-      </p>
-    );
-  }
+
+  const meta = pricingQuery.data;
+  const pricingRel = formatRelativeTime(meta?.last_refresh_at ?? null);
+  const pricingStale = isPricingStale(meta?.last_refresh_at ?? null);
+  const showWarning = !!meta?.last_error || pricingStale;
 
   return (
-    <div className="overflow-x-auto rounded border border-border/60">
-      <table className="w-full text-xs">
-        <thead className="bg-muted/30">
-          <tr>
-            <th className="text-left px-2 py-1.5 font-medium">Model</th>
-            <th className="text-right px-2 py-1.5 font-medium">Context</th>
-            <th className="text-right px-2 py-1.5 font-medium">In $/1M</th>
-            <th className="text-right px-2 py-1.5 font-medium">Out $/1M</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((m) => (
-            <tr key={m.model_id} className="border-t border-border/40">
-              <td className="px-2 py-1.5 font-mono">
-                {m.display_name && m.display_name !== m.model_id ? m.display_name : m.model_id}
-              </td>
-              <td className="px-2 py-1.5 text-right font-mono">
-                {formatContextWindow(m.context_window)}
-              </td>
-              <td className="px-2 py-1.5 text-right font-mono">{formatPrice(m.input_price)}</td>
-              <td className="px-2 py-1.5 text-right font-mono">{formatPrice(m.output_price)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-1.5">
+      {pricingRel && !showWarning && (
+        <p className="text-[10px] text-muted-foreground">Prices updated {pricingRel}</p>
+      )}
+      {showWarning && (
+        <p className="text-[10px] text-amber-600 dark:text-amber-400">
+          {meta?.last_error ? '⚠ Last pricing fetch failed' : '⚠ Pricing data may be stale'}
+        </p>
+      )}
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          No models cached. Click Refresh Models to fetch the latest list.
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded border border-border/60">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/30">
+              <tr>
+                <th className="text-left px-2 py-1.5 font-medium">Model</th>
+                <th className="text-right px-2 py-1.5 font-medium">Context</th>
+                <th className="text-right px-2 py-1.5 font-medium">In $/1M</th>
+                <th className="text-right px-2 py-1.5 font-medium">Out $/1M</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((m) => (
+                <tr key={m.model_id} className="border-t border-border/40">
+                  <td className="px-2 py-1.5 font-mono">
+                    {m.display_name && m.display_name !== m.model_id ? m.display_name : m.model_id}
+                  </td>
+                  <td className="px-2 py-1.5 text-right font-mono">
+                    {formatContextWindow(m.context_window)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right font-mono">{formatPrice(m.input_price)}</td>
+                  <td className="px-2 py-1.5 text-right font-mono">
+                    {formatPrice(m.output_price)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
