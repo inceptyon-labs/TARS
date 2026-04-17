@@ -5,7 +5,9 @@
 
 use crate::{
     provider::Provider,
-    providers::{AnthropicProvider, DeepseekProvider, GeminiProvider, OpenAiProvider},
+    providers::{
+        AnthropicProvider, BraveSearchProvider, DeepseekProvider, GeminiProvider, OpenAiProvider,
+    },
     types::ProviderId,
 };
 
@@ -19,8 +21,8 @@ pub fn provider_for(id: ProviderId) -> Box<dyn Provider> {
         ProviderId::Anthropic => Box::new(AnthropicProvider::new()),
         ProviderId::Gemini => Box::new(GeminiProvider::new()),
         ProviderId::Deepseek => Box::new(DeepseekProvider::new()),
-        ProviderId::BraveSearch
-        | ProviderId::ElevenLabs
+        ProviderId::BraveSearch => Box::new(BraveSearchProvider::new()),
+        ProviderId::ElevenLabs
         | ProviderId::Groq
         | ProviderId::Mistral
         | ProviderId::XAi
@@ -40,6 +42,7 @@ mod tests {
             ProviderId::Anthropic,
             ProviderId::Gemini,
             ProviderId::Deepseek,
+            ProviderId::BraveSearch,
         ];
         for id in wired {
             let p = provider_for(id);

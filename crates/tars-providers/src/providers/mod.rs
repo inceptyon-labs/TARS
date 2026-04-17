@@ -5,11 +5,13 @@
 //! Default base URLs match each vendor's production API.
 
 pub mod anthropic;
+pub mod brave_search;
 pub mod deepseek;
 pub mod gemini;
 pub mod openai;
 
 pub use anthropic::AnthropicProvider;
+pub use brave_search::BraveSearchProvider;
 pub use deepseek::DeepseekProvider;
 pub use gemini::GeminiProvider;
 pub use openai::OpenAiProvider;
