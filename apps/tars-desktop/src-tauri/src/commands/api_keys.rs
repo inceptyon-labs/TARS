@@ -1,14 +1,15 @@
 //! API key vault commands.
 //!
 //! Stores AI provider keys encrypted at rest. Validation and model discovery
-//! will call into `tars_providers` once real provider impls land (issue #7);
-//! for now the `validate_api_key` and `refresh_models` commands return a
-//! `NotImplemented` error the UI can display gracefully.
+//! delegate to `tars_providers` for HTTP calls and to `tars_core::storage`
+//! for the cached model catalog.
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use tars_core::storage::api_keys::{ApiKeyInput, ApiKeyStore};
-use tars_providers::{all_metadata, ProviderId};
+use tars_core::storage::api_keys::{ApiKeyInput, ApiKeyRecord, ApiKeyStore};
+use tars_core::storage::model_cache::{ModelCache, ModelRow};
+use tars_providers::{all_metadata, provider_for, ProviderId};
 use tauri::State;
 
 use crate::state::AppState;
@@ -144,26 +145,134 @@ pub async fn delete_api_key(id: i64, state: State<'_, AppState>) -> Result<bool,
 
 /// Re-validate the stored key against the provider.
 ///
-/// Stub until issue #7 supplies real `Provider` implementations.
+/// Decrypts the stored key, calls the provider's `validate_key` endpoint,
+/// and — for providers that support it (currently `DeepSeek`) — also fetches
+/// the account balance on success. The validation outcome and balance are
+/// persisted via `ApiKeyStore::update_validation` so the UI sees a fresh
+/// `last_valid` and `balance`.
 #[tauri::command]
 pub async fn validate_api_key(
     id: i64,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<ValidationResponse, String> {
-    let _ = id;
-    Err("Validation not yet implemented — lands in issue #7".to_string())
+    let record: ApiKeyRecord = state.with_db(|db| {
+        let store = ApiKeyStore::new(db.connection());
+        store
+            .get(id)
+            .map_err(|e| format!("Failed to load api key: {e}"))?
+            .ok_or_else(|| format!("API key {id} not found"))
+    })?;
+
+    let provider_id = ProviderId::parse(&record.provider_id).ok_or_else(|| {
+        format!(
+            "Unknown provider stored for key {id}: {}",
+            record.provider_id
+        )
+    })?;
+    let provider = provider_for(provider_id);
+
+    let result = provider
+        .validate_key(&record.key)
+        .await
+        .map_err(|e| format!("Validation failed: {e}"))?;
+
+    // Only fetch balance on successful validation and only for providers that
+    // expose it. Error policy:
+    //   - Transient errors (network, 5xx): preserve `record.balance` so the
+    //     UI keeps showing the last known value until the next refresh.
+    //   - Unauthorized: clear — the balance call sees the key as rejected,
+    //     so the prior value is no longer trustworthy even though `validate`
+    //     just succeeded (likely a race with revocation).
+    //   - `Ok(None)`: provider explicitly reported no balance; clear.
+    let balance_value = if result.valid {
+        if provider.metadata().supports_balance {
+            match provider.get_balance(&record.key).await {
+                Ok(Some(b)) => Some(b.raw),
+                Ok(None) | Err(tars_providers::ProviderError::Unauthorized { .. }) => None,
+                Err(_) => record.balance.clone(),
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    state.with_db(|db| {
+        let store = ApiKeyStore::new(db.connection());
+        store
+            .update_validation(id, result.valid, balance_value.as_ref())
+            .map(|_| ())
+            .map_err(|e| format!("Failed to persist validation: {e}"))
+    })?;
+
+    Ok(ValidationResponse {
+        valid: result.valid,
+        message: result.message,
+    })
 }
 
 /// Refresh the cached model list for the given provider.
 ///
-/// Stub until issue #7 supplies real `Provider` implementations.
+/// Picks a stored key for the provider (preferring keys previously marked
+/// valid, falling back to any stored key), calls `list_models`, and replaces
+/// the cached rows atomically. Returns the number of models written.
+///
+/// Returns an error if no key is stored for the provider, if the key is
+/// rejected by the upstream API, or if the network call fails.
 #[tauri::command]
 pub async fn refresh_models(
     provider_id: String,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<usize, String> {
-    if ProviderId::parse(&provider_id).is_none() {
-        return Err(format!("Unknown provider: {provider_id}"));
-    }
-    Err("Model refresh not yet implemented — lands in issue #7".to_string())
+    let pid = ProviderId::parse(&provider_id)
+        .ok_or_else(|| format!("Unknown provider: {provider_id}"))?;
+
+    // Pull all keys for this provider, then pick one: prefer last_valid=true,
+    // otherwise fall back to the first key stored.
+    let record: ApiKeyRecord = state.with_db(|db| {
+        let store = ApiKeyStore::new(db.connection());
+        let summaries = store
+            .list_by_provider(&provider_id)
+            .map_err(|e| format!("Failed to list api keys: {e}"))?;
+        if summaries.is_empty() {
+            return Err(format!(
+                "No API key stored for provider '{provider_id}'. Add a key before refreshing."
+            ));
+        }
+        let chosen = summaries
+            .iter()
+            .find(|s| s.last_valid == Some(true))
+            .unwrap_or(&summaries[0]);
+        store
+            .get(chosen.id)
+            .map_err(|e| format!("Failed to load api key: {e}"))?
+            .ok_or_else(|| format!("API key {} vanished between list and get", chosen.id))
+    })?;
+
+    let provider = provider_for(pid);
+    let models = provider
+        .list_models(&record.key)
+        .await
+        .map_err(|e| format!("Model list fetch failed: {e}"))?;
+
+    let rows: Vec<ModelRow> = models
+        .into_iter()
+        .map(|m| ModelRow {
+            model_id: m.id,
+            display_name: m.display_name,
+            context_window: m.context_window,
+            input_price: m.input_price_per_million,
+            output_price: m.output_price_per_million,
+        })
+        .collect();
+
+    let now = Utc::now();
+    let provider_key = pid.as_str().to_string();
+    state.with_db(|db| {
+        let cache = ModelCache::new(db.connection());
+        cache
+            .upsert_all(&provider_key, &rows, now)
+            .map_err(|e| format!("Failed to cache models: {e}"))
+    })
 }
