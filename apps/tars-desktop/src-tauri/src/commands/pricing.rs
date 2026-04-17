@@ -135,6 +135,7 @@ fn parsed_to_update(p: ParsedPrice) -> PriceUpdateRow {
         model_id: p.model_id,
         input_price: p.input_price,
         output_price: p.output_price,
+        context_window: p.context_window,
     }
 }
 
@@ -149,12 +150,14 @@ mod tests {
             model_id: "gpt-4o".into(),
             input_price: 2.5,
             output_price: 10.0,
+            context_window: Some(128_000),
         };
         let r = parsed_to_update(p);
         assert_eq!(r.provider_id, "openai");
         assert_eq!(r.model_id, "gpt-4o");
         assert!((r.input_price - 2.5).abs() < 1e-9);
         assert!((r.output_price - 10.0).abs() < 1e-9);
+        assert_eq!(r.context_window, Some(128_000));
     }
 
     #[test]

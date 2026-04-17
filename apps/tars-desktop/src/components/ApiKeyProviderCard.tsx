@@ -1,4 +1,14 @@
-import { Plus, RefreshCw, Eye, EyeOff, Copy, Trash2, ShieldCheck } from 'lucide-react';
+import {
+  Plus,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Copy,
+  Trash2,
+  ShieldCheck,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +22,7 @@ import {
   type ApiKeySummary,
   type ProviderMetadata,
 } from '../lib/ipc';
+import { ProviderLogo } from './ProviderLogo';
 
 export interface ApiKeyProviderCardProps {
   provider: ProviderMetadata;
@@ -111,17 +122,23 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
   // mutation cache so any in-flight IPC mutation resolving after teardown
   // doesn't setState on a dead component or leave decrypted key material in
   // TanStack Query's mutation state until garbage collection.
-  useEffect(
-    () => () => {
+  //
+  // Reset mountedRef to true in the setup body (not just rely on the useRef
+  // initial value) because React StrictMode's dev-time double-invoke runs
+  // the cleanup once on a simulated unmount — without this restore, the
+  // flag stays false for the real lifecycle and reveal.onSuccess's guard
+  // silently drops the revealed plaintext.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
       mountedRef.current = false;
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;
       }
       revealResetRef.current?.();
-    },
-    []
-  );
+    };
+  }, []);
 
   const remove = useMutation({
     mutationFn: () => deleteApiKey(k.id),
@@ -251,6 +268,62 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
   );
 }
 
+interface ModelIdCellProps {
+  modelId: string;
+  displayName: string | null;
+}
+
+function ModelIdCell({ modelId, displayName }: ModelIdCellProps) {
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset the "copied" badge on unmount so a fast re-render doesn't leave a
+  // dangling timer calling setState after teardown.
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    },
+    []
+  );
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(modelId);
+      setCopied(true);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      toast.error(`Copy failed: ${String(err)}`);
+    }
+  };
+
+  const subtitle = displayName && displayName !== modelId ? displayName : null;
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={`Copy model id ${modelId}`}
+      title={copied ? 'Copied!' : `Click to copy: ${modelId}`}
+      className="group flex flex-col items-start text-left w-full hover:bg-muted/40 rounded px-1 -mx-1 py-0.5 transition-colors"
+    >
+      <span className="font-mono text-xs flex items-center gap-1.5">
+        {modelId}
+        {copied ? (
+          <span className="text-[10px] font-sans font-medium text-emerald-600 dark:text-emerald-400">
+            Copied
+          </span>
+        ) : (
+          <Copy className="h-3 w-3 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+      </span>
+      {subtitle && (
+        <span className="text-[10px] text-muted-foreground/80 font-normal">{subtitle}</span>
+      )}
+    </button>
+  );
+}
+
 function ModelTable({ provider }: { provider: ProviderMetadata }) {
   const modelsQuery = useQuery({
     queryKey: ['provider-models', provider.id],
@@ -305,8 +378,8 @@ function ModelTable({ provider }: { provider: ProviderMetadata }) {
             <tbody>
               {rows.map((m) => (
                 <tr key={m.model_id} className="border-t border-border/40">
-                  <td className="px-2 py-1.5 font-mono">
-                    {m.display_name && m.display_name !== m.model_id ? m.display_name : m.model_id}
+                  <td className="px-2 py-1.5">
+                    <ModelIdCell modelId={m.model_id} displayName={m.display_name} />
                   </td>
                   <td className="px-2 py-1.5 text-right font-mono">
                     {formatContextWindow(m.context_window)}
@@ -325,17 +398,61 @@ function ModelTable({ provider }: { provider: ProviderMetadata }) {
   );
 }
 
+const MODELS_EXPANDED_STORAGE_PREFIX = 'tars.apikey.models-expanded.';
+
+function readModelsExpanded(providerId: string): boolean {
+  try {
+    const raw = localStorage.getItem(`${MODELS_EXPANDED_STORAGE_PREFIX}${providerId}`);
+    if (raw == null) return true;
+    return raw === '1';
+  } catch {
+    return true;
+  }
+}
+
+function writeModelsExpanded(providerId: string, expanded: boolean): void {
+  try {
+    localStorage.setItem(`${MODELS_EXPANDED_STORAGE_PREFIX}${providerId}`, expanded ? '1' : '0');
+  } catch {
+    // Private-mode or quota errors are non-fatal — preference just won't persist.
+  }
+}
+
 export function ApiKeyProviderCard({ provider, keys, onAddKey }: ApiKeyProviderCardProps) {
   const queryClient = useQueryClient();
   const balanceText = provider.supports_balance
     ? (keys.map((k) => formatBalance(k.balance)).find((b) => b != null) ?? null)
     : null;
 
+  const [modelsExpanded, setModelsExpanded] = useState<boolean>(() =>
+    readModelsExpanded(provider.id)
+  );
+  const toggleModelsExpanded = () => {
+    setModelsExpanded((prev) => {
+      const next = !prev;
+      writeModelsExpanded(provider.id, next);
+      return next;
+    });
+  };
+
+  // Share the query cache with ModelTable via identical key — used here only
+  // to show the model count in the collapsed header without a second fetch.
+  const modelsQuery = useQuery({
+    queryKey: ['provider-models', provider.id],
+    queryFn: () => listProviderModels(provider.id),
+    enabled: provider.supports_models,
+  });
+  const modelCount = modelsQuery.data?.length ?? 0;
+
   const refresh = useMutation({
     mutationFn: () => refreshModels(provider.id),
     onSuccess: (count) => {
       toast.success(`Refreshed ${count} model${count === 1 ? '' : 's'}`);
       queryClient.invalidateQueries({ queryKey: ['provider-models', provider.id] });
+      // Pricing is re-applied server-side inside refresh_models; invalidate so
+      // the metadata stamp ("Prices updated Xm ago") updates without a manual
+      // page refresh.
+      queryClient.invalidateQueries({ queryKey: ['pricing-metadata'] });
     },
     onError: (err) => toast.error(`Refresh failed: ${String(err)}`),
   });
@@ -343,11 +460,18 @@ export function ApiKeyProviderCard({ provider, keys, onAddKey }: ApiKeyProviderC
   return (
     <div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="font-semibold truncate">{provider.display_name}</h2>
-          <p className="text-xs text-muted-foreground truncate" title={provider.key_format_hint}>
-            Format: {provider.key_format_hint}
-          </p>
+        <div className="flex items-start gap-3 min-w-0">
+          <ProviderLogo
+            providerId={provider.id}
+            providerName={provider.display_name}
+            className="h-8 w-8 shrink-0 mt-0.5 object-contain"
+          />
+          <div className="min-w-0">
+            <h2 className="font-semibold truncate">{provider.display_name}</h2>
+            <p className="text-xs text-muted-foreground truncate" title={provider.key_format_hint}>
+              Format: {provider.key_format_hint}
+            </p>
+          </div>
         </div>
         {provider.supports_balance && (
           <span
@@ -374,10 +498,30 @@ export function ApiKeyProviderCard({ provider, keys, onAddKey }: ApiKeyProviderC
 
       {provider.supports_models && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Models
-          </h3>
-          <ModelTable provider={provider} />
+          <button
+            type="button"
+            onClick={toggleModelsExpanded}
+            aria-expanded={modelsExpanded}
+            aria-controls={`models-panel-${provider.id}`}
+            className="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {modelsExpanded ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+            <span>Models</span>
+            {modelCount > 0 && (
+              <span className="ml-1 text-[10px] font-normal normal-case tracking-normal text-muted-foreground/80">
+                ({modelCount})
+              </span>
+            )}
+          </button>
+          {modelsExpanded && (
+            <div id={`models-panel-${provider.id}`}>
+              <ModelTable provider={provider} />
+            </div>
+          )}
         </div>
       )}
 

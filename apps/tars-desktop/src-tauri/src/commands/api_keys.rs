@@ -361,12 +361,20 @@ pub async fn refresh_models(
 
     let now = Utc::now();
     let provider_key = pid.as_str().to_string();
-    state.with_db(|db| {
+    let written = state.with_db(|db| {
         let cache = ModelCache::new(db.connection());
         cache
             .upsert_all(&provider_key, &rows, now)
             .map_err(|e| format!("Failed to cache models: {e}"))
-    })
+    })?;
+
+    // Pricing refresh on startup runs before any provider models exist,
+    // producing zero priced rows. Re-fetching LiteLLM after the model cache
+    // is populated is what makes the price columns light up for first-time
+    // users. Best-effort so a LiteLLM outage doesn't fail the model refresh.
+    let _ = super::pricing::refresh_pricing(state).await;
+
+    Ok(written)
 }
 
 #[cfg(test)]
