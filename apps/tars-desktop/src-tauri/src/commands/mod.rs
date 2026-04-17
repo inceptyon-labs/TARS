@@ -3,6 +3,7 @@
 //! All IPC commands exposed to the frontend.
 
 pub mod agents;
+pub mod api_keys;
 pub mod apply;
 pub mod beacons;
 pub mod commands;
@@ -22,6 +23,7 @@ pub mod utils;
 
 // Re-export all commands for easy registration
 pub use agents::*;
+pub use api_keys::*;
 pub use apply::*;
 pub use beacons::*;
 pub use commands::*;
