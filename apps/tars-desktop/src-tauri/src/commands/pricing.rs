@@ -7,8 +7,8 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::time::Duration;
 use tars_core::pricing::{
-    get_metadata, parse_litellm_prices, set_metadata, update_prices, ParsedPrice, PriceUpdateRow,
-    LITELLM_PRICES_URL, METADATA_KEY_LAST_ERROR, METADATA_KEY_LAST_REFRESH,
+    delete_metadata, get_metadata, parse_litellm_prices, set_metadata, update_prices, ParsedPrice,
+    PriceUpdateRow, LITELLM_PRICES_URL, METADATA_KEY_LAST_ERROR, METADATA_KEY_LAST_REFRESH,
 };
 use tauri::State;
 
@@ -91,15 +91,25 @@ async fn fetch_and_apply(
         update_prices(db.connection(), &rows).map_err(|e| format!("DB write failed: {e}"))
     })?;
 
-    state.with_db(|db| {
-        set_metadata(
-            db.connection(),
-            METADATA_KEY_LAST_REFRESH,
-            &now.to_rfc3339(),
-            now,
-        )
-        .map_err(|e| format!("Failed to record pricing refresh: {e}"))
-    })?;
+    // Only mark a successful refresh when at least one model row was priced.
+    // If provider_models is empty (no keys added yet), skip recording so the
+    // background loop retries on the next launch instead of sleeping 7 days.
+    if written > 0 {
+        state.with_db(|db| {
+            set_metadata(
+                db.connection(),
+                METADATA_KEY_LAST_REFRESH,
+                &now.to_rfc3339(),
+                now,
+            )
+            .map_err(|e| format!("Failed to record pricing refresh: {e}"))
+        })?;
+    }
+
+    // Clear any previous error — a successful price write supersedes it.
+    let _ = state.with_db(|db| {
+        delete_metadata(db.connection(), METADATA_KEY_LAST_ERROR).map_err(|e| e.to_string())
+    });
 
     Ok(written)
 }

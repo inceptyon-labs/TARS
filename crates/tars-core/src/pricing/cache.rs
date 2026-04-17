@@ -111,6 +111,15 @@ pub fn get_metadata(
     .transpose()
 }
 
+/// Delete a metadata row (no-op when the key does not exist).
+///
+/// # Errors
+/// Returns the underlying `DatabaseError` on statement failure.
+pub fn delete_metadata(conn: &Connection, key: &str) -> Result<(), DatabaseError> {
+    conn.execute("DELETE FROM pricing_metadata WHERE key = ?1", params![key])?;
+    Ok(())
+}
+
 /// Upsert a metadata row.
 ///
 /// # Errors
@@ -345,5 +354,24 @@ mod tests {
         assert_eq!(r.input, Some(2.5));
         assert_eq!(r.output, Some(10.0));
         assert!(!r.is_overridden);
+    }
+
+    #[test]
+    fn delete_metadata_removes_row() {
+        let db = Database::in_memory().unwrap();
+        let conn = db.connection();
+        let at: DateTime<Utc> = "2026-04-17T12:00:00Z".parse().unwrap();
+        set_metadata(conn, METADATA_KEY_LAST_ERROR, "oops", at).unwrap();
+        delete_metadata(conn, METADATA_KEY_LAST_ERROR).unwrap();
+        assert!(get_metadata(conn, METADATA_KEY_LAST_ERROR)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn delete_metadata_noop_when_missing() {
+        let db = Database::in_memory().unwrap();
+        // Should not error even when the row doesn't exist.
+        assert!(delete_metadata(db.connection(), "nonexistent").is_ok());
     }
 }
