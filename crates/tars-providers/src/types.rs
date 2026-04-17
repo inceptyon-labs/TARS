@@ -44,6 +44,17 @@ pub enum ProviderId {
     Anthropic,
     Gemini,
     Deepseek,
+    #[serde(rename = "brave-search")]
+    BraveSearch,
+    #[serde(rename = "elevenlabs")]
+    ElevenLabs,
+    Groq,
+    Mistral,
+    #[serde(rename = "xai")]
+    XAi,
+    #[serde(rename = "openrouter")]
+    OpenRouter,
+    Perplexity,
 }
 
 impl ProviderId {
@@ -53,6 +64,13 @@ impl ProviderId {
         ProviderId::Anthropic,
         ProviderId::Gemini,
         ProviderId::Deepseek,
+        ProviderId::BraveSearch,
+        ProviderId::ElevenLabs,
+        ProviderId::Groq,
+        ProviderId::Mistral,
+        ProviderId::XAi,
+        ProviderId::OpenRouter,
+        ProviderId::Perplexity,
     ];
 
     /// Stable string form used in DB rows and IPC payloads
@@ -63,6 +81,13 @@ impl ProviderId {
             ProviderId::Anthropic => "anthropic",
             ProviderId::Gemini => "gemini",
             ProviderId::Deepseek => "deepseek",
+            ProviderId::BraveSearch => "brave-search",
+            ProviderId::ElevenLabs => "elevenlabs",
+            ProviderId::Groq => "groq",
+            ProviderId::Mistral => "mistral",
+            ProviderId::XAi => "xai",
+            ProviderId::OpenRouter => "openrouter",
+            ProviderId::Perplexity => "perplexity",
         }
     }
 
@@ -74,6 +99,13 @@ impl ProviderId {
             "anthropic" => Some(ProviderId::Anthropic),
             "gemini" => Some(ProviderId::Gemini),
             "deepseek" => Some(ProviderId::Deepseek),
+            "brave-search" => Some(ProviderId::BraveSearch),
+            "elevenlabs" => Some(ProviderId::ElevenLabs),
+            "groq" => Some(ProviderId::Groq),
+            "mistral" => Some(ProviderId::Mistral),
+            "xai" => Some(ProviderId::XAi),
+            "openrouter" => Some(ProviderId::OpenRouter),
+            "perplexity" => Some(ProviderId::Perplexity),
             _ => None,
         }
     }
@@ -110,8 +142,8 @@ mod tests {
     }
 
     #[test]
-    fn provider_id_all_has_four() {
-        assert_eq!(ProviderId::ALL.len(), 4);
+    fn provider_id_all_has_eleven() {
+        assert_eq!(ProviderId::ALL.len(), 11);
     }
 
     #[test]
@@ -120,6 +152,37 @@ mod tests {
         assert_eq!(json, "\"openai\"");
         let json = serde_json::to_string(&ProviderId::Deepseek).unwrap();
         assert_eq!(json, "\"deepseek\"");
+        let json = serde_json::to_string(&ProviderId::BraveSearch).unwrap();
+        assert_eq!(json, "\"brave-search\"");
+        let json = serde_json::to_string(&ProviderId::ElevenLabs).unwrap();
+        assert_eq!(json, "\"elevenlabs\"");
+        let json = serde_json::to_string(&ProviderId::Groq).unwrap();
+        assert_eq!(json, "\"groq\"");
+        let json = serde_json::to_string(&ProviderId::Mistral).unwrap();
+        assert_eq!(json, "\"mistral\"");
+        let json = serde_json::to_string(&ProviderId::XAi).unwrap();
+        assert_eq!(json, "\"xai\"");
+        let json = serde_json::to_string(&ProviderId::OpenRouter).unwrap();
+        assert_eq!(json, "\"openrouter\"");
+        let json = serde_json::to_string(&ProviderId::Perplexity).unwrap();
+        assert_eq!(json, "\"perplexity\"");
+    }
+
+    #[test]
+    fn simple_storage_providers_roundtrip() {
+        let expected = [
+            ("brave-search", ProviderId::BraveSearch),
+            ("elevenlabs", ProviderId::ElevenLabs),
+            ("groq", ProviderId::Groq),
+            ("mistral", ProviderId::Mistral),
+            ("xai", ProviderId::XAi),
+            ("openrouter", ProviderId::OpenRouter),
+            ("perplexity", ProviderId::Perplexity),
+        ];
+        for (s, id) in expected {
+            assert_eq!(id.as_str(), s);
+            assert_eq!(ProviderId::parse(s), Some(id));
+        }
     }
 
     #[test]
