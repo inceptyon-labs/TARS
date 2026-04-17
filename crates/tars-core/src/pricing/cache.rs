@@ -21,6 +21,10 @@ pub struct PriceUpdateRow {
     pub model_id: String,
     pub input_price: f64,
     pub output_price: f64,
+    /// Context window in tokens, if known. `None` leaves the existing value
+    /// untouched so provider-reported context windows (when available) are
+    /// not clobbered by a `LiteLLM` entry that happens to omit it.
+    pub context_window: Option<u32>,
 }
 
 /// Effective per-1M-token price displayed to the user.
@@ -63,13 +67,20 @@ pub fn update_prices(conn: &Connection, rows: &[PriceUpdateRow]) -> Result<usize
     let tx = conn.unchecked_transaction()?;
     let mut updated = 0_usize;
     for row in rows {
+        // COALESCE on context_window lets a NULL in the update row fall back
+        // to the existing value — important because some `LiteLLM` entries
+        // omit `max_input_tokens` and we don't want to clobber a window we
+        // already have from the provider's own model-list API.
         let n = tx.execute(
             "UPDATE provider_models
-             SET input_price = ?1, output_price = ?2
-             WHERE provider_id = ?3 AND model_id = ?4",
+             SET input_price = ?1,
+                 output_price = ?2,
+                 context_window = COALESCE(?3, context_window)
+             WHERE provider_id = ?4 AND model_id = ?5",
             params![
                 row.input_price,
                 row.output_price,
+                row.context_window,
                 row.provider_id,
                 row.model_id
             ],
@@ -206,6 +217,7 @@ mod tests {
                 model_id: "gpt-4o".into(),
                 input_price: 2.5,
                 output_price: 10.0,
+                context_window: Some(128_000),
             }],
         )
         .unwrap();
@@ -230,12 +242,14 @@ mod tests {
                     model_id: "gpt-4o".into(),
                     input_price: 2.5,
                     output_price: 10.0,
+                    context_window: None,
                 },
                 PriceUpdateRow {
                     provider_id: "openai".into(),
                     model_id: "not-cached".into(),
                     input_price: 1.0,
                     output_price: 2.0,
+                    context_window: None,
                 },
             ],
         )
@@ -264,6 +278,7 @@ mod tests {
                 model_id: "gpt-4o".into(),
                 input_price: 2.5,
                 output_price: 10.0,
+                context_window: None,
             }],
         )
         .unwrap();

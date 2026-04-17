@@ -29,6 +29,10 @@ pub struct ParsedPrice {
     pub input_price: f64,
     /// USD per 1M output tokens.
     pub output_price: f64,
+    /// Context window size in tokens. `LiteLLM` publishes this as
+    /// `max_input_tokens` (preferred) or `max_tokens` (fallback). `None` when
+    /// both are missing or not representable as `u32`.
+    pub context_window: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +43,10 @@ struct RawEntry {
     input_cost_per_token: Option<f64>,
     #[serde(default)]
     output_cost_per_token: Option<f64>,
+    #[serde(default)]
+    max_input_tokens: Option<u64>,
+    #[serde(default)]
+    max_tokens: Option<u64>,
 }
 
 /// Map a `LiteLLM` `litellm_provider` value to our internal provider id.
@@ -121,6 +129,10 @@ pub fn parse_litellm_prices(raw: &str) -> Result<Vec<ParsedPrice>, serde_json::E
         }
 
         let model_id = normalise_model_id(provider_id, &key).to_string();
+        let context_window = entry
+            .max_input_tokens
+            .or(entry.max_tokens)
+            .and_then(|n| u32::try_from(n).ok());
         out.insert(
             (provider_id.to_string(), model_id.clone()),
             ParsedPrice {
@@ -128,6 +140,7 @@ pub fn parse_litellm_prices(raw: &str) -> Result<Vec<ParsedPrice>, serde_json::E
                 model_id,
                 input_price: input_per_token * 1_000_000.0,
                 output_price: output_per_token * 1_000_000.0,
+                context_window,
             },
         );
     }
