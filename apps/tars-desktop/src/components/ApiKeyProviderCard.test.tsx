@@ -305,6 +305,36 @@ describe('ApiKeyProviderCard — interactions', () => {
     await user.click(screen.getByRole('button', { name: /validate key/i }));
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('validate_api_key', { id: 9 }));
   });
+
+  it('does not render Invalid badge for an unverifiable provider (Perplexity)', () => {
+    const perplexityMeta: ProviderMetadata = {
+      id: 'perplexity',
+      display_name: 'Perplexity',
+      docs_url: 'https://www.perplexity.ai/settings/api',
+      key_format_hint: 'pplx-...',
+      supports_models: false,
+      supports_balance: false,
+    };
+    // last_valid is left null because the backend skips update_validation for
+    // unverifiable providers. The badge column must stay empty in that case —
+    // no Valid, no Invalid.
+    render(
+      <ApiKeyProviderCard
+        provider={perplexityMeta}
+        keys={[
+          makeKey({
+            id: 2,
+            provider_id: 'perplexity',
+            last_valid: null,
+            last_validated_at: null,
+          }),
+        ]}
+        onAddKey={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/^valid$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^invalid$/i)).not.toBeInTheDocument();
+  });
 });
 
 const noPricingMeta = { last_refresh_at: null, last_error: null, last_error_at: null };

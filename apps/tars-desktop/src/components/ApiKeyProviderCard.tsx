@@ -135,7 +135,9 @@ function ApiKeyRow({ k }: ApiKeyRowProps) {
   const validate = useMutation({
     mutationFn: () => validateApiKey(k.id),
     onSuccess: (res) => {
-      if (res.valid) {
+      if (res.unverifiable) {
+        toast(res.message ?? 'Key stored, but this provider cannot be auto-verified.');
+      } else if (res.valid) {
         toast.success('Key is valid');
       } else {
         toast.error(res.message ? `Invalid: ${res.message}` : 'Key is invalid');

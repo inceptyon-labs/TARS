@@ -59,11 +59,19 @@ pub struct ProviderMetadataResponse {
     pub supports_balance: bool,
 }
 
-/// Result of a validation attempt
+/// Result of a validation attempt.
+///
+/// `unverifiable: true` means the provider does not expose a usable
+/// auth-check endpoint (e.g. Perplexity), so the key was stored but no
+/// remote validation was performed and the persisted `last_valid` state was
+/// left untouched. The UI should surface this as a neutral message rather
+/// than a success or failure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResponse {
     pub valid: bool,
     pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unverifiable: bool,
 }
 
 /// Static metadata for every supported provider
@@ -171,10 +179,24 @@ pub async fn validate_api_key(
     })?;
     let provider = provider_for(provider_id);
 
-    let result = provider
-        .validate_key(&record.key)
-        .await
-        .map_err(|e| format!("Validation failed: {e}"))?;
+    let result = match provider.validate_key(&record.key).await {
+        Ok(r) => r,
+        // Providers that expose no auth-check endpoint (e.g. Perplexity) short
+        // circuit here: we preserve the existing `last_valid` state (no
+        // `update_validation` call) and flag the response as unverifiable so
+        // the UI can render a neutral badge instead of an error toast.
+        Err(tars_providers::ProviderError::Unsupported) => {
+            return Ok(ValidationResponse {
+                valid: false,
+                message: Some(
+                    "This provider does not expose an auth-check endpoint — key stored but not verified."
+                        .to_string(),
+                ),
+                unverifiable: true,
+            });
+        }
+        Err(e) => return Err(format!("Validation failed: {e}")),
+    };
 
     // Only fetch balance on successful validation and only for providers that
     // expose it. Error policy:
@@ -209,6 +231,7 @@ pub async fn validate_api_key(
     Ok(ValidationResponse {
         valid: result.valid,
         message: result.message,
+        unverifiable: false,
     })
 }
 
@@ -392,6 +415,34 @@ mod tests {
         assert!(resp.context_window.is_none());
         assert!(resp.input_price.is_none());
         assert!(resp.output_price.is_none());
+    }
+
+    #[test]
+    fn validation_response_omits_unverifiable_when_false() {
+        let resp = ValidationResponse {
+            valid: true,
+            message: None,
+            unverifiable: false,
+        };
+        let json = serde_json::to_value(&resp).unwrap();
+        assert!(
+            json.get("unverifiable").is_none(),
+            "unverifiable=false must be omitted so old clients ignore it"
+        );
+        assert_eq!(json["valid"], true);
+    }
+
+    #[test]
+    fn validation_response_serializes_unverifiable_when_true() {
+        let resp = ValidationResponse {
+            valid: false,
+            message: Some("not checked".into()),
+            unverifiable: true,
+        };
+        let json = serde_json::to_value(&resp).unwrap();
+        assert_eq!(json["unverifiable"], true);
+        assert_eq!(json["valid"], false);
+        assert_eq!(json["message"], "not checked");
     }
 
     #[test]
