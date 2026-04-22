@@ -48,6 +48,9 @@ const GalleryPage = lazy(() =>
 const ApiKeysPage = lazy(() =>
   import('./pages/ApiKeysPage').then((m) => ({ default: m.ApiKeysPage }))
 );
+const DeveloperPage = lazy(() =>
+  import('./pages/DeveloperPage').then((m) => ({ default: m.DeveloperPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -225,6 +228,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <ApiKeysPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="developer"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <DeveloperPage />
                   </Suspense>
                 }
               />

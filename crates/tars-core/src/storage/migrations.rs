@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 6;
+const CURRENT_VERSION: i32 = 8;
 
 /// Run all pending migrations
 ///
@@ -35,6 +35,14 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 6 {
         migrate_v6(conn)?;
+    }
+
+    if version < 7 {
+        migrate_v7(conn)?;
+    }
+
+    if version < 8 {
+        migrate_v8(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -285,6 +293,95 @@ fn migrate_v6(conn: &Connection) -> Result<(), DatabaseError> {
     Ok(())
 }
 
+fn migrate_v7(conn: &Connection) -> Result<(), DatabaseError> {
+    // Developer release infrastructure:
+    // - developer_credentials are global encrypted secrets reusable across apps.
+    // - app_targets describe store-facing apps/build targets and may reference
+    //   a local project.
+    // - app_target_credentials links reusable credentials to app targets by
+    //   role (e.g. "asc-api-key", "upload-keystore").
+    // - developer_commands stores common release/build command presets.
+    conn.execute_batch(
+        r"
+        CREATE TABLE IF NOT EXISTS developer_credentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT NOT NULL,
+            credential_type TEXT NOT NULL,
+            label TEXT NOT NULL,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            encrypted_secret TEXT NOT NULL,
+            nonce TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(provider, credential_type, label)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_developer_credentials_provider
+            ON developer_credentials(provider, credential_type);
+
+        CREATE TABLE IF NOT EXISTS app_targets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+            bundle_id TEXT,
+            package_name TEXT,
+            store_app_id TEXT,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_app_targets_project
+            ON app_targets(project_id);
+        CREATE INDEX IF NOT EXISTS idx_app_targets_platform
+            ON app_targets(platform);
+
+        CREATE TABLE IF NOT EXISTS app_target_credentials (
+            app_target_id INTEGER NOT NULL REFERENCES app_targets(id) ON DELETE CASCADE,
+            credential_id INTEGER NOT NULL REFERENCES developer_credentials(id) ON DELETE CASCADE,
+            role TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(app_target_id, credential_id, role)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_app_target_credentials_credential
+            ON app_target_credentials(credential_id);
+
+        CREATE TABLE IF NOT EXISTS developer_commands (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            command TEXT NOT NULL,
+            working_dir TEXT,
+            app_target_id INTEGER REFERENCES app_targets(id) ON DELETE SET NULL,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_developer_commands_app_target
+            ON developer_commands(app_target_id);
+        ",
+    )?;
+
+    Ok(())
+}
+
+fn migrate_v8(conn: &Connection) -> Result<(), DatabaseError> {
+    conn.execute_batch(
+        r"
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        ",
+    )?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -414,6 +511,73 @@ mod tests {
     }
 
     #[test]
+    fn v7_creates_developer_tables() {
+        let conn = fresh_conn();
+        let credential_cols = table_columns(&conn, "developer_credentials");
+        for expected in [
+            "id",
+            "provider",
+            "credential_type",
+            "label",
+            "tags_json",
+            "metadata_json",
+            "encrypted_secret",
+            "nonce",
+            "created_at",
+            "updated_at",
+        ] {
+            assert!(
+                credential_cols.contains(&expected.to_string()),
+                "missing credential col {expected}"
+            );
+        }
+
+        let app_target_cols = table_columns(&conn, "app_targets");
+        for expected in [
+            "id",
+            "name",
+            "platform",
+            "project_id",
+            "bundle_id",
+            "package_name",
+            "store_app_id",
+            "metadata_json",
+        ] {
+            assert!(
+                app_target_cols.contains(&expected.to_string()),
+                "missing app target col {expected}"
+            );
+        }
+
+        let command_cols = table_columns(&conn, "developer_commands");
+        for expected in [
+            "id",
+            "name",
+            "command",
+            "working_dir",
+            "app_target_id",
+            "tags_json",
+        ] {
+            assert!(
+                command_cols.contains(&expected.to_string()),
+                "missing command col {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn v8_creates_app_settings_table() {
+        let conn = fresh_conn();
+        let cols = table_columns(&conn, "app_settings");
+        for expected in ["key", "value", "updated_at"] {
+            assert!(
+                cols.contains(&expected.to_string()),
+                "missing app settings col {expected}"
+            );
+        }
+    }
+
+    #[test]
     fn pricing_metadata_key_is_primary() {
         let conn = fresh_conn();
         let now = "2026-04-17T00:00:00Z";
@@ -430,7 +594,7 @@ mod tests {
     }
 
     #[test]
-    fn migrations_are_idempotent_from_v5_to_v6() {
+    fn migrations_are_idempotent() {
         let conn = Connection::open_in_memory().unwrap();
         run_migrations(&conn).unwrap();
         // Second call should not error (version already at CURRENT_VERSION).

@@ -18,7 +18,56 @@ import type {
   ProfileToolInventory,
   SettingsHooksConfig,
   SettingsHookEvent,
+  AppDataBackupInfo,
+  AppDataBackupDirectory,
+  RestoreAppDataBackupResult,
+  DeveloperCredentialSummary,
+  DeveloperCredentialInput,
+  DeveloperCredentialFile,
+  MaterializedCredentialFile,
+  AppTarget,
+  AppTargetInput,
+  AppTargetCredential,
+  DeveloperCommandPreset,
+  DeveloperCommandInput,
 } from '../types';
+
+// App data backup/restore commands
+export async function createLocalAppDataBackup(
+  outputPath?: string | null
+): Promise<AppDataBackupInfo> {
+  return invoke('create_local_app_data_backup', { outputPath: outputPath ?? null });
+}
+
+export async function createPortableAppDataBackup(
+  passphrase: string,
+  outputPath?: string | null
+): Promise<AppDataBackupInfo> {
+  return invoke('create_portable_app_data_backup', { passphrase, outputPath: outputPath ?? null });
+}
+
+export async function restoreAppDataBackup(
+  path: string,
+  passphrase?: string | null
+): Promise<RestoreAppDataBackupResult> {
+  return invoke('restore_app_data_backup', { path, passphrase: passphrase ?? null });
+}
+
+export async function listAppDataBackups(): Promise<AppDataBackupInfo[]> {
+  return invoke('list_app_data_backups');
+}
+
+export async function getAppDataBackupDir(): Promise<AppDataBackupDirectory> {
+  return invoke('get_app_data_backup_dir');
+}
+
+export async function setAppDataBackupDir(path?: string | null): Promise<AppDataBackupDirectory> {
+  return invoke('set_app_data_backup_dir', { path: path ?? null });
+}
+
+export async function deleteAppDataBackup(path: string): Promise<boolean> {
+  return invoke('delete_app_data_backup', { path });
+}
 
 // Scanner commands
 export async function scanProject(path: string): Promise<Inventory> {
@@ -1152,4 +1201,99 @@ export async function refreshPricing(): Promise<number> {
 
 export async function getPricingMetadata(): Promise<PricingMetadata> {
   return invoke('get_pricing_metadata');
+}
+
+// Developer account / release infrastructure commands
+export async function listDeveloperCredentials(): Promise<DeveloperCredentialSummary[]> {
+  return invoke('list_developer_credentials');
+}
+
+export async function readDeveloperCredentialFile(path: string): Promise<DeveloperCredentialFile> {
+  return invoke('read_developer_credential_file', { path });
+}
+
+export async function addDeveloperCredential(input: DeveloperCredentialInput): Promise<number> {
+  return invoke('add_developer_credential', { input });
+}
+
+export async function updateDeveloperCredential(
+  id: number,
+  input: DeveloperCredentialInput
+): Promise<boolean> {
+  return invoke('update_developer_credential', { id, input });
+}
+
+export async function deleteDeveloperCredential(id: number): Promise<boolean> {
+  return invoke('delete_developer_credential', { id });
+}
+
+export async function revealDeveloperCredential(id: number): Promise<string> {
+  return invoke('reveal_developer_credential', { id });
+}
+
+export async function materializeDeveloperCredentialFile(
+  id: number
+): Promise<MaterializedCredentialFile> {
+  return invoke('materialize_developer_credential_file', { id });
+}
+
+export async function deleteMaterializedDeveloperCredentialFile(path: string): Promise<boolean> {
+  return invoke('delete_materialized_developer_credential_file', { path });
+}
+
+export async function listAppTargets(): Promise<AppTarget[]> {
+  return invoke('list_app_targets');
+}
+
+export async function addAppTarget(input: AppTargetInput): Promise<number> {
+  return invoke('add_app_target', { input });
+}
+
+export async function updateAppTarget(id: number, input: AppTargetInput): Promise<boolean> {
+  return invoke('update_app_target', { id, input });
+}
+
+export async function deleteAppTarget(id: number): Promise<boolean> {
+  return invoke('delete_app_target', { id });
+}
+
+export async function listAppTargetCredentials(
+  appTargetId: number
+): Promise<AppTargetCredential[]> {
+  return invoke('list_app_target_credentials', { appTargetId });
+}
+
+export async function linkAppTargetCredential(
+  appTargetId: number,
+  credentialId: number,
+  role: string
+): Promise<void> {
+  return invoke('link_app_target_credential', { appTargetId, credentialId, role });
+}
+
+export async function unlinkAppTargetCredential(
+  appTargetId: number,
+  credentialId: number,
+  role: string
+): Promise<boolean> {
+  return invoke('unlink_app_target_credential', { appTargetId, credentialId, role });
+}
+
+export async function listDeveloperCommands(): Promise<DeveloperCommandPreset[]> {
+  return invoke('list_developer_commands');
+}
+
+export async function addDeveloperCommand(input: DeveloperCommandInput): Promise<number> {
+  return invoke('add_developer_command', { input });
+}
+
+export async function updateDeveloperCommand(
+  id: number,
+  input: DeveloperCommandInput
+): Promise<boolean> {
+  return invoke('update_developer_command', { id, input });
+}
+
+export async function deleteDeveloperCommand(id: number): Promise<boolean> {
+  return invoke('delete_developer_command', { id });
 }

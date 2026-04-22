@@ -47,6 +47,17 @@ impl AppState {
         Ok(())
     }
 
+    /// Close the active database connection.
+    ///
+    /// This is used before replacing `tars.db` during app-data restore.
+    pub fn close_database(&self) {
+        let mut guard = self
+            .db
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *guard = None;
+    }
+
     /// Check if the database is initialized
     #[allow(dead_code)]
     pub fn is_initialized(&self) -> bool {

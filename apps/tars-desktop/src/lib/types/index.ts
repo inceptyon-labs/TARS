@@ -616,6 +616,111 @@ export interface TarsUpdateInfo {
   download_url: string | null;
 }
 
+// App data backup/restore types
+export interface AppDataBackupInfo {
+  path: string;
+  file_name: string;
+  backup_type: string;
+  created_at: string;
+  size_bytes: number;
+  sha256: string;
+}
+
+export interface AppDataBackupDirectory {
+  path: string;
+  is_default: boolean;
+}
+
+export interface RestoreAppDataBackupResult {
+  restored: boolean;
+  backup_before_restore_path: string;
+  restored_from: string;
+}
+
+// Developer account / release infrastructure types
+export interface DeveloperCredentialSummary {
+  id: number;
+  provider: string;
+  credential_type: string;
+  label: string;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeveloperCredentialInput {
+  provider: string;
+  credential_type: string;
+  label: string;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  secret: string;
+}
+
+export interface DeveloperCredentialFile {
+  path: string;
+  file_name: string;
+  content: string;
+}
+
+export interface MaterializedCredentialFile {
+  path: string;
+  file_name: string;
+}
+
+export interface AppTarget {
+  id: number;
+  name: string;
+  platform: string;
+  project_id: string | null;
+  bundle_id: string | null;
+  package_name: string | null;
+  store_app_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppTargetInput {
+  name: string;
+  platform: string;
+  project_id?: string | null;
+  bundle_id?: string | null;
+  package_name?: string | null;
+  store_app_id?: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface AppTargetCredential {
+  app_target_id: number;
+  credential_id: number;
+  role: string;
+  credential_label: string;
+  provider: string;
+  credential_type: string;
+  created_at: string;
+}
+
+export interface DeveloperCommandPreset {
+  id: number;
+  name: string;
+  command: string;
+  working_dir: string | null;
+  app_target_id: number | null;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeveloperCommandInput {
+  name: string;
+  command: string;
+  working_dir?: string | null;
+  app_target_id?: number | null;
+  tags: string[];
+}
+
 // Claude Code usage stats types
 export interface DailyActivity {
   date: string;

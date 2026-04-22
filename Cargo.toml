@@ -51,6 +51,7 @@ zip = "0.6"
 
 # Encryption
 aes-gcm = "0.10"
+argon2 = "0.5"
 rand = "0.8"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 

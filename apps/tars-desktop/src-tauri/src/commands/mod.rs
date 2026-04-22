@@ -4,10 +4,12 @@
 
 pub mod agents;
 pub mod api_keys;
+pub mod app_data_backup;
 pub mod apply;
 pub mod beacons;
 pub mod commands;
 pub mod config;
+pub mod developer;
 pub mod hooks;
 pub mod metadata;
 pub mod plugins;
@@ -25,10 +27,12 @@ pub mod utils;
 // Re-export all commands for easy registration
 pub use agents::*;
 pub use api_keys::*;
+pub use app_data_backup::*;
 pub use apply::*;
 pub use beacons::*;
 pub use commands::*;
 pub use config::*;
+pub use developer::*;
 pub use hooks::*;
 pub use metadata::*;
 pub use plugins::*;
