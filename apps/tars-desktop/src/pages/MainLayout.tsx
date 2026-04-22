@@ -24,6 +24,7 @@ import {
   LayoutGrid,
   Key,
   AppWindow,
+  Boxes,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/ui-store';
@@ -42,6 +43,7 @@ const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderGit2 },
   { name: 'Developer', href: '/developer', icon: AppWindow },
   { name: 'AI Keys', href: '/api-keys', icon: Key },
+  { name: 'Runtimes', href: '/runtimes', icon: Boxes },
   { name: 'Profiles', href: '/profiles', icon: Layers },
   { name: 'Skills', href: '/skills', icon: Cpu },
   { name: 'Agents', href: '/agents', icon: Bot },

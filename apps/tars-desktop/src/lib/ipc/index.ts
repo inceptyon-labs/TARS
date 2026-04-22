@@ -925,6 +925,7 @@ import type {
   ChangelogResponse,
   PluginUpdatesResponse,
   TarsUpdateInfo,
+  RuntimeStatus,
 } from '../types';
 
 export async function getInstalledClaudeVersion(): Promise<string | null> {
@@ -941,6 +942,10 @@ export async function fetchTarsChangelog(): Promise<ChangelogResponse> {
 
 export async function getClaudeVersionInfo(): Promise<ClaudeVersionInfo> {
   return invoke('get_claude_version_info');
+}
+
+export async function getRuntimeStatuses(): Promise<RuntimeStatus[]> {
+  return invoke('get_runtime_statuses');
 }
 
 export async function checkPluginUpdates(): Promise<PluginUpdatesResponse> {
