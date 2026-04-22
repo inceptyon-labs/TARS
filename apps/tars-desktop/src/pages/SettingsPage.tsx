@@ -1,15 +1,45 @@
-import { Sun, Moon, Monitor, FolderOpen, RotateCcw, Info, ExternalLink, Heart } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { revealItemInDir, openUrl } from '@tauri-apps/plugin-opener';
+import {
+  Sun,
+  Moon,
+  Monitor,
+  FolderOpen,
+  RotateCcw,
+  Info,
+  ExternalLink,
+  Heart,
+  DatabaseBackup,
+  Download,
+  Upload,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { openPath, openUrl } from '@tauri-apps/plugin-opener';
 import { homeDir } from '@tauri-apps/api/path';
+import { open } from '@tauri-apps/plugin-dialog';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { useUIStore, type Theme } from '../stores/ui-store';
 import { SupportButton } from '../components/SupportButton';
-import { getTarsVersion, getPlatformInfo } from '../lib/ipc';
+import {
+  createLocalAppDataBackup,
+  createPortableAppDataBackup,
+  deleteAppDataBackup,
+  getAppDataBackupDir,
+  getTarsVersion,
+  getPlatformInfo,
+  listAppDataBackups,
+  restoreAppDataBackup,
+  setAppDataBackupDir,
+} from '../lib/ipc';
 
 export function SettingsPage() {
+  const queryClient = useQueryClient();
   const theme = useUIStore((state) => state.theme);
   const setTheme = useUIStore((state) => state.setTheme);
+  const [portablePassphrase, setPortablePassphrase] = useState('');
+  const [restorePassphrase, setRestorePassphrase] = useState('');
 
   const { data: appVersion } = useQuery({
     queryKey: ['tars-version'],
@@ -23,14 +53,119 @@ export function SettingsPage() {
     staleTime: Infinity,
   });
 
+  const { data: appDataBackups = [] } = useQuery({
+    queryKey: ['app-data-backups'],
+    queryFn: listAppDataBackups,
+    staleTime: 0,
+  });
+
+  const { data: backupDir } = useQuery({
+    queryKey: ['app-data-backup-dir'],
+    queryFn: getAppDataBackupDir,
+    staleTime: 0,
+  });
+
+  const localBackupMutation = useMutation({
+    mutationFn: () => createLocalAppDataBackup(),
+    onSuccess: (backup) => {
+      queryClient.invalidateQueries({ queryKey: ['app-data-backups'] });
+      toast.success(`Backup created: ${backup.file_name}`);
+    },
+    onError: (err) => toast.error(`Failed to create backup: ${err}`),
+  });
+
+  const portableBackupMutation = useMutation({
+    mutationFn: () => createPortableAppDataBackup(portablePassphrase),
+    onSuccess: (backup) => {
+      queryClient.invalidateQueries({ queryKey: ['app-data-backups'] });
+      setPortablePassphrase('');
+      toast.success(`Portable backup created: ${backup.file_name}`);
+    },
+    onError: (err) => toast.error(`Failed to create portable backup: ${err}`),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async () => {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [
+          {
+            name: 'TARS backups',
+            extensions: ['tars-backup', 'tars-portable-backup'],
+          },
+        ],
+      });
+      if (!selected || Array.isArray(selected)) return null;
+      const isPortable = selected.endsWith('.tars-portable-backup');
+      if (
+        !window.confirm(
+          'Restore this backup? TARS will first create an emergency backup of the current database.'
+        )
+      ) {
+        return null;
+      }
+      return restoreAppDataBackup(selected, isPortable ? restorePassphrase : null);
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      queryClient.invalidateQueries();
+      setRestorePassphrase('');
+      toast.success(`Database restored. Emergency backup: ${result.backup_before_restore_path}`);
+    },
+    onError: (err) => toast.error(`Failed to restore backup: ${err}`),
+  });
+
+  const setBackupDirMutation = useMutation({
+    mutationFn: (path: string | null) => setAppDataBackupDir(path),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['app-data-backup-dir'] });
+      queryClient.invalidateQueries({ queryKey: ['app-data-backups'] });
+      toast.success('Backup folder updated');
+    },
+    onError: (err) => toast.error(`Failed to update backup folder: ${err}`),
+  });
+
+  const deleteBackupMutation = useMutation({
+    mutationFn: deleteAppDataBackup,
+    onSuccess: (deleted) => {
+      queryClient.invalidateQueries({ queryKey: ['app-data-backups'] });
+      toast.success(deleted ? 'Backup deleted' : 'Backup was already deleted');
+    },
+    onError: (err) => toast.error(`Failed to delete backup: ${err}`),
+  });
+
   const handleOpenDataDir = async () => {
     try {
       const home = await homeDir();
       const tarsDir = `${home}.tars`;
-      await revealItemInDir(tarsDir);
+      await openPath(tarsDir);
     } catch (err) {
-      console.error('Failed to open data directory:', err);
+      toast.error(`Failed to open data directory: ${err}`);
     }
+  };
+
+  const handleOpenBackupDir = async () => {
+    try {
+      const dir = await getAppDataBackupDir();
+      await openPath(dir.path);
+    } catch (err) {
+      toast.error(`Failed to open backup folder: ${err}`);
+    }
+  };
+
+  const handleChooseBackupDir = async () => {
+    const selected = await open({
+      multiple: false,
+      directory: true,
+    });
+    if (!selected || Array.isArray(selected)) return;
+    setBackupDirMutation.mutate(selected);
+  };
+
+  const handleDeleteBackup = (path: string, fileName: string) => {
+    if (!window.confirm(`Delete backup "${fileName}"?`)) return;
+    deleteBackupMutation.mutate(path);
   };
 
   const handleResetSettings = () => {
@@ -145,6 +280,165 @@ export function SettingsPage() {
                     <RotateCcw className="h-4 w-4" />
                     Reset
                   </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Backup Section */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <DatabaseBackup className="h-5 w-5" />
+              Backup & Restore
+            </h2>
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg border border-border bg-card space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-medium">Local Backup</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Snapshot the TARS database for restore on this machine.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => localBackupMutation.mutate()}
+                    disabled={localBackupMutation.isPending}
+                    className="px-4 py-2 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Download className="h-4 w-4" />
+                    Create
+                  </button>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <div className="flex items-end justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium">Portable Encrypted Backup</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Rewrap stored secrets with a passphrase for restore on another machine.
+                      </p>
+                      <input
+                        type="password"
+                        value={portablePassphrase}
+                        onChange={(e) => setPortablePassphrase(e.target.value)}
+                        placeholder="Backup passphrase"
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => portableBackupMutation.mutate()}
+                      disabled={portableBackupMutation.isPending || portablePassphrase.length < 8}
+                      className="px-4 py-2 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Download className="h-4 w-4" />
+                      Create
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <div className="flex items-end justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium">Restore Backup</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Restore a local or portable backup. Portable backups require the passphrase.
+                      </p>
+                      <input
+                        type="password"
+                        value={restorePassphrase}
+                        onChange={(e) => setRestorePassphrase(e.target.value)}
+                        placeholder="Portable backup passphrase, if needed"
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => restoreMutation.mutate()}
+                      disabled={restoreMutation.isPending}
+                      className="px-4 py-2 text-sm rounded-md border border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Restore
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg border border-border bg-card">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div>
+                    <h3 className="font-medium">Recent App Data Backups</h3>
+                    <p className="text-sm text-muted-foreground">Stored in:</p>
+                    <code className="mt-1 block max-w-lg truncate rounded bg-muted/40 px-2 py-1 text-xs">
+                      {backupDir?.path ?? '...'}
+                    </code>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      onClick={() =>
+                        queryClient.invalidateQueries({ queryKey: ['app-data-backups'] })
+                      }
+                      className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Refresh
+                    </button>
+                    <button
+                      onClick={handleOpenBackupDir}
+                      className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors"
+                    >
+                      Open Folder
+                    </button>
+                    <button
+                      onClick={handleChooseBackupDir}
+                      className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors"
+                    >
+                      Change Folder
+                    </button>
+                    {!backupDir?.is_default && (
+                      <button
+                        onClick={() => setBackupDirMutation.mutate(null)}
+                        className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted/50 transition-colors"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {appDataBackups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No app data backups yet.</p>
+                  ) : (
+                    appDataBackups.slice(0, 6).map((backup) => (
+                      <div
+                        key={backup.path}
+                        className="flex items-center justify-between gap-3 rounded-md bg-muted/20 px-3 py-2 text-sm"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{backup.file_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {backup.backup_type} · {new Date(backup.created_at).toLocaleString()} ·{' '}
+                            {(backup.size_bytes / 1024).toFixed(1)} KB
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            onClick={() => navigator.clipboard.writeText(backup.path)}
+                            className="px-2 py-1 text-xs rounded border border-border hover:bg-muted/50"
+                          >
+                            Copy Path
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBackup(backup.path, backup.file_name)}
+                            className="px-2 py-1 text-xs rounded border border-destructive/50 text-destructive hover:bg-destructive/10 flex items-center gap-1"
+                            title="Delete backup"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

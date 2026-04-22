@@ -3,6 +3,7 @@
 pub mod api_keys;
 pub mod backups;
 pub mod db;
+pub mod developer;
 pub mod metadata;
 pub mod migrations;
 pub mod model_cache;
@@ -14,6 +15,7 @@ pub mod secrets;
 pub use api_keys::ApiKeyStore;
 pub use backups::BackupStore;
 pub use db::Database;
+pub use developer::DeveloperStore;
 pub use metadata::MetadataStore;
 pub use model_cache::{CachedModel, ModelCache, ModelRow};
 pub use plugin_versions::PluginVersionStore;

@@ -23,6 +23,7 @@ import {
   Radio,
   LayoutGrid,
   Key,
+  AppWindow,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/ui-store';
@@ -37,8 +38,10 @@ import {
 const UPDATE_POLL_INTERVAL = 10 * 60 * 1000;
 
 const navigation = [
-  { name: 'Projects', href: '/projects', icon: FolderGit2 },
   { name: 'Gallery', href: '/gallery', icon: LayoutGrid },
+  { name: 'Projects', href: '/projects', icon: FolderGit2 },
+  { name: 'Developer', href: '/developer', icon: AppWindow },
+  { name: 'AI Keys', href: '/api-keys', icon: Key },
   { name: 'Profiles', href: '/profiles', icon: Layers },
   { name: 'Skills', href: '/skills', icon: Cpu },
   { name: 'Agents', href: '/agents', icon: Bot },
@@ -46,7 +49,6 @@ const navigation = [
   { name: 'Hooks', href: '/hooks', icon: Webhook },
   { name: 'MCP Servers', href: '/mcp', icon: Server },
   { name: 'Plugins', href: '/plugins', icon: Plug },
-  { name: 'API Keys', href: '/api-keys', icon: Key },
   { name: 'Claude Settings', href: '/claude-settings', icon: FileCog },
 ];
 
