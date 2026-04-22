@@ -578,6 +578,25 @@ export interface ClaudeVersionInfo {
   update_available: boolean;
 }
 
+// Runtime status types
+export interface RuntimePathStatus {
+  label: string;
+  path: string;
+  exists: boolean;
+  kind: string;
+}
+
+export interface RuntimeStatus {
+  id: string;
+  name: string;
+  installed: boolean;
+  version: string | null;
+  binary_path: string | null;
+  docs_url: string;
+  summary: string;
+  paths: RuntimePathStatus[];
+}
+
 export interface ChangelogEntry {
   version: string;
   content: string;

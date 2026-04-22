@@ -51,6 +51,9 @@ const ApiKeysPage = lazy(() =>
 const DeveloperPage = lazy(() =>
   import('./pages/DeveloperPage').then((m) => ({ default: m.DeveloperPage }))
 );
+const RuntimesPage = lazy(() =>
+  import('./pages/RuntimesPage').then((m) => ({ default: m.RuntimesPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -236,6 +239,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <DeveloperPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="runtimes"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <RuntimesPage />
                   </Suspense>
                 }
               />
