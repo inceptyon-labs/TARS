@@ -1,5 +1,6 @@
 import openaiLogo from '../assets/provider-logos/openai.svg';
 import anthropicLogo from '../assets/provider-logos/anthropic.svg';
+import claudeLogo from '../assets/provider-logos/claude.png';
 import geminiLogo from '../assets/provider-logos/gemini.svg';
 import deepseekLogo from '../assets/provider-logos/deepseek.svg';
 import braveLogo from '../assets/provider-logos/brave.svg';
@@ -15,6 +16,7 @@ import perplexityLogo from '../assets/provider-logos/perplexity.svg';
 const PROVIDER_LOGOS: Record<string, string> = {
   openai: openaiLogo,
   anthropic: anthropicLogo,
+  claude: claudeLogo,
   gemini: geminiLogo,
   deepseek: deepseekLogo,
   'brave-search': braveLogo,

@@ -66,22 +66,38 @@ fn resolve_executable_target(path: &Path) -> PathBuf {
 }
 
 fn adjacent_node_binary(path: &Path) -> Option<PathBuf> {
-    let resolved = resolve_executable_target(path);
-    let script_path = if resolved.extension().is_some_and(|ext| ext == "js") {
-        &resolved
-    } else {
-        path
-    };
-
-    let bin_dir = script_path.parent()?.parent()?;
     let node_name = if cfg!(target_os = "windows") {
         "node.exe"
     } else {
         "node"
     };
-    let node_path = bin_dir.join(node_name);
 
-    node_path.is_file().then_some(node_path)
+    // Symlinks in bin/ (nvm, volta, homebrew, .local/bin) usually live next to node.
+    if let Some(parent) = path.parent() {
+        let candidate = parent.join(node_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+
+    // Fall back to walking up the canonical target's ancestors (for package-internal
+    // script paths like `.../lib/node_modules/<pkg>/bin/<cli>.js`) looking for
+    // either an adjacent `node` or a sibling `bin/node`.
+    let resolved = resolve_executable_target(path);
+    let mut current = resolved.parent();
+    while let Some(dir) = current {
+        let candidate = dir.join(node_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        let bin_candidate = dir.join("bin").join(node_name);
+        if bin_candidate.is_file() {
+            return Some(bin_candidate);
+        }
+        current = dir.parent();
+    }
+
+    None
 }
 
 fn extract_version_from_text(text: &str) -> Option<String> {
@@ -134,15 +150,34 @@ pub async fn get_installed_codex_version() -> Result<Option<String>, String> {
 /// Get the installed Gemini CLI version
 #[tauri::command]
 pub async fn get_installed_gemini_version() -> Result<Option<String>, String> {
-    let gemini_paths = get_gemini_binary_paths();
+    Ok(find_installed_gemini().map(|found| found.version))
+}
 
-    for path in gemini_paths {
+struct InstalledBinary {
+    version: String,
+    path: PathBuf,
+}
+
+fn find_installed_gemini() -> Option<InstalledBinary> {
+    for path in get_gemini_binary_paths() {
         if let Some(version) = read_version_from_binary(&path) {
-            return Ok(Some(version));
+            return Some(InstalledBinary { version, path });
         }
     }
+    None
+}
 
-    Ok(None)
+/// Returns true when the given binary path looks like a Homebrew install.
+fn is_homebrew_path(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/").to_lowercase();
+    let resolved = path
+        .canonicalize()
+        .ok()
+        .map(|p| p.to_string_lossy().replace('\\', "/").to_lowercase());
+    let matches = |needle: &str| {
+        normalized.contains(needle) || resolved.as_ref().is_some_and(|c| c.contains(needle))
+    };
+    matches("/opt/homebrew/") || matches("/home/linuxbrew/.linuxbrew/") || matches("/cellar/")
 }
 
 /// Get possible paths where the claude binary might be installed
@@ -716,8 +751,22 @@ pub async fn get_codex_version_info() -> Result<ClaudeVersionInfo, String> {
 /// Get version info comparing installed vs latest for Gemini CLI
 #[tauri::command]
 pub async fn get_gemini_version_info() -> Result<ClaudeVersionInfo, String> {
-    let installed = get_installed_gemini_version().await?;
-    let latest = fetch_npm_latest_version("@google/gemini-cli").await.ok();
+    let found = find_installed_gemini();
+    let installed = found.as_ref().map(|f| f.version.clone());
+    let from_homebrew = found.as_ref().is_some_and(|f| is_homebrew_path(&f.path));
+
+    // Homebrew's formula release usually trails npm by a release or two. When the
+    // user installed via Homebrew, comparing against the npm "latest" makes TARS
+    // nag about updates that `brew upgrade` refuses to perform — so use whichever
+    // source matches where the binary actually came from.
+    let latest = if from_homebrew {
+        fetch_homebrew_formula_version("gemini-cli")
+            .await
+            .ok()
+            .or(fetch_npm_latest_version("@google/gemini-cli").await.ok())
+    } else {
+        fetch_npm_latest_version("@google/gemini-cli").await.ok()
+    };
 
     let update_available = match (&installed, &latest) {
         (Some(inst), Some(lat)) => {
@@ -731,6 +780,32 @@ pub async fn get_gemini_version_info() -> Result<ClaudeVersionInfo, String> {
         latest_version: latest,
         update_available,
     })
+}
+
+/// Fetch the latest stable version of a Homebrew formula from formulae.brew.sh.
+async fn fetch_homebrew_formula_version(formula: &str) -> Result<String, String> {
+    let url = format!("https://formulae.brew.sh/api/formula/{formula}.json");
+    let response = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("Failed to fetch Homebrew formula: {e}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Homebrew formula API returned HTTP {}",
+            response.status()
+        ));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Homebrew response: {e}"))?;
+
+    json.get("versions")
+        .and_then(|v| v.get("stable"))
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .ok_or_else(|| "No stable version in Homebrew response".to_string())
 }
 
 /// Fetch the latest version of an npm package from the registry
