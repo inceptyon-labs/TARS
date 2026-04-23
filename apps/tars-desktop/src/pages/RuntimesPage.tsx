@@ -28,7 +28,7 @@ const runtimeAccents: Record<string, string> = {
 };
 
 function runtimeProvider(runtimeId: string) {
-  if (runtimeId === 'claude-code') return { providerId: 'anthropic', providerName: 'Anthropic' };
+  if (runtimeId === 'claude-code') return { providerId: 'claude', providerName: 'Claude' };
   if (runtimeId === 'codex') return { providerId: 'openai', providerName: 'OpenAI' };
   return { providerId: 'gemini', providerName: 'Google Gemini' };
 }

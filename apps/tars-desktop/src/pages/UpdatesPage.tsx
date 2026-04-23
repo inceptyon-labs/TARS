@@ -37,6 +37,7 @@ import {
 import type { ChangelogEntry, PluginUpdateInfo, RuntimeStatus } from '../lib/types';
 import { PageBackButton } from '../components/PageBackButton';
 import { ProviderLogo } from '../components/ProviderLogo';
+import { TarsLogo } from '../components/TarsLogo';
 import { Button } from '../components/ui/button';
 
 // Poll interval: 10 minutes
@@ -330,10 +331,10 @@ export function UpdatesPage() {
           {/* Claude Code Section */}
           <section>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-primary/10">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
                 <ProviderLogo
-                  providerId="anthropic"
-                  providerName="Anthropic"
+                  providerId="claude"
+                  providerName="Claude"
                   className="h-5 w-5 object-contain"
                 />
               </div>
@@ -807,8 +808,8 @@ export function UpdatesPage() {
           {/* TARS App Section */}
           <section>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <Package className="h-5 w-5" />
+              <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                <TarsLogo size={20} />
               </div>
               <div>
                 <h3 className="text-lg font-semibold">TARS Desktop</h3>
