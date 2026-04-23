@@ -4,7 +4,7 @@
 //! and TARS app updates.
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tars_scanner::plugins::PluginInventory;
 use tars_scanner::types::Scope;
@@ -34,20 +34,54 @@ pub struct ChangelogResponse {
     pub fetched_at: String,
 }
 
-fn read_version_from_binary(path: &PathBuf) -> Option<String> {
-    let output = Command::new(path).arg("--version").output().ok()?;
+fn read_version_from_binary(path: &Path) -> Option<String> {
+    read_version_output(path, &["--version"]).and_then(|text| extract_version_from_text(&text))
+}
 
+fn read_version_output(path: &Path, args: &[&str]) -> Option<String> {
+    if let Some(text) = run_command_for_version(path, args) {
+        return Some(text);
+    }
+
+    let node_path = adjacent_node_binary(path)?;
+    let script_path = resolve_executable_target(path);
+    run_command_for_version(&node_path, &[script_path.to_str()?, "--version"])
+}
+
+fn run_command_for_version(binary: &Path, args: &[&str]) -> Option<String> {
+    let output = Command::new(binary).args(args).output().ok()?;
     if !output.status.success() {
         return None;
     }
 
-    let text = if output.stdout.is_empty() {
-        String::from_utf8_lossy(&output.stderr).to_string()
+    if output.stdout.is_empty() {
+        Some(String::from_utf8_lossy(&output.stderr).to_string())
     } else {
-        String::from_utf8_lossy(&output.stdout).to_string()
+        Some(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+}
+
+fn resolve_executable_target(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn adjacent_node_binary(path: &Path) -> Option<PathBuf> {
+    let resolved = resolve_executable_target(path);
+    let script_path = if resolved.extension().is_some_and(|ext| ext == "js") {
+        &resolved
+    } else {
+        path
     };
 
-    extract_version_from_text(&text)
+    let bin_dir = script_path.parent()?.parent()?;
+    let node_name = if cfg!(target_os = "windows") {
+        "node.exe"
+    } else {
+        "node"
+    };
+    let node_path = bin_dir.join(node_name);
+
+    node_path.is_file().then_some(node_path)
 }
 
 fn extract_version_from_text(text: &str) -> Option<String> {
@@ -362,10 +396,37 @@ fn add_unix_npm_binary_paths(paths: &mut Vec<PathBuf>, binary_name: &str) {
                 .join("shims")
                 .join(binary_name),
         );
+        paths.extend(versioned_node_candidates(
+            &home.join(".nvm/versions/node"),
+            &["bin"],
+            binary_name,
+        ));
+        paths.extend(versioned_node_candidates(
+            &home.join(".local/share/fnm/node-versions"),
+            &["installation", "bin"],
+            binary_name,
+        ));
     }
 
     paths.push(PathBuf::from("/usr/local/bin").join(binary_name));
     paths.push(PathBuf::from("/usr/bin").join(binary_name));
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn versioned_node_candidates(root: &Path, path_parts: &[&str], binary_name: &str) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return Vec::new();
+    };
+
+    entries
+        .flatten()
+        .map(|entry| {
+            path_parts
+                .iter()
+                .fold(entry.path(), |path, part| path.join(part))
+                .join(binary_name)
+        })
+        .collect()
 }
 
 #[cfg(target_os = "windows")]
