@@ -361,7 +361,7 @@ export function CreateProfileWizard({
     {
       id: 'empty',
       label: 'Start Empty',
-      description: 'Create profile now, add tools later',
+      description: 'Create bundle now, add tools later',
       icon: Plus,
     },
   ];
@@ -382,7 +382,7 @@ export function CreateProfileWizard({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b shrink-0">
           <div>
-            <h2 className="text-lg font-semibold">Create Profile</h2>
+            <h2 className="text-lg font-semibold">Create Bundle</h2>
             <div className="flex items-center gap-2 mt-1">
               {['basics', 'source', 'tools'].map((s, i) => (
                 <div key={s} className="flex items-center gap-2">
@@ -414,7 +414,7 @@ export function CreateProfileWizard({
           {step === 'basics' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Profile Name</label>
+                <label className="block text-sm font-medium mb-1.5">Bundle Name</label>
                 <input
                   type="text"
                   value={name}
@@ -430,7 +430,7 @@ export function CreateProfileWizard({
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What is this profile for?"
+                  placeholder="What is this bundle for?"
                   rows={3}
                   className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                 />
@@ -442,7 +442,7 @@ export function CreateProfileWizard({
           {step === 'source' && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground mb-4">
-                Choose where to discover tools for this profile
+                Choose where to discover tools for this bundle
               </p>
 
               {sourceOptions.map((option) => {
@@ -693,13 +693,13 @@ export function CreateProfileWizard({
             )}
             {step === 'source' && (
               <Button onClick={handleNext} disabled={!canProceedFromSource}>
-                {sourceType === 'empty' ? 'Create Profile' : 'Next'}
+                {sourceType === 'empty' ? 'Create Bundle' : 'Next'}
                 {sourceType !== 'empty' && <ChevronRight className="h-4 w-4 ml-1" />}
               </Button>
             )}
             {step === 'tools' && (
               <Button onClick={handleCreate} disabled={isLoading}>
-                {isLoading ? 'Creating...' : 'Create Profile'}
+                {isLoading ? 'Creating...' : 'Create Bundle'}
               </Button>
             )}
           </div>

@@ -76,10 +76,10 @@ export function ProfilesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setDialogOpen(false);
-      toast.success('Profile created successfully');
+      toast.success('Bundle created successfully');
     },
     onError: (err) => {
-      toast.error(`Failed to create profile: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Failed to create bundle: ${err instanceof Error ? err.message : String(err)}`);
     },
   });
 
@@ -94,14 +94,14 @@ export function ProfilesPage() {
       }
       if (response.converted_projects > 0) {
         toast.success(
-          `Profile deleted. ${response.converted_projects} project(s) converted to local tools.`
+          `Bundle deleted. ${response.converted_projects} project(s) converted to local tools.`
         );
       } else {
-        toast.success('Profile deleted.');
+        toast.success('Bundle deleted.');
       }
     },
     onError: (err) => {
-      toast.error(`Failed to delete profile: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Failed to delete bundle: ${err instanceof Error ? err.message : String(err)}`);
     },
   });
 
@@ -116,18 +116,18 @@ export function ProfilesPage() {
         const details = await getProfile(variables.id);
         setSelectedProfile(details);
       } catch (err) {
-        console.error('Failed to refresh profile:', err);
+        console.error('Failed to refresh bundle:', err);
       }
       if (response.sync_result.affected_projects > 0) {
         toast.success(
-          `Profile updated. Synced to ${response.sync_result.affected_projects} project(s).`
+          `Bundle updated. Synced to ${response.sync_result.affected_projects} project(s).`
         );
       } else {
-        toast.success('Profile updated.');
+        toast.success('Bundle updated.');
       }
     },
     onError: (err) => {
-      toast.error(`Failed to update profile: ${err}`);
+      toast.error(`Failed to update bundle: ${err}`);
     },
   });
 
@@ -164,15 +164,15 @@ export function ProfilesPage() {
   }
 
   async function handleToolsAdded() {
-    // Refresh the profile after tools are added via addToolsFromSource
+    // Refresh the bundle after tools are added via addToolsFromSource
     if (selectedProfile) {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       try {
         const details = await getProfile(selectedProfile.id);
         setSelectedProfile(details);
-        toast.success('Tools added to profile');
+        toast.success('Tools added to bundle');
       } catch (err) {
-        console.error('Failed to refresh profile:', err);
+        console.error('Failed to refresh bundle:', err);
       }
     }
   }
@@ -183,7 +183,7 @@ export function ProfilesPage() {
       <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
           <div className="tars-indicator" />
-          <h2 className="text-lg font-semibold tracking-wide">Profiles</h2>
+          <h2 className="text-lg font-semibold tracking-wide">Bundles</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -198,7 +198,7 @@ export function ProfilesPage() {
             className="tars-button-primary flex items-center gap-2 px-4 py-2 rounded text-sm font-medium"
           >
             <Plus className="h-4 w-4" />
-            Create Profile
+            Create Bundle
           </button>
         </div>
       </header>
@@ -211,7 +211,7 @@ export function ProfilesPage() {
             <div className="relative flex items-center">
               <input
                 type="search"
-                placeholder="Search profiles..."
+                placeholder="Search bundles..."
                 className="tars-input w-full pl-9 pr-3 py-2 text-sm rounded"
                 autoComplete="off"
                 autoCorrect="off"
@@ -236,9 +236,9 @@ export function ProfilesPage() {
                 <div className="w-16 h-16 rounded-lg tars-panel flex items-center justify-center mx-auto mb-4">
                   <Layers className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-foreground">No profiles</p>
+                <p className="text-sm font-medium text-foreground">No bundles</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Create a profile to share tools across projects
+                  Create a bundle to share tools across projects and runtimes
                 </p>
               </div>
             ) : (
@@ -260,7 +260,7 @@ export function ProfilesPage() {
                 <RefreshCw className="h-8 w-8 animate-spin text-primary" />
                 <div className="absolute inset-0 blur-lg bg-primary/30 rounded-full" />
               </div>
-              <p className="text-sm text-muted-foreground">Loading profile...</p>
+              <p className="text-sm text-muted-foreground">Loading bundle...</p>
             </div>
           ) : selectedProfile ? (
             <ProfileDetail
@@ -276,9 +276,9 @@ export function ProfilesPage() {
                 <Layers className="h-10 w-10 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">Select a profile to view details</p>
+                <p className="text-sm text-muted-foreground">Select a bundle to view details</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
-                  Apply configurations to projects
+                  Reuse configurations across projects and runtimes
                 </p>
               </div>
             </div>
@@ -301,7 +301,7 @@ export function ProfilesPage() {
         onOpenChange={setIsImportDialogOpen}
         onImportComplete={() => {
           queryClient.invalidateQueries({ queryKey: ['profiles'] });
-          toast.success('Profile imported successfully');
+          toast.success('Bundle imported successfully');
         }}
       />
 
@@ -335,7 +335,7 @@ export function ProfilesPage() {
               <div className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" aria-hidden="true" />
                 <h2 id="delete-dialog-title" className="text-lg font-semibold">
-                  Delete Profile
+                  Delete Bundle
                 </h2>
               </div>
               <button
@@ -347,9 +347,9 @@ export function ProfilesPage() {
               </button>
             </div>
             <div className="p-4 space-y-3">
-              <p className="text-sm">Are you sure you want to delete this profile?</p>
+              <p className="text-sm">Are you sure you want to delete this bundle?</p>
               <p className="text-sm text-muted-foreground">
-                Projects using this profile will have their tools converted to local overrides. This
+                Projects using this bundle will have their tools converted to local overrides. This
                 action cannot be undone.
               </p>
             </div>
@@ -365,7 +365,7 @@ export function ProfilesPage() {
                 }}
                 disabled={deleteMutation.isPending}
               >
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete Profile'}
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Bundle'}
               </Button>
             </div>
           </div>

@@ -38,6 +38,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { ConfirmDialog } from '../components/config/ConfirmDialog';
 import { HelpButton } from '../components/HelpButton';
+import { PageBackButton } from '../components/PageBackButton';
+import { RuntimeBadges, getRuntimeSupportForKind } from '../components/RuntimeBadges';
 import type { SettingsHookEvent, SettingsHookAction } from '../lib/types';
 
 // Hook event descriptions
@@ -52,6 +54,8 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
   PreCompact: 'Runs before the conversation is compacted',
   Notification: 'Runs when a notification is triggered',
 };
+
+const hookRuntimeSupport = getRuntimeSupportForKind('hook');
 
 export function HooksPage() {
   const queryClient = useQueryClient();
@@ -323,6 +327,7 @@ export function HooksPage() {
       {/* Header */}
       <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
+          <PageBackButton />
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Hooks</h2>
           <HelpButton section="HOOKS" />
@@ -365,7 +370,7 @@ export function HooksPage() {
                 }}
                 disabled={profiles.length === 0}
               >
-                Profile
+                Bundle
               </Button>
             </div>
             {selectedScope === 'project' && (
@@ -388,7 +393,7 @@ export function HooksPage() {
                 onChange={(e) => setSelectedProfileId(e.target.value || null)}
                 className="tars-input px-3 py-1.5 text-sm rounded"
               >
-                <option value="">Select profile...</option>
+                <option value="">Select bundle...</option>
                 {profiles.map((profile) => (
                   <option key={profile.id} value={profile.id}>
                     {profile.name}
@@ -529,6 +534,7 @@ export function HooksPage() {
                                   <code className="text-xs font-mono break-all">
                                     {hook.type === 'command' ? hook.command : hook.prompt}
                                   </code>
+                                  <RuntimeBadges items={hookRuntimeSupport} className="mt-2" />
                                 </div>
                                 {hook.type === 'command' && hook.command && (
                                   <Button

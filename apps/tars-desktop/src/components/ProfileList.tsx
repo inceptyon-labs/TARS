@@ -61,7 +61,7 @@ export function ProfileList({ profiles, selectedId, onSelect, onDelete }: Profil
               onDelete(profile.id);
             }}
             className="absolute top-2.5 right-3 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded text-destructive"
-            aria-label={`Delete ${profile.name}`}
+            aria-label={`Delete bundle ${profile.name}`}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

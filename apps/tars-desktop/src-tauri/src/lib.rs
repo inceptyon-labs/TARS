@@ -124,6 +124,9 @@ pub fn run() {
             commands::save_supporting_file,
             commands::create_skill,
             commands::delete_skill,
+            commands::list_codex_skill_bridges,
+            commands::bridge_local_skill_to_codex,
+            commands::delete_codex_skill,
             commands::delete_supporting_file,
             // Agent commands
             commands::read_agent,
@@ -162,6 +165,13 @@ pub fn run() {
             commands::config_rollback,
             // Plugin commands
             commands::plugin_list,
+            commands::list_codex_plugin_bridges,
+            commands::bridge_claude_plugin_to_codex,
+            commands::sync_codex_plugin_bridges,
+            commands::add_plugin_to_targets,
+            commands::list_plugin_subscriptions,
+            commands::sync_plugin_subscription,
+            commands::remove_plugin_subscription,
             commands::plugin_marketplace_add,
             commands::plugin_marketplace_remove,
             commands::plugin_marketplace_update,
@@ -198,14 +208,23 @@ pub fn run() {
             commands::get_claude_usage_stats,
             // Runtime commands
             commands::get_runtime_statuses,
+            commands::get_project_runtime_coverage,
             // Settings commands
             commands::read_settings_file,
             commands::save_settings_file,
+            commands::read_runtime_config_file,
+            commands::save_runtime_config_file,
             // Update commands
             commands::get_installed_claude_version,
+            commands::get_installed_codex_version,
+            commands::get_installed_gemini_version,
             commands::fetch_claude_changelog,
+            commands::fetch_codex_changelog,
+            commands::fetch_gemini_changelog,
             commands::fetch_tars_changelog,
             commands::get_claude_version_info,
+            commands::get_codex_version_info,
+            commands::get_gemini_version_info,
             commands::check_plugin_updates,
             // TARS app update commands
             commands::check_tars_update,

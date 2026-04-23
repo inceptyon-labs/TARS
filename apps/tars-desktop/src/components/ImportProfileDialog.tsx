@@ -34,7 +34,7 @@ export function ImportProfileDialog({
   const handleSelectFile = async () => {
     try {
       const path = await open({
-        filters: [{ name: 'TARS Profile', extensions: ['tars-profile.json', 'json'] }],
+        filters: [{ name: 'TARS Bundle', extensions: ['tars-profile.json', 'json'] }],
         multiple: false,
       });
 
@@ -90,7 +90,7 @@ export function ImportProfileDialog({
       <div className="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Import Profile</h2>
+          <h2 className="text-lg font-semibold">Import Bundle</h2>
           <button
             onClick={handleClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -107,7 +107,7 @@ export function ImportProfileDialog({
               className="w-full border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 hover:bg-muted/30 transition-colors"
             >
               <FileUp className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm font-medium">Select a profile file</p>
+              <p className="text-sm font-medium">Select a bundle file</p>
               <p className="text-xs text-muted-foreground mt-1">.tars-profile.json files</p>
             </button>
           ) : loading ? (
@@ -132,7 +132,7 @@ export function ImportProfileDialog({
                   <div className="flex items-start gap-2 text-amber-500 text-sm">
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>
-                      A profile named "{preview.name}" already exists. Please choose a new name.
+                      A bundle named "{preview.name}" already exists. Please choose a new name.
                     </span>
                   </div>
                   <input
@@ -176,7 +176,7 @@ export function ImportProfileDialog({
               onClick={handleImport}
               disabled={!preview || importing || (preview.has_name_collision && !renameTo.trim())}
             >
-              {importing ? 'Importing...' : 'Import Profile'}
+              {importing ? 'Importing...' : 'Import Bundle'}
             </Button>
           </div>
         </div>

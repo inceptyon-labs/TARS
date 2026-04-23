@@ -100,9 +100,9 @@ pub async fn create_agent(
             (PathBuf::from(project).join(".claude").join("agents"), None)
         }
         "profile" => {
-            let profile_id = profile_id.ok_or("Profile ID required for profile-scoped agent")?;
+            let profile_id = profile_id.ok_or("Bundle ID required for bundle-scoped agent")?;
             let profile_uuid =
-                Uuid::parse_str(&profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+                Uuid::parse_str(&profile_id).map_err(|_| "Invalid bundle ID".to_string())?;
             let profile_dir = tars_core::profile::storage::ensure_profile_dir(profile_uuid)
                 .map_err(|e| e.to_string())?;
             (profile_dir.join("agents"), Some(profile_uuid))
@@ -148,7 +148,7 @@ This agent has access to file reading tools by default.
             let mut profile = store
                 .get(profile_uuid)
                 .map_err(|e| format!("Database error: {e}"))?
-                .ok_or_else(|| "Profile not found".to_string())?;
+                .ok_or_else(|| "Bundle not found".to_string())?;
 
             if !profile
                 .tool_refs
@@ -167,7 +167,7 @@ This agent has access to file reading tools by default.
             profile.updated_at = Utc::now();
             store
                 .update(&profile)
-                .map_err(|e| format!("Failed to update profile: {e}"))?;
+                .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
             regenerate_profile_plugin(&profile).map_err(|e| e.to_string())?;
             sync_profile_marketplace(&profile).map_err(|e| e.to_string())?;

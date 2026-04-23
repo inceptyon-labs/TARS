@@ -173,7 +173,7 @@ export function McpForm({
 
     try {
       if (formData.scope === 'profile' && !selectedProfileId) {
-        toast.error('Please select a profile');
+        toast.error('Please select a bundle');
         setLoading(false);
         return;
       }
@@ -185,7 +185,7 @@ export function McpForm({
         formData.scope !== 'profile' &&
         !selectedProfileId
       ) {
-        toast.error('Please select a profile');
+        toast.error('Please select a bundle');
         setLoading(false);
         return;
       }
@@ -236,7 +236,7 @@ export function McpForm({
         });
 
         toast.success(`${isEditMode ? 'Updated' : 'Added'} "${formData.name}"`, {
-          description: `MCP server ${isEditMode ? 'updated in' : 'added to'} profile`,
+          description: `MCP server ${isEditMode ? 'updated in' : 'added to'} bundle`,
         });
         resetForm();
         onSuccess();
@@ -277,10 +277,10 @@ export function McpForm({
               formData.scope === 'user' ? 'user' : 'project'
             );
             const profileName =
-              profiles.find((profile) => profile.id === selectedProfileId)?.name || 'profile';
-            toast.success(`Added to profile "${profileName}"`);
+              profiles.find((profile) => profile.id === selectedProfileId)?.name || 'bundle';
+            toast.success(`Added to bundle "${profileName}"`);
           } catch (err) {
-            toast.error('Failed to add MCP server to profile', {
+            toast.error('Failed to add MCP server to bundle', {
               description: err instanceof Error ? err.message : String(err),
             });
           }
@@ -361,7 +361,7 @@ export function McpForm({
                     Local (.claude/settings.local.json)
                   </SelectItem>
                   <SelectItem value="profile" disabled={profiles.length === 0}>
-                    Profile (plugin only)
+                    Bundle (plugin only)
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -382,7 +382,7 @@ export function McpForm({
               )}
               {formData.scope === 'profile' && (
                 <p className="text-xs text-muted-foreground">
-                  Stored in the selected profile (available when installed).
+                  Stored in the selected bundle (available when installed).
                 </p>
               )}
               {(formData.scope === 'project' || formData.scope === 'local') && !projectPath && (
@@ -394,10 +394,10 @@ export function McpForm({
 
             {formData.scope === 'profile' && (
               <div className="grid gap-2">
-                <Label>Profile</Label>
+                <Label>Bundle</Label>
                 {profiles.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    Create a profile first to enable this option.
+                    Create a bundle first to enable this option.
                   </p>
                 ) : (
                   <Select
@@ -405,7 +405,7 @@ export function McpForm({
                     onValueChange={(value) => setSelectedProfileId(value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select profile" />
+                      <SelectValue placeholder="Select bundle" />
                     </SelectTrigger>
                     <SelectContent>
                       {profiles.map((profile) => (
@@ -423,9 +423,9 @@ export function McpForm({
               <div className="rounded-md border border-border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <Label htmlFor="add-mcp-to-profile">Add to profile</Label>
+                    <Label htmlFor="add-mcp-to-profile">Add to bundle</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Copies this MCP server into a profile for reuse.
+                      Copies this MCP server into a bundle for reuse.
                     </p>
                   </div>
                   <input
@@ -448,7 +448,7 @@ export function McpForm({
 
                 {profiles.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Create a profile first to enable this option.
+                    Create a bundle first to enable this option.
                   </p>
                 )}
                 {formData.scope === 'project' && !projectPath && (
@@ -459,13 +459,13 @@ export function McpForm({
 
                 {addToProfile && profiles.length > 0 && (
                   <div className="space-y-2">
-                    <Label>Profile</Label>
+                    <Label>Bundle</Label>
                     <Select
                       value={selectedProfileId || undefined}
                       onValueChange={(value) => setSelectedProfileId(value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select profile" />
+                        <SelectValue placeholder="Select bundle" />
                       </SelectTrigger>
                       <SelectContent>
                         {profiles.map((profile) => (

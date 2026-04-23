@@ -34,6 +34,40 @@ pub struct ChangelogResponse {
     pub fetched_at: String,
 }
 
+fn read_version_from_binary(path: &PathBuf) -> Option<String> {
+    let output = Command::new(path).arg("--version").output().ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = if output.stdout.is_empty() {
+        String::from_utf8_lossy(&output.stderr).to_string()
+    } else {
+        String::from_utf8_lossy(&output.stdout).to_string()
+    };
+
+    extract_version_from_text(&text)
+}
+
+fn extract_version_from_text(text: &str) -> Option<String> {
+    text.split_whitespace().find_map(|part| {
+        if !part.chars().any(|c| c.is_ascii_digit()) {
+            return None;
+        }
+
+        let cleaned = part.trim_matches(|c: char| {
+            !(c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '+')
+        });
+
+        if cleaned.chars().any(|c| c.is_ascii_digit()) {
+            Some(cleaned.to_string())
+        } else {
+            None
+        }
+    })
+}
+
 /// Get the installed Claude Code version
 #[tauri::command]
 pub async fn get_installed_claude_version() -> Result<Option<String>, String> {
@@ -41,20 +75,40 @@ pub async fn get_installed_claude_version() -> Result<Option<String>, String> {
     let claude_paths = get_claude_binary_paths();
 
     for path in claude_paths {
-        if let Ok(output) = Command::new(&path).arg("--version").output() {
-            if output.status.success() {
-                let version_str = String::from_utf8_lossy(&output.stdout);
-                // Parse "2.1.3 (Claude Code)" -> "2.1.3"
-                let version = version_str
-                    .split_whitespace()
-                    .next()
-                    .map(std::string::ToString::to_string);
-                return Ok(version);
-            }
+        if let Some(version) = read_version_from_binary(&path) {
+            return Ok(Some(version));
         }
     }
 
     Ok(None) // Claude not installed or not found
+}
+
+/// Get the installed Codex CLI version
+#[tauri::command]
+pub async fn get_installed_codex_version() -> Result<Option<String>, String> {
+    let codex_paths = get_codex_binary_paths();
+
+    for path in codex_paths {
+        if let Some(version) = read_version_from_binary(&path) {
+            return Ok(Some(version));
+        }
+    }
+
+    Ok(None)
+}
+
+/// Get the installed Gemini CLI version
+#[tauri::command]
+pub async fn get_installed_gemini_version() -> Result<Option<String>, String> {
+    let gemini_paths = get_gemini_binary_paths();
+
+    for path in gemini_paths {
+        if let Some(version) = read_version_from_binary(&path) {
+            return Ok(Some(version));
+        }
+    }
+
+    Ok(None)
 }
 
 /// Get possible paths where the claude binary might be installed
@@ -91,6 +145,83 @@ fn get_claude_binary_paths() -> Vec<PathBuf> {
     #[cfg(not(target_os = "windows"))]
     {
         paths.push(PathBuf::from("claude"));
+    }
+
+    paths
+}
+
+/// Get possible paths where the codex binary might be installed
+fn get_codex_binary_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        add_windows_npm_binary_paths(&mut paths, "codex");
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        add_unix_npm_binary_paths(&mut paths, "codex");
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        paths.push(PathBuf::from("/opt/homebrew/bin/codex"));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        paths.push(PathBuf::from("/home/linuxbrew/.linuxbrew/bin/codex"));
+        paths.push(PathBuf::from("/snap/bin/codex"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        paths.push(PathBuf::from("codex.cmd"));
+        paths.push(PathBuf::from("codex.exe"));
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        paths.push(PathBuf::from("codex"));
+    }
+
+    paths
+}
+
+/// Get possible paths where the gemini binary might be installed
+fn get_gemini_binary_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        add_windows_npm_binary_paths(&mut paths, "gemini");
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        add_unix_npm_binary_paths(&mut paths, "gemini");
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        paths.push(PathBuf::from("/opt/homebrew/bin/gemini"));
+        paths.push(PathBuf::from("/usr/local/bin/gemini"));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        paths.push(PathBuf::from("/home/linuxbrew/.linuxbrew/bin/gemini"));
+        paths.push(PathBuf::from("/snap/bin/gemini"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        paths.push(PathBuf::from("gemini.cmd"));
+        paths.push(PathBuf::from("gemini.exe"));
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        paths.push(PathBuf::from("gemini"));
     }
 
     paths
@@ -202,6 +333,68 @@ fn add_unix_paths(paths: &mut Vec<PathBuf>) {
     paths.push(PathBuf::from("/usr/bin/claude"));
 }
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn add_unix_npm_binary_paths(paths: &mut Vec<PathBuf>, binary_name: &str) {
+    if let Some(home) = dirs::home_dir() {
+        paths.push(home.join(".local").join("bin").join(binary_name));
+        paths.push(home.join(".npm-global").join("bin").join(binary_name));
+        paths.push(home.join(".volta").join("bin").join(binary_name));
+        paths.push(
+            home.join(".local")
+                .join("share")
+                .join("pnpm")
+                .join(binary_name),
+        );
+        paths.push(home.join(".yarn").join("bin").join(binary_name));
+        paths.push(
+            home.join(".config")
+                .join("yarn")
+                .join("global")
+                .join("node_modules")
+                .join(".bin")
+                .join(binary_name),
+        );
+        paths.push(home.join(".asdf").join("shims").join(binary_name));
+        paths.push(
+            home.join(".local")
+                .join("share")
+                .join("mise")
+                .join("shims")
+                .join(binary_name),
+        );
+    }
+
+    paths.push(PathBuf::from("/usr/local/bin").join(binary_name));
+    paths.push(PathBuf::from("/usr/bin").join(binary_name));
+}
+
+#[cfg(target_os = "windows")]
+fn add_windows_npm_binary_paths(paths: &mut Vec<PathBuf>, binary_name: &str) {
+    if let Ok(userprofile) = std::env::var("USERPROFILE") {
+        let home = PathBuf::from(&userprofile);
+        paths.push(
+            home.join("scoop")
+                .join("shims")
+                .join(format!("{binary_name}.exe")),
+        );
+    }
+
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        let appdata = PathBuf::from(&appdata);
+        paths.push(appdata.join("npm").join(format!("{binary_name}.cmd")));
+    }
+
+    if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
+        let local = PathBuf::from(&localappdata);
+        paths.push(
+            local
+                .join("Volta")
+                .join("bin")
+                .join(format!("{binary_name}.exe")),
+        );
+    }
+}
+
 /// Add macOS-specific paths
 #[cfg(target_os = "macos")]
 fn add_macos_paths(paths: &mut Vec<PathBuf>) {
@@ -294,6 +487,78 @@ pub async fn fetch_claude_changelog() -> Result<ChangelogResponse, String> {
     })
 }
 
+#[derive(Debug, Deserialize)]
+struct GithubRelease {
+    tag_name: String,
+    body: String,
+    draft: bool,
+    prerelease: bool,
+}
+
+fn normalize_release_version(tag: &str) -> String {
+    tag.find(|c: char| c.is_ascii_digit()).map_or_else(
+        || tag.trim_start_matches('v').to_string(),
+        |index| tag[index..].to_string(),
+    )
+}
+
+/// Fetch Codex CLI release notes from GitHub releases
+#[tauri::command]
+pub async fn fetch_codex_changelog() -> Result<ChangelogResponse, String> {
+    fetch_github_releases_changelog("openai/codex", "Codex").await
+}
+
+/// Fetch Gemini CLI release notes from GitHub releases
+#[tauri::command]
+pub async fn fetch_gemini_changelog() -> Result<ChangelogResponse, String> {
+    fetch_github_releases_changelog("google-gemini/gemini-cli", "Gemini CLI").await
+}
+
+async fn fetch_github_releases_changelog(
+    repo: &str,
+    display_name: &str,
+) -> Result<ChangelogResponse, String> {
+    let url = format!("https://api.github.com/repos/{repo}/releases?per_page=6");
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header(reqwest::header::USER_AGENT, "tars-desktop")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch {display_name} releases: {e}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to fetch {display_name} releases: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let raw_content = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read {display_name} releases: {e}"))?;
+
+    let releases: Vec<GithubRelease> = serde_json::from_str(&raw_content)
+        .map_err(|e| format!("Failed to parse {display_name} releases: {e}"))?;
+
+    let entries = releases
+        .into_iter()
+        .filter(|release| !release.draft && !release.prerelease)
+        .map(|release| ChangelogEntry {
+            version: normalize_release_version(&release.tag_name),
+            content: release.body.trim().to_string(),
+        })
+        .collect();
+
+    Ok(ChangelogResponse {
+        entries,
+        raw_content,
+        fetched_at: chrono::Utc::now().to_rfc3339(),
+    })
+}
+
 /// Parse changelog markdown into version entries
 fn parse_changelog(content: &str) -> Vec<ChangelogEntry> {
     let mut entries = Vec::new();
@@ -355,6 +620,46 @@ pub async fn get_claude_version_info() -> Result<ClaudeVersionInfo, String> {
     let update_available = match (&installed, &latest) {
         (Some(inst), Some(lat)) => {
             // Simple version comparison - could be improved with semver
+            inst != lat && version_compare(lat, inst) == std::cmp::Ordering::Greater
+        }
+        _ => false,
+    };
+
+    Ok(ClaudeVersionInfo {
+        installed_version: installed,
+        latest_version: latest,
+        update_available,
+    })
+}
+
+/// Get version info comparing installed vs latest for Codex CLI
+#[tauri::command]
+pub async fn get_codex_version_info() -> Result<ClaudeVersionInfo, String> {
+    let installed = get_installed_codex_version().await?;
+    let latest = fetch_npm_latest_version("@openai/codex").await.ok();
+
+    let update_available = match (&installed, &latest) {
+        (Some(inst), Some(lat)) => {
+            inst != lat && version_compare(lat, inst) == std::cmp::Ordering::Greater
+        }
+        _ => false,
+    };
+
+    Ok(ClaudeVersionInfo {
+        installed_version: installed,
+        latest_version: latest,
+        update_available,
+    })
+}
+
+/// Get version info comparing installed vs latest for Gemini CLI
+#[tauri::command]
+pub async fn get_gemini_version_info() -> Result<ClaudeVersionInfo, String> {
+    let installed = get_installed_gemini_version().await?;
+    let latest = fetch_npm_latest_version("@google/gemini-cli").await.ok();
+
+    let update_available = match (&installed, &latest) {
+        (Some(inst), Some(lat)) => {
             inst != lat && version_compare(lat, inst) == std::cmp::Ordering::Greater
         }
         _ => false,

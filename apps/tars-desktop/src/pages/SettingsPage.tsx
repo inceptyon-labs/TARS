@@ -466,7 +466,7 @@ export function SettingsPage() {
                       TARS - Tooling, Agents, Roles, Skills
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-1">
-                      A configuration manager for Claude Code
+                      An AI coding agent configuration manager
                     </p>
                   </div>
                   <button

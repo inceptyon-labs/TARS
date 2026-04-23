@@ -23,14 +23,14 @@ const scopeLabels: Record<Scope, string> = {
   user: 'User (Global)',
   project: 'Project',
   local: 'Local (Gitignored)',
-  profile: 'Profile (Plugin)',
+  profile: 'Bundle (Plugin)',
 };
 
 const scopeDescriptions: Record<Scope, string> = {
   user: '~/.claude/ - Available in all projects',
   project: '.claude/ - Committed to repository',
   local: '.claude/settings.local.json - Not committed',
-  profile: '~/.tars/profiles/ - Stored in profile plugins',
+  profile: '~/.tars/profiles/ - Stored in bundle plugins',
 };
 
 export function ScopeSelector({

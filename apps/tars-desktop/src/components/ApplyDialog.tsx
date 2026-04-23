@@ -114,7 +114,7 @@ export function ApplyDialog({
             {step === 'preview' && (
               <>
                 <Eye className="h-5 w-5" />
-                Apply Profile: {profile.name}
+                Apply Bundle: {profile.name}
               </>
             )}
             {step === 'applying' && (
@@ -138,10 +138,10 @@ export function ApplyDialog({
           </DialogTitle>
           <DialogDescription>
             {step === 'preview' && `Review changes that will be applied to ${project.name}`}
-            {step === 'applying' && 'Please wait while the profile is being applied...'}
+            {step === 'applying' && 'Please wait while the bundle is being applied...'}
             {step === 'success' &&
-              'The profile has been applied successfully. A backup was created.'}
-            {step === 'error' && 'An error occurred while applying the profile.'}
+              'The bundle has been applied successfully. A backup was created.'}
+            {step === 'error' && 'An error occurred while applying the bundle.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -177,7 +177,7 @@ export function ApplyDialog({
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <CheckCircle className="h-12 w-12 text-green-500" />
               <div className="text-center space-y-2">
-                <p className="font-medium">Profile applied successfully!</p>
+                <p className="font-medium">Bundle applied successfully!</p>
                 <p className="text-sm text-muted-foreground">
                   Backup created: {backup.files_count} files backed up
                 </p>
@@ -193,7 +193,7 @@ export function ApplyDialog({
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <AlertTriangle className="h-12 w-12 text-red-500" />
               <div className="text-center space-y-2">
-                <p className="font-medium text-red-600">Failed to apply profile</p>
+                <p className="font-medium text-red-600">Failed to apply bundle</p>
                 <p className="text-sm text-muted-foreground max-w-md">{error}</p>
               </div>
             </div>

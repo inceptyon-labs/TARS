@@ -84,7 +84,7 @@ fn get_project_settings_path(project_path: &str) -> PathBuf {
 
 /// Get the profile hooks path (hooks.json)
 fn get_profile_hooks_path(profile_id: &str) -> Result<PathBuf, String> {
-    let profile_uuid = Uuid::parse_str(profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+    let profile_uuid = Uuid::parse_str(profile_id).map_err(|_| "Invalid bundle ID".to_string())?;
     let profile_dir =
         tars_core::profile::storage::profile_dir(profile_uuid).map_err(|e| e.to_string())?;
     Ok(profile_dir.join("hooks.json"))
@@ -352,25 +352,24 @@ pub async fn save_profile_hooks(
     let path = get_profile_hooks_path(&profile_id)?;
     write_hooks_to_settings(&path, &events)?;
 
-    let profile_uuid =
-        Uuid::parse_str(&profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+    let profile_uuid = Uuid::parse_str(&profile_id).map_err(|_| "Invalid bundle ID".to_string())?;
 
     state.with_db(|db| {
         let store = ProfileStore::new(db.connection());
         let mut profile = store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         profile.updated_at = Utc::now();
         store
             .update(&profile)
-            .map_err(|e| format!("Failed to update profile: {e}"))?;
+            .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
         tars_core::profile::regenerate_profile_plugin(&profile)
             .map_err(|e| format!("Failed to regenerate plugin: {e}"))?;
         tars_core::profile::sync_profile_marketplace(&profile)
-            .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+            .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
 
         Ok(())
     })?;

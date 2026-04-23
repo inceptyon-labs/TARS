@@ -72,17 +72,17 @@ export function CreateProfileDialog({
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="text-lg font-semibold mb-4">Create Profile</h2>
+        <h2 className="text-lg font-semibold mb-4">Create Bundle</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Profile Name</label>
+              <label className="block text-sm font-medium mb-1.5">Bundle Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="my-profile"
+                placeholder="my-bundle"
                 className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
@@ -106,7 +106,7 @@ export function CreateProfileDialog({
               <p className="text-xs text-muted-foreground mt-1.5">
                 {sourcePath.trim()
                   ? 'Skills, commands, agents, and CLAUDE.md will be captured'
-                  : 'Leave empty to create a blank profile'}
+                  : 'Leave empty to create a blank bundle'}
               </p>
             </div>
 
@@ -115,7 +115,7 @@ export function CreateProfileDialog({
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="A brief description of this profile..."
+                placeholder="A brief description of this bundle..."
                 rows={2}
                 className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring"
               />
@@ -128,7 +128,7 @@ export function CreateProfileDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={!name.trim() || isLoading}>
-                {isLoading ? 'Creating...' : 'Create Profile'}
+                {isLoading ? 'Creating...' : 'Create Bundle'}
               </Button>
             </div>
           </div>

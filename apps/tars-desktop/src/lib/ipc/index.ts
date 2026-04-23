@@ -289,6 +289,49 @@ export async function saveSettingsFile(
   });
 }
 
+export type RuntimeConfigRuntime = 'claude-code' | 'codex';
+export type RuntimeConfigScope = 'user' | 'project' | 'local' | 'system' | 'managed';
+
+export interface RuntimeConfigFile {
+  path: string;
+  content: string | null;
+  exists: boolean;
+  runtime: RuntimeConfigRuntime;
+  scope: RuntimeConfigScope;
+  format: 'json' | 'toml';
+}
+
+export interface RuntimeConfigFileParams {
+  runtime: RuntimeConfigRuntime;
+  scope: RuntimeConfigScope;
+  projectPath?: string | null;
+}
+
+export async function readRuntimeConfigFile(
+  params: RuntimeConfigFileParams
+): Promise<RuntimeConfigFile> {
+  return invoke('read_runtime_config_file', {
+    params: {
+      runtime: params.runtime,
+      scope: params.scope,
+      projectPath: params.projectPath ?? null,
+    },
+  });
+}
+
+export async function saveRuntimeConfigFile(
+  params: RuntimeConfigFileParams & { content: string }
+): Promise<void> {
+  return invoke('save_runtime_config_file', {
+    params: {
+      runtime: params.runtime,
+      scope: params.scope,
+      projectPath: params.projectPath ?? null,
+      content: params.content,
+    },
+  });
+}
+
 // Profile commands
 export async function listProfiles(): Promise<ProfileInfo[]> {
   return invoke('list_profiles');
@@ -658,6 +701,25 @@ export async function deleteSkill(path: string): Promise<void> {
   return invoke('delete_skill', { path });
 }
 
+export interface CodexSkillBridge {
+  source_path: string;
+  skill_name: string;
+  codex_dir_name: string;
+  updated_at: string;
+}
+
+export async function listCodexSkillBridges(): Promise<CodexSkillBridge[]> {
+  return invoke('list_codex_skill_bridges');
+}
+
+export async function bridgeLocalSkillToCodex(path: string): Promise<CodexSkillBridge> {
+  return invoke('bridge_local_skill_to_codex', { path });
+}
+
+export async function deleteCodexSkill(path: string): Promise<void> {
+  return invoke('delete_codex_skill', { path });
+}
+
 export async function readSupportingFile(path: string): Promise<string> {
   return invoke('read_supporting_file', { path });
 }
@@ -922,8 +984,11 @@ export async function deleteBeacon(id: string): Promise<void> {
 // Update commands
 import type {
   ClaudeVersionInfo,
+  CodexVersionInfo,
+  GeminiVersionInfo,
   ChangelogResponse,
   PluginUpdatesResponse,
+  ProjectRuntimeCoverage,
   TarsUpdateInfo,
   RuntimeStatus,
 } from '../types';
@@ -936,6 +1001,14 @@ export async function fetchClaudeChangelog(): Promise<ChangelogResponse> {
   return invoke('fetch_claude_changelog');
 }
 
+export async function fetchCodexChangelog(): Promise<ChangelogResponse> {
+  return invoke('fetch_codex_changelog');
+}
+
+export async function fetchGeminiChangelog(): Promise<ChangelogResponse> {
+  return invoke('fetch_gemini_changelog');
+}
+
 export async function fetchTarsChangelog(): Promise<ChangelogResponse> {
   return invoke('fetch_tars_changelog');
 }
@@ -944,12 +1017,138 @@ export async function getClaudeVersionInfo(): Promise<ClaudeVersionInfo> {
   return invoke('get_claude_version_info');
 }
 
+export async function getCodexVersionInfo(): Promise<CodexVersionInfo> {
+  return invoke('get_codex_version_info');
+}
+
+export async function getGeminiVersionInfo(): Promise<GeminiVersionInfo> {
+  return invoke('get_gemini_version_info');
+}
+
 export async function getRuntimeStatuses(): Promise<RuntimeStatus[]> {
   return invoke('get_runtime_statuses');
 }
 
+export async function getProjectRuntimeCoverage(
+  projectPath: string
+): Promise<ProjectRuntimeCoverage[]> {
+  return invoke('get_project_runtime_coverage', { projectPath });
+}
+
 export async function checkPluginUpdates(): Promise<PluginUpdatesResponse> {
   return invoke('check_plugin_updates');
+}
+
+export interface RuntimeTargetResult {
+  success: boolean;
+  message: string;
+}
+
+export interface AddPluginTargetsResponse {
+  source: string;
+  plugin_name: string;
+  claude: RuntimeTargetResult | null;
+  codex: RuntimeTargetResult | null;
+}
+
+export interface PluginSubscription {
+  id: number;
+  plugin_name: string;
+  source: string;
+  source_kind: string;
+  marketplace_source: string | null;
+  marketplace_name: string | null;
+  codex_source: string | null;
+  scope: string;
+  targets: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RemovePluginSubscriptionResponse {
+  id: number;
+  plugin_name: string;
+  claude: RuntimeTargetResult | null;
+  codex: RuntimeTargetResult | null;
+}
+
+export interface CodexPluginBridge {
+  key: string;
+  plugin_name: string;
+  marketplace: string | null;
+  scope: string;
+  project_path: string | null;
+  codex_skill_dirs: string[];
+  skill_count: number;
+  updated_at: string;
+}
+
+export interface CodexPluginBridgeOperationResult {
+  key: string;
+  plugin_name: string;
+  success: boolean;
+  message: string;
+  skill_count: number;
+}
+
+export interface CodexPluginBridgeSyncResponse {
+  results: CodexPluginBridgeOperationResult[];
+}
+
+export async function addPluginToTargets(
+  sourceKind: 'direct' | 'marketplace',
+  source: string,
+  pluginName: string | null,
+  marketplaceSource: string | null,
+  marketplaceName: string | null,
+  codexSource: string | null,
+  targets: Array<'claude-code' | 'codex'>
+): Promise<AddPluginTargetsResponse> {
+  return invoke('add_plugin_to_targets', {
+    sourceKind,
+    source,
+    pluginName,
+    marketplaceSource,
+    marketplaceName,
+    codexSource,
+    targets,
+  });
+}
+
+export async function listPluginSubscriptions(): Promise<PluginSubscription[]> {
+  return invoke('list_plugin_subscriptions');
+}
+
+export async function syncPluginSubscription(id: number): Promise<AddPluginTargetsResponse> {
+  return invoke('sync_plugin_subscription', { id });
+}
+
+export async function removePluginSubscription(
+  id: number
+): Promise<RemovePluginSubscriptionResponse> {
+  return invoke('remove_plugin_subscription', { id });
+}
+
+export async function listCodexPluginBridges(): Promise<CodexPluginBridge[]> {
+  return invoke('list_codex_plugin_bridges');
+}
+
+export async function bridgeClaudePluginToCodex(
+  pluginName: string,
+  marketplace: string | null,
+  scope: string,
+  projectPath?: string | null
+): Promise<CodexPluginBridge> {
+  return invoke('bridge_claude_plugin_to_codex', {
+    pluginName,
+    marketplace,
+    scope,
+    projectPath,
+  });
+}
+
+export async function syncCodexPluginBridges(): Promise<CodexPluginBridgeSyncResponse> {
+  return invoke('sync_codex_plugin_bridges');
 }
 
 export async function installPlugin(

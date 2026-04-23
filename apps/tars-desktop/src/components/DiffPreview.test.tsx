@@ -18,7 +18,7 @@ vi.mock('@monaco-editor/react', () => ({
 }));
 
 const mockPreview: DiffPreviewType = {
-  summary: "Apply profile 'Development' to project",
+  summary: "Apply bundle 'Development' to project",
   warnings: [],
   terminal_output: '',
   operations: [
@@ -47,7 +47,7 @@ describe('DiffPreview', () => {
   it('renders summary', () => {
     render(<DiffPreview preview={mockPreview} />);
 
-    expect(screen.getByText("Apply profile 'Development' to project")).toBeInTheDocument();
+    expect(screen.getByText("Apply bundle 'Development' to project")).toBeInTheDocument();
   });
 
   it('renders operation counts', () => {

@@ -39,7 +39,15 @@ import {
 } from '../components/ui/select';
 import { ConfirmDialog } from '../components/config/ConfirmDialog';
 import { HelpButton } from '../components/HelpButton';
+import { PageBackButton } from '../components/PageBackButton';
+import {
+  RuntimeBadges,
+  getRuntimeSupportForKind,
+  toRuntimeSupportItems,
+} from '../components/RuntimeBadges';
 import type { AgentInfo, AgentDetails } from '../lib/types';
+
+const agentRuntimeSupport = getRuntimeSupportForKind('agent');
 
 /** Check if an agent is editable (user-created agents only) */
 function isAgentEditable(scope: { type: string } | string, path?: string): boolean {
@@ -261,11 +269,11 @@ export function AgentsPage() {
       return;
     }
     if (createScope === 'profile' && !selectedProfileId) {
-      toast.error('Please select a profile');
+      toast.error('Please select a bundle');
       return;
     }
     if (addToProfile && !selectedProfileId) {
-      toast.error('Please select a profile');
+      toast.error('Please select a bundle');
       return;
     }
 
@@ -287,7 +295,7 @@ export function AgentsPage() {
           ? 'user scope'
           : createScope === 'project'
             ? `project "${projects.find((p) => p.path === selectedProject)?.name}"`
-            : `profile "${profiles.find((p) => p.id === selectedProfileId)?.name}"`;
+            : `bundle "${profiles.find((p) => p.id === selectedProfileId)?.name}"`;
       toast.success(`Created agent "${toolName}"`, {
         description: `Added to ${scopeDesc}`,
       });
@@ -301,10 +309,10 @@ export function AgentsPage() {
             createScope
           );
           const profileName =
-            profiles.find((profile) => profile.id === selectedProfileId)?.name || 'profile';
-          toast.success(`Added to profile "${profileName}"`);
+            profiles.find((profile) => profile.id === selectedProfileId)?.name || 'bundle';
+          toast.success(`Added to bundle "${profileName}"`);
         } catch (err) {
-          toast.error('Failed to add agent to profile', {
+          toast.error('Failed to add agent to bundle', {
             description: err instanceof Error ? err.message : String(err),
           });
         }
@@ -479,13 +487,21 @@ export function AgentsPage() {
                   <span className="font-medium flex-1 truncate">{agent.name}</span>
                   {isProfileToolPath(agent.path) && (
                     <span className="inline-flex items-center justify-center h-7 px-2.5 text-xs bg-emerald-500/10 text-emerald-500 rounded">
-                      Profile
+                      Bundle
                     </span>
                   )}
                 </div>
                 {agent.description && (
                   <div className="text-xs opacity-60 truncate mt-0.5">{agent.description}</div>
                 )}
+                <RuntimeBadges
+                  items={
+                    agent.runtime_support?.length
+                      ? toRuntimeSupportItems(agent.runtime_support)
+                      : agentRuntimeSupport
+                  }
+                  className="mt-1"
+                />
               </button>
               {showActions && isAgentEditable(agent.scope, agent.path) && (
                 <div className="absolute right-1 top-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
@@ -524,6 +540,7 @@ export function AgentsPage() {
       {/* Header */}
       <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
+          <PageBackButton />
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Agents</h2>
           <HelpButton section="AGENTS" />
@@ -620,6 +637,14 @@ export function AgentsPage() {
                                   {agent.description}
                                 </div>
                               )}
+                              <RuntimeBadges
+                                items={
+                                  agent.runtime_support?.length
+                                    ? toRuntimeSupportItems(agent.runtime_support)
+                                    : agentRuntimeSupport
+                                }
+                                className="mt-1"
+                              />
                             </button>
                             <button
                               onClick={(e) => {
@@ -682,7 +707,7 @@ export function AgentsPage() {
           <DialogHeader>
             <DialogTitle>Create New Agent</DialogTitle>
             <DialogDescription>
-              Create a new agent in your user, project, or profile scope.
+              Create a new agent in your user, project, or bundle scope.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -752,7 +777,7 @@ export function AgentsPage() {
                     }}
                     className="accent-primary"
                   />
-                  <span className="text-sm">Profile</span>
+                  <span className="text-sm">Bundle</span>
                 </label>
               </div>
             </div>
@@ -798,10 +823,10 @@ export function AgentsPage() {
 
             {createScope === 'profile' && (
               <div>
-                <Label>Profile</Label>
+                <Label>Bundle</Label>
                 {profiles.length === 0 ? (
                   <p className="text-sm text-muted-foreground mt-2">
-                    No profiles configured. Create a profile first.
+                    No bundles configured. Create a bundle first.
                   </p>
                 ) : (
                   <div className="mt-2 space-y-1">
@@ -840,9 +865,9 @@ export function AgentsPage() {
               <div className="rounded-md border border-border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <Label htmlFor="add-agent-to-profile">Add to profile</Label>
+                    <Label htmlFor="add-agent-to-profile">Add to bundle</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Copies this agent into a profile for reuse.
+                      Copies this agent into a bundle for reuse.
                     </p>
                   </div>
                   <input
@@ -865,7 +890,7 @@ export function AgentsPage() {
 
                 {profiles.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Create a profile first to enable this option.
+                    Create a bundle first to enable this option.
                   </p>
                 )}
                 {createScope === 'project' && !selectedProject && (
@@ -876,13 +901,13 @@ export function AgentsPage() {
 
                 {addToProfile && profiles.length > 0 && (
                   <div className="space-y-2">
-                    <Label>Profile</Label>
+                    <Label>Bundle</Label>
                     <Select
                       value={selectedProfileId || undefined}
                       onValueChange={(value) => setSelectedProfileId(value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select profile" />
+                        <SelectValue placeholder="Select bundle" />
                       </SelectTrigger>
                       <SelectContent>
                         {profiles.map((profile) => (
