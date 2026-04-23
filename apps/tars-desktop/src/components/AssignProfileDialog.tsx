@@ -66,9 +66,9 @@ export function AssignProfileDialog({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h2 className="text-lg font-semibold">Assign Profile</h2>
+            <h2 className="text-lg font-semibold">Assign Bundle</h2>
             <p className="text-sm text-muted-foreground">
-              Select a profile for <span className="font-medium">{projectName}</span>
+              Select a bundle for <span className="font-medium">{projectName}</span>
             </p>
           </div>
           <button
@@ -88,9 +88,9 @@ export function AssignProfileDialog({
           ) : profiles.length === 0 ? (
             <div className="text-center py-8">
               <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No profiles available</p>
+              <p className="text-sm text-muted-foreground">No bundles available</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Create a profile first from the Profiles page
+                Create a bundle first from the Bundles page
               </p>
             </div>
           ) : (
@@ -162,7 +162,7 @@ export function AssignProfileDialog({
               onClick={handleAssign}
               disabled={!selectedProfileId || selectedProfileId === currentProfileId || isLoading}
             >
-              {isLoading ? 'Assigning...' : 'Assign Profile'}
+              {isLoading ? 'Assigning...' : 'Assign Bundle'}
             </Button>
           </div>
         </div>

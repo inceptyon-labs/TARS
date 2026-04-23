@@ -5,6 +5,7 @@
  */
 
 import { HelpButton } from '../components/HelpButton';
+import { PageBackButton } from '../components/PageBackButton';
 import { McpPanel } from '../components/config/McpPanel';
 
 export function McpPage() {
@@ -13,6 +14,7 @@ export function McpPage() {
       {/* Header */}
       <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
+          <PageBackButton />
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">MCP Servers</h2>
           <HelpButton section="MCP" />

@@ -36,7 +36,15 @@ import {
 } from '../components/ui/select';
 import { ConfirmDialog } from '../components/config/ConfirmDialog';
 import { HelpButton } from '../components/HelpButton';
+import { PageBackButton } from '../components/PageBackButton';
+import {
+  RuntimeBadges,
+  getRuntimeSupportForKind,
+  toRuntimeSupportItems,
+} from '../components/RuntimeBadges';
 import type { CommandInfo, CommandDetails } from '../lib/types';
+
+const commandRuntimeSupport = getRuntimeSupportForKind('command');
 
 /** Check if a command is editable (user-created commands only) */
 function isCommandEditable(scope: { type: string } | string, path?: string): boolean {
@@ -241,11 +249,11 @@ export function CommandsPage() {
       return;
     }
     if (createScope === 'profile' && !selectedProfileId) {
-      toast.error('Please select a profile');
+      toast.error('Please select a bundle');
       return;
     }
     if (addToProfile && !selectedProfileId) {
-      toast.error('Please select a profile');
+      toast.error('Please select a bundle');
       return;
     }
 
@@ -267,7 +275,7 @@ export function CommandsPage() {
           ? 'user scope'
           : createScope === 'project'
             ? `project "${projects.find((p) => p.path === selectedProject)?.name}"`
-            : `profile "${profiles.find((p) => p.id === selectedProfileId)?.name}"`;
+            : `bundle "${profiles.find((p) => p.id === selectedProfileId)?.name}"`;
       toast.success(`Created command "${toolName}"`, {
         description: `Added to ${scopeDesc}`,
       });
@@ -284,10 +292,10 @@ export function CommandsPage() {
             createScope
           );
           const profileName =
-            profiles.find((profile) => profile.id === selectedProfileId)?.name || 'profile';
-          toast.success(`Added to profile "${profileName}"`);
+            profiles.find((profile) => profile.id === selectedProfileId)?.name || 'bundle';
+          toast.success(`Added to bundle "${profileName}"`);
         } catch (err) {
-          toast.error('Failed to add command to profile', {
+          toast.error('Failed to add command to bundle', {
             description: err instanceof Error ? err.message : String(err),
           });
         }
@@ -423,13 +431,21 @@ export function CommandsPage() {
                   <span className="font-medium flex-1 truncate">/{command.name}</span>
                   {isProfileToolPath(command.path) && (
                     <span className="inline-flex items-center justify-center h-7 px-2.5 text-xs bg-emerald-500/10 text-emerald-500 rounded">
-                      Profile
+                      Bundle
                     </span>
                   )}
                 </div>
                 {command.description && (
                   <div className="text-xs opacity-60 truncate mt-0.5">{command.description}</div>
                 )}
+                <RuntimeBadges
+                  items={
+                    command.runtime_support?.length
+                      ? toRuntimeSupportItems(command.runtime_support)
+                      : commandRuntimeSupport
+                  }
+                  className="mt-1"
+                />
               </button>
               {showActions && isCommandEditable(command.scope, command.path) && (
                 <button
@@ -455,6 +471,7 @@ export function CommandsPage() {
       {/* Header */}
       <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
+          <PageBackButton />
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Commands</h2>
           <HelpButton section="COMMANDS" />
@@ -564,7 +581,7 @@ export function CommandsPage() {
           <DialogHeader>
             <DialogTitle>Create New Command</DialogTitle>
             <DialogDescription>
-              Create a new slash command in your user, project, or profile scope.
+              Create a new slash command in your user, project, or bundle scope.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -635,7 +652,7 @@ export function CommandsPage() {
                     }}
                     className="accent-primary"
                   />
-                  <span className="text-sm">Profile</span>
+                  <span className="text-sm">Bundle</span>
                 </label>
               </div>
             </div>
@@ -681,10 +698,10 @@ export function CommandsPage() {
 
             {createScope === 'profile' && (
               <div>
-                <Label>Profile</Label>
+                <Label>Bundle</Label>
                 {profiles.length === 0 ? (
                   <p className="text-sm text-muted-foreground mt-2">
-                    No profiles configured. Create a profile first.
+                    No bundles configured. Create a bundle first.
                   </p>
                 ) : (
                   <div className="mt-2 space-y-1">
@@ -723,9 +740,9 @@ export function CommandsPage() {
               <div className="rounded-md border border-border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <Label htmlFor="add-command-to-profile">Add to profile</Label>
+                    <Label htmlFor="add-command-to-profile">Add to bundle</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Copies this command into a profile for reuse.
+                      Copies this command into a bundle for reuse.
                     </p>
                   </div>
                   <input
@@ -748,7 +765,7 @@ export function CommandsPage() {
 
                 {profiles.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Create a profile first to enable this option.
+                    Create a bundle first to enable this option.
                   </p>
                 )}
                 {createScope === 'project' && !selectedProject && (
@@ -759,13 +776,13 @@ export function CommandsPage() {
 
                 {addToProfile && profiles.length > 0 && (
                   <div className="space-y-2">
-                    <Label>Profile</Label>
+                    <Label>Bundle</Label>
                     <Select
                       value={selectedProfileId || undefined}
                       onValueChange={(value) => setSelectedProfileId(value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select profile" />
+                        <SelectValue placeholder="Select bundle" />
                       </SelectTrigger>
                       <SelectContent>
                         {profiles.map((profile) => (

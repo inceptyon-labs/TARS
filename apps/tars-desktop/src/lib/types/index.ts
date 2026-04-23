@@ -92,11 +92,13 @@ export interface UserScope {
   skills: SkillInfo[];
   commands: CommandInfo[];
   agents: AgentInfo[];
+  codex: CodexScope;
 }
 
 export interface ManagedScope {
   settings: SettingsFile | null;
   mcp: McpConfig | null;
+  codex: CodexManagedScope;
 }
 
 export interface ProjectScope {
@@ -109,6 +111,7 @@ export interface ProjectScope {
   commands: CommandInfo[];
   agents: AgentInfo[];
   hooks: HookInfo[];
+  codex: CodexScope;
   git: GitInfo | null;
 }
 
@@ -132,6 +135,7 @@ export interface McpServer {
   command: string;
   args: string[];
   env: Record<string, string>;
+  runtime_support: RuntimeCompatibility[];
 }
 
 export interface SkillInfo {
@@ -139,6 +143,7 @@ export interface SkillInfo {
   path: string;
   description: string;
   user_invocable: boolean;
+  runtime_support: RuntimeCompatibility[];
   scope: SkillScope;
 }
 
@@ -157,6 +162,7 @@ export interface CommandInfo {
   thinking: boolean;
   body: string;
   sha256: string;
+  runtime_support: RuntimeCompatibility[];
   scope: { type: string };
 }
 
@@ -169,6 +175,16 @@ export interface AgentInfo {
   permission_mode: string;
   skills: string[];
   sha256: string;
+  runtime_support: RuntimeCompatibility[];
+  scope: { type: string };
+}
+
+export interface CodexAgentInfo {
+  name: string;
+  path: string;
+  description: string | null;
+  sha256: string;
+  runtime_support: RuntimeCompatibility[];
   scope: { type: string };
 }
 
@@ -177,6 +193,7 @@ export interface HookInfo {
   trigger: string;
   matcher: string | null;
   definition: HookDefinition;
+  runtime_support: RuntimeCompatibility[];
 }
 
 export interface HookDefinition {
@@ -188,6 +205,49 @@ export interface GitInfo {
   remote: string | null;
   branch: string;
   is_dirty: boolean;
+}
+
+export interface FileInfo {
+  path: string;
+  sha256: string;
+}
+
+export interface CodexScope {
+  config: FileInfo | null;
+  instructions: FileInfo[];
+  skills: SkillInfo[];
+  agents: CodexAgentInfo[];
+  marketplaces: CodexMarketplace[];
+}
+
+export interface CodexManagedScope {
+  system_config: FileInfo | null;
+  managed_config: FileInfo | null;
+}
+
+export interface CodexMarketplace {
+  name: string;
+  display_name: string | null;
+  path: string;
+  sha256: string;
+  scope: { type: string };
+  plugins: CodexAvailablePlugin[];
+}
+
+export interface CodexAvailablePlugin {
+  id: string;
+  display_name: string | null;
+  description: string | null;
+  version: string | null;
+  author?: { name: string; email?: string };
+  category: string | null;
+  installation_policy: string | null;
+  authentication_policy: string | null;
+  source_type: string;
+  plugin_path: string | null;
+  source_url: string | null;
+  manifest_path: string | null;
+  resolved: boolean;
 }
 
 export interface CollisionReport {
@@ -438,6 +498,7 @@ export interface AgentDetails {
   path: string;
   content: string;
   description: string | null;
+  runtime_support?: RuntimeCompatibility[];
   scope: string;
 }
 
@@ -578,6 +639,9 @@ export interface ClaudeVersionInfo {
   update_available: boolean;
 }
 
+export type CodexVersionInfo = ClaudeVersionInfo;
+export type GeminiVersionInfo = ClaudeVersionInfo;
+
 // Runtime status types
 export interface RuntimePathStatus {
   label: string;
@@ -592,9 +656,26 @@ export interface RuntimeStatus {
   installed: boolean;
   version: string | null;
   binary_path: string | null;
+  install_method: string | null;
   docs_url: string;
   summary: string;
   paths: RuntimePathStatus[];
+}
+
+export type RuntimeSupportLevel = 'Native' | 'Convertible' | 'Partial' | 'Unsupported';
+export type CanonicalRuntime = 'ClaudeCode' | 'Codex' | 'Universal';
+
+export interface RuntimeCompatibility {
+  runtime: CanonicalRuntime;
+  support: RuntimeSupportLevel;
+}
+
+export interface ProjectRuntimeCoverage {
+  id: string;
+  name: string;
+  support: RuntimeSupportLevel;
+  summary: string;
+  surfaces: RuntimePathStatus[];
 }
 
 export interface ChangelogEntry {

@@ -234,7 +234,7 @@ pub async fn list_profiles(state: State<'_, AppState>) -> Result<Vec<ProfileInfo
         let store = ProfileStore::new(db.connection());
         let profiles = store
             .list()
-            .map_err(|e| format!("Failed to list profiles: {e}"))?;
+            .map_err(|e| format!("Failed to list bundles: {e}"))?;
         Ok(profiles.into_iter().map(ProfileInfo::from).collect())
     })
 }
@@ -254,7 +254,7 @@ pub async fn create_profile(
     }
 
     let mut profile = snapshot_from_project(&project_path, name)
-        .map_err(|e| format!("Failed to create profile snapshot: {e}"))?;
+        .map_err(|e| format!("Failed to create bundle snapshot: {e}"))?;
 
     if let Some(desc) = description {
         profile.description = Some(desc);
@@ -269,7 +269,7 @@ pub async fn create_profile(
             .map_err(|e| format!("Database error: {e}"))?
             .is_some()
         {
-            return Err(format!("Profile '{}' already exists", profile.name));
+            return Err(format!("Bundle '{}' already exists", profile.name));
         }
 
         ensure_unique_plugin_slug(&store, &profile.name, None)?;
@@ -280,15 +280,15 @@ pub async fn create_profile(
 
         store
             .create(&profile)
-            .map_err(|e| format!("Failed to save profile: {e}"))?;
+            .map_err(|e| format!("Failed to save bundle: {e}"))?;
 
         // Regenerate the plugin after profile creation
         tars_core::profile::regenerate_profile_plugin(&profile)
             .map_err(|e| format!("Failed to generate plugin: {e}"))?;
         tars_core::profile::sync_profile_marketplace(&profile)
-            .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+            .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
         tars_core::profile::sync_profile_marketplace(&profile)
-            .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+            .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
 
         Ok(ProfileInfo {
             id: profile.id.to_string(),
@@ -305,10 +305,10 @@ pub async fn create_profile(
 fn validate_profile_name(name: &str) -> Result<String, String> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
-        return Err("Profile name cannot be empty".to_string());
+        return Err("Bundle name cannot be empty".to_string());
     }
     if trimmed.len() > 100 {
-        return Err("Profile name cannot exceed 100 characters".to_string());
+        return Err("Bundle name cannot exceed 100 characters".to_string());
     }
     Ok(trimmed.to_string())
 }
@@ -325,7 +325,7 @@ fn ensure_unique_plugin_slug(
         sanitize_plugin_name_for_unassign(&profile.name) == slug && Some(profile.id) != current_id
     }) {
         return Err(format!(
-            "Profile name '{}' conflicts with '{}' after plugin ID sanitization",
+            "Bundle name '{}' conflicts with '{}' after plugin ID sanitization",
             name, conflict.name
         ));
     }
@@ -353,14 +353,14 @@ pub async fn create_empty_profile(
             .map_err(|e| format!("Database error: {e}"))?
             .is_some()
         {
-            return Err(format!("Profile '{}' already exists", profile.name));
+            return Err(format!("Bundle '{}' already exists", profile.name));
         }
 
         ensure_unique_plugin_slug(&store, &profile.name, None)?;
 
         store
             .create(&profile)
-            .map_err(|e| format!("Failed to save profile: {e}"))?;
+            .map_err(|e| format!("Failed to save bundle: {e}"))?;
 
         // Regenerate the plugin after profile creation
         tars_core::profile::regenerate_profile_plugin(&profile)
@@ -389,7 +389,7 @@ pub async fn get_profile(id: String, state: State<'_, AppState>) -> Result<Profi
         let profile = profile_store
             .get(uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         // Get assigned projects
         let assigned = project_store
@@ -438,11 +438,11 @@ pub async fn delete_profile(
         let profile = store
             .get(uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         // First, convert profile tools to local overrides for all assigned projects
         let converted = convert_profile_to_local_overrides(db.connection(), uuid)
-            .map_err(|e| format!("Failed to convert profile tools: {e}"))?;
+            .map_err(|e| format!("Failed to convert bundle tools: {e}"))?;
 
         let project_paths = converted
             .iter()
@@ -453,7 +453,7 @@ pub async fn delete_profile(
         // Now delete the profile
         let deleted = store
             .delete(uuid)
-            .map_err(|e| format!("Failed to delete profile: {e}"))?;
+            .map_err(|e| format!("Failed to delete bundle: {e}"))?;
 
         let _ = tars_core::profile::storage::delete_profile_storage(profile.id);
 
@@ -499,7 +499,7 @@ pub async fn delete_profile_cleanup(
             let profile = store
                 .get(uuid)
                 .map_err(|e| format!("Database error: {e}"))?
-                .ok_or_else(|| "Profile not found".to_string())?;
+                .ok_or_else(|| "Bundle not found".to_string())?;
 
             let projects = project_store
                 .list_by_profile(uuid)
@@ -579,7 +579,7 @@ pub async fn delete_profile_cleanup(
 
             let deleted = store
                 .delete(uuid)
-                .map_err(|e| format!("Failed to delete profile: {e}"))?;
+                .map_err(|e| format!("Failed to delete bundle: {e}"))?;
             let _ = tars_core::profile::storage::delete_profile_storage(profile.id);
 
             Ok((
@@ -790,7 +790,7 @@ pub async fn update_profile(
         let mut profile = store
             .get(uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
         let previous_name = profile.name.clone();
 
         // Update name if provided
@@ -802,7 +802,7 @@ pub async fn update_profile(
                     .map_err(|e| format!("Database error: {e}"))?
                 {
                     if existing.id != uuid {
-                        return Err(format!("Profile '{new_name}' already exists"));
+                        return Err(format!("Bundle '{new_name}' already exists"));
                     }
                 }
                 ensure_unique_plugin_slug(&store, &new_name, Some(uuid))?;
@@ -839,13 +839,13 @@ pub async fn update_profile(
 
         store
             .update(&profile)
-            .map_err(|e| format!("Failed to update profile: {e}"))?;
+            .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
         // Regenerate the plugin after profile update
         tars_core::profile::regenerate_profile_plugin(&profile)
             .map_err(|e| format!("Failed to regenerate plugin: {e}"))?;
         tars_core::profile::sync_profile_marketplace(&profile)
-            .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+            .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
         if previous_name != profile.name {
             tars_core::profile::remove_profile_from_marketplace(&previous_name)
                 .map_err(|e| format!("Failed to remove old marketplace entry: {e}"))?;
@@ -853,7 +853,7 @@ pub async fn update_profile(
 
         // Sync to assigned projects
         let sync_result = sync_profile_to_projects(db.connection(), uuid)
-            .map_err(|e| format!("Failed to sync profile: {e}"))?;
+            .map_err(|e| format!("Failed to sync bundle: {e}"))?;
 
         Ok(UpdateProfileResponse {
             profile: ProfileInfo {
@@ -973,7 +973,7 @@ pub async fn export_profile_as_plugin(
         let profile = store
             .get(uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         export_as_plugin_zip(&profile, &validated_output, &options.name, &options.version)
             .map_err(|e| format!("Export failed: {e}"))?;
@@ -1008,7 +1008,7 @@ pub async fn assign_profile(
     let project_uuid =
         uuid::Uuid::parse_str(&project_id).map_err(|e| format!("Invalid project ID: {e}"))?;
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     // Get profile and project info from database
     let (_profile, project_path) = state.with_db(|db| {
@@ -1019,7 +1019,7 @@ pub async fn assign_profile(
         let profile = profile_store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         // Get the project
         let mut project = project_store
@@ -1029,7 +1029,7 @@ pub async fn assign_profile(
 
         // Apply the profile overlays to the project directory
         let _apply_result = apply_profile_to_project(&profile, &project.path)
-            .map_err(|e| format!("Failed to apply profile: {e}"))?;
+            .map_err(|e| format!("Failed to apply bundle: {e}"))?;
 
         // Assign the profile in the database
         project.assigned_profile_id = Some(profile_uuid);
@@ -1649,7 +1649,7 @@ pub async fn add_tools_from_source(
     state: State<'_, AppState>,
 ) -> Result<AddToolsFromSourceResponse, String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
     let source_scope = input.source_scope.to_lowercase();
     let (source_path, scope_for_refs) = match source_scope.as_str() {
         "project" => {
@@ -1676,7 +1676,7 @@ pub async fn add_tools_from_source(
         store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())
+            .ok_or_else(|| "Bundle not found".to_string())
     })?;
 
     let (mcp_config, skills, agents, commands) = if scope_for_refs == Scope::Project {
@@ -1870,7 +1870,7 @@ pub async fn add_tools_from_source(
         let mut profile = store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         // Add tool refs (avoiding duplicates)
         for tool_ref in tool_refs {
@@ -1887,13 +1887,13 @@ pub async fn add_tools_from_source(
 
         store
             .update(&profile)
-            .map_err(|e| format!("Failed to update profile: {e}"))?;
+            .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
         // Regenerate the plugin after adding tools
         tars_core::profile::regenerate_profile_plugin(&profile)
             .map_err(|e| format!("Failed to regenerate plugin: {e}"))?;
         tars_core::profile::sync_profile_marketplace(&profile)
-            .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+            .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
 
         Ok(AddToolsFromSourceResponse {
             added_count: mcp_servers_added + skills_added + agents_added + commands_added,
@@ -1930,7 +1930,7 @@ pub async fn create_profile_mcp_server(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     tars_core::util::validate_name(&input.name)
         .map_err(|_| "Invalid MCP server name".to_string())?;
@@ -1982,7 +1982,7 @@ pub async fn create_profile_mcp_server(
         let mut profile = store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         if !profile
             .tool_refs
@@ -2001,12 +2001,12 @@ pub async fn create_profile_mcp_server(
         profile.updated_at = Utc::now();
         store
             .update(&profile)
-            .map_err(|e| format!("Failed to update profile: {e}"))?;
+            .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
         tars_core::profile::regenerate_profile_plugin(&profile)
             .map_err(|e| format!("Failed to regenerate plugin: {e}"))?;
         sync_profile_marketplace(&profile)
-            .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+            .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
 
         Ok(())
     })?;
@@ -2043,13 +2043,13 @@ pub async fn list_profile_mcp_servers(
         let store = ProfileStore::new(db.connection());
         let profiles = store
             .list()
-            .map_err(|e| format!("Failed to list profiles: {e}"))?;
+            .map_err(|e| format!("Failed to list bundles: {e}"))?;
 
         let mut servers = Vec::new();
 
         for profile in profiles {
             let tools = storage::list_profile_tools(profile.id)
-                .map_err(|e| format!("Failed to list profile tools: {e}"))?;
+                .map_err(|e| format!("Failed to list bundle tools: {e}"))?;
 
             for name in tools.mcp_servers {
                 let config_value = match storage::get_mcp_server_config(profile.id, &name) {
@@ -2070,7 +2070,7 @@ pub async fn list_profile_mcp_servers(
                     Err(_) => continue,
                 };
                 let file_path = storage::profile_dir(profile.id)
-                    .map_err(|e| format!("Failed to resolve profile directory: {e}"))?
+                    .map_err(|e| format!("Failed to resolve bundle directory: {e}"))?
                     .join("mcp-servers")
                     .join(format!("{safe_name}.json"));
 
@@ -2108,7 +2108,7 @@ pub async fn remove_profile_mcp_server(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     let removed_file = storage::delete_mcp_server(profile_uuid, &input.name)
         .map_err(|e| format!("Failed to delete MCP server: {e}"))?;
@@ -2118,7 +2118,7 @@ pub async fn remove_profile_mcp_server(
         let mut profile = store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         let before_len = profile.tool_refs.len();
         profile
@@ -2130,12 +2130,12 @@ pub async fn remove_profile_mcp_server(
             profile.updated_at = Utc::now();
             store
                 .update(&profile)
-                .map_err(|e| format!("Failed to update profile: {e}"))?;
+                .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
             tars_core::profile::regenerate_profile_plugin(&profile)
                 .map_err(|e| format!("Failed to regenerate plugin: {e}"))?;
             sync_profile_marketplace(&profile)
-                .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+                .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
         }
 
         Ok(())
@@ -2175,7 +2175,7 @@ pub async fn add_plugin_to_profile(
     state: State<'_, AppState>,
 ) -> Result<AddPluginToProfileResponse, String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&input.profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     // Verify profile exists
     state.with_db(|db| {
@@ -2183,7 +2183,7 @@ pub async fn add_plugin_to_profile(
         store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())
+            .ok_or_else(|| "Bundle not found".to_string())
     })?;
 
     // Create and store the plugin manifest
@@ -2215,7 +2215,7 @@ pub async fn remove_plugin_from_profile(
     state: State<'_, AppState>,
 ) -> Result<RemovePluginFromProfileResponse, String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     // Verify profile exists
     state.with_db(|db| {
@@ -2223,7 +2223,7 @@ pub async fn remove_plugin_from_profile(
         store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())
+            .ok_or_else(|| "Bundle not found".to_string())
     })?;
 
     let removed = storage::delete_plugin_manifest(profile_uuid, &plugin_id)
@@ -2243,7 +2243,7 @@ pub async fn list_profile_plugins(
     _state: State<'_, AppState>,
 ) -> Result<Vec<PluginManifestInfo>, String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     let manifests = storage::list_plugin_manifests(profile_uuid)
         .map_err(|e| format!("Failed to list plugins: {e}"))?;
@@ -2304,7 +2304,7 @@ pub async fn export_profile_json(
         let profile = store
             .get(uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         let export =
             core_export(&profile, &validated_output).map_err(|e| format!("Export failed: {e}"))?;
@@ -2449,14 +2449,14 @@ pub async fn import_profile_json(
             .is_some()
         {
             return Err(format!(
-                "Profile '{}' already exists. Provide rename_to to resolve.",
+                "Bundle '{}' already exists. Provide rename_to to resolve.",
                 profile.name
             ));
         }
 
         store
             .create(&profile)
-            .map_err(|e| format!("Failed to save profile: {e}"))?;
+            .map_err(|e| format!("Failed to save bundle: {e}"))?;
 
         Ok(ImportProfileResponse {
             profile: ProfileInfo {
@@ -2503,7 +2503,7 @@ pub async fn check_profile_updates(
     profile_id: String,
 ) -> Result<ProfileUpdateCheckResponse, String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     state.with_db(|db| {
         let store = ProfileStore::new(db.connection());
@@ -2511,7 +2511,7 @@ pub async fn check_profile_updates(
         let profile = store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Profile not found")?;
+            .ok_or("Bundle not found")?;
 
         let check = tars_core::profile::check_profile_updates(&profile)
             .map_err(|e| format!("Failed to check updates: {e}"))?;
@@ -2548,7 +2548,7 @@ pub async fn pull_tool_update(
     use tars_core::profile::storage;
 
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     state.with_db(|db| {
         let store = ProfileStore::new(db.connection());
@@ -2556,14 +2556,14 @@ pub async fn pull_tool_update(
         let mut profile = store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Profile not found")?;
+            .ok_or("Bundle not found")?;
 
         // Find the tool
         let tool = profile
             .tool_refs
             .iter_mut()
             .find(|t| t.name == tool_name)
-            .ok_or("Tool not found in profile")?;
+            .ok_or("Tool not found in bundle")?;
 
         let source_ref = tool
             .source_ref
@@ -2600,7 +2600,7 @@ pub async fn pull_tool_update(
         // Save updated profile
         store
             .update(&profile)
-            .map_err(|e| format!("Failed to update profile: {e}"))?;
+            .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
         Ok(())
     })
@@ -2615,7 +2615,7 @@ pub async fn set_tool_source_mode(
     mode: String,
 ) -> Result<(), String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     let source_mode = match mode.as_str() {
         "pin" => tars_core::profile::SourceMode::Pin,
@@ -2629,14 +2629,14 @@ pub async fn set_tool_source_mode(
         let mut profile = store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Profile not found")?;
+            .ok_or("Bundle not found")?;
 
         // Find the tool and update its mode
         let tool = profile
             .tool_refs
             .iter_mut()
             .find(|t| t.name == tool_name)
-            .ok_or("Tool not found in profile")?;
+            .ok_or("Tool not found in bundle")?;
 
         if let Some(ref mut sr) = tool.source_ref {
             sr.mode = source_mode;
@@ -2647,7 +2647,7 @@ pub async fn set_tool_source_mode(
         // Save updated profile
         store
             .update(&profile)
-            .map_err(|e| format!("Failed to update profile: {e}"))?;
+            .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
         Ok(())
     })
@@ -2663,7 +2663,7 @@ pub async fn assign_profile_as_plugin(
     let project_uuid =
         uuid::Uuid::parse_str(&project_id).map_err(|e| format!("Invalid project ID: {e}"))?;
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     let (project, profile, old_profile) = state.with_db(|db| {
         let project_store = tars_core::storage::projects::ProjectStore::new(db.connection());
@@ -2677,7 +2677,7 @@ pub async fn assign_profile_as_plugin(
         let profile = profile_store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Profile not found")?;
+            .ok_or("Bundle not found")?;
 
         let old_profile = if let Some(old_profile_id) = project.assigned_profile_id {
             if old_profile_id == profile_uuid {
@@ -2685,7 +2685,7 @@ pub async fn assign_profile_as_plugin(
             } else {
                 profile_store
                     .get(old_profile_id)
-                    .map_err(|e| format!("Database error loading previous profile: {e}"))?
+                    .map_err(|e| format!("Database error loading previous bundle: {e}"))?
             }
         } else {
             None
@@ -2711,7 +2711,7 @@ pub async fn assign_profile_as_plugin(
     }
 
     let marketplace_sync = sync_profile_marketplace(&profile)
-        .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+        .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
 
     ensure_profile_marketplace(&marketplace_sync.marketplace_path)
         .await
@@ -2724,7 +2724,7 @@ pub async fn assign_profile_as_plugin(
         Some(project_path_str.clone()),
     )
     .await
-    .map_err(|e| format!("Failed to install profile plugin: {e}"))?;
+    .map_err(|e| format!("Failed to install bundle plugin: {e}"))?;
 
     state.with_db(|db| {
         let project_store = tars_core::storage::projects::ProjectStore::new(db.connection());
@@ -2805,12 +2805,12 @@ pub async fn unassign_profile_plugin(
 
         let profile_id = project
             .assigned_profile_id
-            .ok_or("No profile assigned to this project")?;
+            .ok_or("No bundle assigned to this project")?;
 
         let profile = profile_store
             .get(profile_id)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Assigned profile not found")?;
+            .ok_or("Assigned bundle not found")?;
 
         Ok((project, profile))
     })?;
@@ -2824,7 +2824,7 @@ pub async fn unassign_profile_plugin(
 
     plugin_uninstall(plugin_key, Some("project".to_string()), Some(project_path))
         .await
-        .map_err(|e| format!("Failed to uninstall profile plugin: {e}"))?;
+        .map_err(|e| format!("Failed to uninstall bundle plugin: {e}"))?;
 
     state.with_db(|db| {
         let project_store = tars_core::storage::projects::ProjectStore::new(db.connection());
@@ -2850,7 +2850,7 @@ pub async fn install_profile_to_project(
     project_id: String,
 ) -> Result<PluginAssignResponse, String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
     let project_uuid =
         uuid::Uuid::parse_str(&project_id).map_err(|e| format!("Invalid project ID: {e}"))?;
 
@@ -2861,7 +2861,7 @@ pub async fn install_profile_to_project(
         let profile = profile_store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Profile not found")?;
+            .ok_or("Bundle not found")?;
 
         let project = project_store
             .get(project_uuid)
@@ -2872,7 +2872,7 @@ pub async fn install_profile_to_project(
     })?;
 
     let marketplace_sync = sync_profile_marketplace(&profile)
-        .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+        .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
 
     ensure_profile_marketplace(&marketplace_sync.marketplace_path)
         .await
@@ -2882,7 +2882,7 @@ pub async fn install_profile_to_project(
     let project_path = project.path.to_string_lossy().to_string();
     let output = plugin_install(plugin_key, Some("project".to_string()), Some(project_path))
         .await
-        .map_err(|e| format!("Failed to install profile to project: {e}"))?;
+        .map_err(|e| format!("Failed to install bundle to project: {e}"))?;
 
     Ok(PluginAssignResponse {
         plugin_id: marketplace_sync.plugin_id,
@@ -2898,7 +2898,7 @@ pub async fn install_profile_to_user(
     profile_id: String,
 ) -> Result<PluginAssignResponse, String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     let profile = state.with_db(|db| {
         let profile_store = ProfileStore::new(db.connection());
@@ -2906,11 +2906,11 @@ pub async fn install_profile_to_user(
         profile_store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Profile not found".to_string())
+            .ok_or("Bundle not found".to_string())
     })?;
 
     let marketplace_sync = sync_profile_marketplace(&profile)
-        .map_err(|e| format!("Failed to sync profile marketplace: {e}"))?;
+        .map_err(|e| format!("Failed to sync bundle marketplace: {e}"))?;
 
     ensure_profile_marketplace(&marketplace_sync.marketplace_path)
         .await
@@ -2919,7 +2919,7 @@ pub async fn install_profile_to_user(
     let plugin_key = format!("{}@{PROFILE_MARKETPLACE}", marketplace_sync.plugin_id);
     let output = plugin_install(plugin_key, Some("user".to_string()), None)
         .await
-        .map_err(|e| format!("Failed to install profile to user: {e}"))?;
+        .map_err(|e| format!("Failed to install bundle to user: {e}"))?;
 
     Ok(PluginAssignResponse {
         plugin_id: marketplace_sync.plugin_id,
@@ -2935,7 +2935,7 @@ pub async fn uninstall_profile_from_user(
     profile_id: String,
 ) -> Result<(), String> {
     let profile_uuid =
-        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid profile ID: {e}"))?;
+        uuid::Uuid::parse_str(&profile_id).map_err(|e| format!("Invalid bundle ID: {e}"))?;
 
     state.with_db(|db| {
         let profile_store = ProfileStore::new(db.connection());
@@ -2943,7 +2943,7 @@ pub async fn uninstall_profile_from_user(
         let profile = profile_store
             .get(profile_uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or("Profile not found")?;
+            .ok_or("Bundle not found")?;
 
         // Compute plugin_id from profile name
         let plugin_id = format!(
@@ -2953,7 +2953,7 @@ pub async fn uninstall_profile_from_user(
 
         // Uninstall the plugin from user scope
         tars_core::profile::uninstall_profile_plugin_from_user(&plugin_id)
-            .map_err(|e| format!("Failed to uninstall profile from user: {e}"))?;
+            .map_err(|e| format!("Failed to uninstall bundle from user: {e}"))?;
 
         Ok(())
     })

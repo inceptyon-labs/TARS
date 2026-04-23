@@ -65,6 +65,7 @@ import {
   readClaudeMd,
   saveClaudeMd,
   getContextStats,
+  getProjectRuntimeCoverage,
   addLocalTool,
   removeLocalTool,
   getProjectIcon,
@@ -72,11 +73,13 @@ import {
 } from '../lib/ipc';
 import { Button } from './ui/button';
 import { ProfileToolPicker } from './ProfileToolPicker';
+import { RuntimeBadges, getRuntimeSupportForKind } from './RuntimeBadges';
 import { ToolPermissionsEditor } from './ToolPermissionsEditor';
 import { ProjectNotes } from './ProjectNotes';
 import { ProjectMetadataPanel } from './ProjectMetadataPanel';
 import { ProjectSecretsPanel } from './ProjectSecretsPanel';
 import type { ToolRef } from '../lib/types';
+import type { ProjectRuntimeCoverage } from '../lib/types';
 
 const CLAUDE_CONTEXT_LIMIT = 200000;
 const CONTEXT_SYSTEM_PROMPT_TOKENS = 3800;
@@ -88,6 +91,13 @@ const CONTEXT_BASELINE_TOTAL =
   CONTEXT_SYSTEM_TOOLS_TOKENS +
   CONTEXT_MCP_TOOLS_TOKENS +
   CONTEXT_MESSAGES_TOKENS;
+
+const toolRuntimeSupport = {
+  skill: getRuntimeSupportForKind('skill'),
+  agent: getRuntimeSupportForKind('agent'),
+  hook: getRuntimeSupportForKind('hook'),
+  mcp: getRuntimeSupportForKind('mcp'),
+} as const;
 
 interface ProjectOverviewProps {
   inventory: Inventory;
@@ -230,6 +240,12 @@ export function ProjectOverview({
     queryKey: ['project-icon', projectPath],
     queryFn: () => getProjectIcon(projectPath),
     staleTime: 60000,
+  });
+
+  const { data: runtimeCoverage = [] } = useQuery({
+    queryKey: ['project-runtime-coverage', projectPath],
+    queryFn: () => getProjectRuntimeCoverage(projectPath),
+    enabled: !!projectPath,
   });
 
   // Get project data from inventory
@@ -526,14 +542,14 @@ export function ProjectOverview({
             {onAssignProfile && (
               <Button variant="outline" size="sm" onClick={onAssignProfile}>
                 <Layers className="h-4 w-4 mr-1" />
-                {projectTools?.profile ? 'Change Profile' : 'Assign Profile'}
+                {projectTools?.profile ? 'Change Bundle' : 'Assign Bundle'}
               </Button>
             )}
           </div>
           {projectTools?.profile && (
             <div className="flex items-center gap-2 mt-3 pt-3 border-t">
               <Layers className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Profile:</span>
+              <span className="text-sm font-medium">Bundle:</span>
               <span className="text-sm text-primary">{projectTools.profile.name}</span>
               <span className="text-xs text-muted-foreground">
                 ({projectTools.profile_tools.length} tool
@@ -542,6 +558,58 @@ export function ProjectOverview({
             </div>
           )}
         </div>
+
+        {runtimeCoverage.length > 0 && (
+          <div className="grid gap-4 md:grid-cols-2">
+            {runtimeCoverage.map((coverage: ProjectRuntimeCoverage) => {
+              const foundCount = coverage.surfaces.filter((surface) => surface.exists).length;
+
+              return (
+                <div key={coverage.id} className="tars-panel rounded-lg p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{coverage.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{coverage.summary}</p>
+                    </div>
+                    <RuntimeBadges
+                      items={[{ runtime: coverage.name, support: coverage.support }]}
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {foundCount} of {coverage.surfaces.length} surfaces ready
+                    </span>
+                    <span>{coverage.surfaces.length - foundCount} pending</span>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {coverage.surfaces.map((surface) => (
+                      <div
+                        key={`${coverage.id}-${surface.label}`}
+                        className="flex items-center justify-between rounded-md border border-border/70 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium">{surface.label}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {surface.path}
+                          </p>
+                        </div>
+                        <span
+                          className={`ml-3 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            surface.exists
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {surface.exists ? 'Found' : 'Planned'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Project Info - structured metadata */}
         {projectTools?.project_id && (
@@ -592,12 +660,14 @@ export function ProjectOverview({
               <div className="divide-y divide-border">
                 {combinedTools.length === 0 ? (
                   <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    No tools configured. Add local tools or assign a profile.
+                    No tools configured. Add local tools or assign a bundle.
                   </div>
                 ) : (
                   combinedTools.map((tool, index) => {
                     const Icon = getToolIcon(tool.tool_type);
                     const availability = checkToolAvailability(tool, inventory, projectPath);
+                    const runtimeSupport =
+                      toolRuntimeSupport[tool.tool_type as keyof typeof toolRuntimeSupport];
                     return (
                       <div
                         key={`${tool.tool_type}-${tool.name}-${index}`}
@@ -634,6 +704,9 @@ export function ProjectOverview({
                                 <span className="text-destructive ml-2">• Not found</span>
                               )}
                             </div>
+                            {runtimeSupport && (
+                              <RuntimeBadges items={runtimeSupport} className="mt-1" />
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -644,7 +717,7 @@ export function ProjectOverview({
                           />
                           {tool.source === 'profile' ? (
                             <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
-                              From Profile
+                              From Bundle
                             </span>
                           ) : (
                             <>

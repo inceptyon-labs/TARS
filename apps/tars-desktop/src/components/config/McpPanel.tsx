@@ -12,6 +12,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { RuntimeBadges, getRuntimeSupportForKind } from '../RuntimeBadges';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,8 @@ function isProfileMarketplacePath(path: string) {
     normalized.includes('/.claude/plugins/cache/tars-profiles/')
   );
 }
+
+const mcpRuntimeSupport = getRuntimeSupportForKind('mcp');
 
 export function McpPanel() {
   const [servers, setServers] = useState<McpServer[]>([]);
@@ -233,13 +236,13 @@ export function McpPanel() {
     user: 'User (Global)',
     project: 'Project',
     local: 'Local',
-    profile: 'Profiles',
+    profile: 'Bundles',
   };
   const scopeDescriptions: Record<string, string> = {
     user: '~/.claude.json - Available in all projects',
     project: '.mcp.json - Project-specific servers',
     local: '.claude/settings.local.json - Not committed',
-    profile: '~/.tars/profiles/*/mcp-servers - Available when installed',
+    profile: '~/.tars/profiles/*/mcp-servers - Available when installed as a bundle',
   };
 
   if (loading) {
@@ -323,37 +326,40 @@ export function McpPanel() {
                       return (
                         <TableRow key={rowKey}>
                           <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {server.name}
-                              {server.docsUrl && (
-                                <button
-                                  type="button"
-                                  className="text-muted-foreground hover:text-foreground transition-colors"
-                                  title="View documentation"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openUrl(server.docsUrl!);
-                                  }}
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                              {server.sourcePlugin && (
-                                <span
-                                  className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs"
-                                  title={`From plugin: ${server.sourcePlugin}`}
-                                >
-                                  plugin
-                                </span>
-                              )}
-                              {server.scope === 'profile' && server.profileName && (
-                                <span
-                                  className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded text-xs"
-                                  title={`From profile: ${server.profileName}`}
-                                >
-                                  {server.profileName}
-                                </span>
-                              )}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                {server.name}
+                                {server.docsUrl && (
+                                  <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground transition-colors"
+                                    title="View documentation"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openUrl(server.docsUrl!);
+                                    }}
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {server.sourcePlugin && (
+                                  <span
+                                    className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs"
+                                    title={`From plugin: ${server.sourcePlugin}`}
+                                  >
+                                    plugin
+                                  </span>
+                                )}
+                                {server.scope === 'profile' && server.profileName && (
+                                  <span
+                                    className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded text-xs"
+                                    title={`From bundle: ${server.profileName}`}
+                                  >
+                                    {server.profileName}
+                                  </span>
+                                )}
+                              </div>
+                              <RuntimeBadges items={mcpRuntimeSupport} />
                             </div>
                           </TableCell>
                           <TableCell>

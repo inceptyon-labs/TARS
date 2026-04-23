@@ -75,7 +75,7 @@ pub async fn preview_apply(
         let profile = profiles
             .get(uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         // Get or create project ID
         let project_id = match projects.get_by_path(&path) {
@@ -148,7 +148,7 @@ pub async fn apply_profile(
         let profile = profiles
             .get(uuid)
             .map_err(|e| format!("Database error: {e}"))?
-            .ok_or_else(|| "Profile not found".to_string())?;
+            .ok_or_else(|| "Bundle not found".to_string())?;
 
         // Get or create project
         let project = if let Ok(Some(p)) = projects.get_by_path(&path) {
@@ -170,7 +170,7 @@ pub async fn apply_profile(
             .map_err(|e| format!("Failed to generate plan: {e}"))?;
 
         if plan.is_empty() {
-            return Err("No changes needed - project already matches profile.".to_string());
+            return Err("No changes needed - project already matches bundle.".to_string());
         }
 
         // Create backup directory
@@ -184,7 +184,7 @@ pub async fn apply_profile(
         ));
         let mut backup = Backup::new(project.id, archive_path.clone())
             .with_profile(profile.id)
-            .with_description(format!("Before applying profile '{}'", profile.name));
+            .with_description(format!("Before applying bundle '{}'", profile.name));
 
         apply_operations(&plan, &path, &mut backup)
             .map_err(|e| format!("Failed to apply changes: {e}"))?;

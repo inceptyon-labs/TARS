@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { Cpu, Plus, RefreshCw, Search, Trash2, FolderOpen } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Cpu, Plus, RefreshCw, Search, Trash2, FolderOpen, Code2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
@@ -13,6 +13,8 @@ import {
   listProfiles,
   addToolsFromSource,
   scanProfiles,
+  listCodexSkillBridges,
+  bridgeLocalSkillToCodex,
 } from '../lib/ipc';
 import { SkillEditor } from '../components/SkillEditor';
 import { Button } from '../components/ui/button';
@@ -35,7 +37,15 @@ import {
 } from '../components/ui/select';
 import { ConfirmDialog } from '../components/config/ConfirmDialog';
 import { HelpButton } from '../components/HelpButton';
+import { PageBackButton } from '../components/PageBackButton';
+import {
+  RuntimeBadges,
+  getRuntimeSupportForKind,
+  toRuntimeSupportItems,
+} from '../components/RuntimeBadges';
 import type { SkillInfo, SkillDetails, SkillScope } from '../lib/types';
+
+const skillRuntimeSupport = getRuntimeSupportForKind('skill');
 
 /** Get scope category for grouping */
 function getScopeCategory(scope: SkillScope): string {
@@ -82,6 +92,7 @@ function isSkillEditable(scope: SkillScope | string, path?: string): boolean {
 }
 
 export function SkillsPage() {
+  const queryClient = useQueryClient();
   const [selectedSkill, setSelectedSkill] = useState<SkillDetails | null>(null);
   const [loadingSkill, setLoadingSkill] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,6 +105,7 @@ export function SkillsPage() {
   const [creating, setCreating] = useState(false);
   const [skillToDelete, setSkillToDelete] = useState<SkillInfo | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [bridgingSkillPath, setBridgingSkillPath] = useState<string | null>(null);
 
   // Get configured projects for project picker
   const { data: projects = [] } = useQuery({
@@ -135,6 +147,11 @@ export function SkillsPage() {
   } = useQuery({
     queryKey: ['profiles-scan'],
     queryFn: scanProfiles,
+  });
+
+  const { data: codexSkillBridges = [] } = useQuery({
+    queryKey: ['codex-skill-bridges'],
+    queryFn: listCodexSkillBridges,
   });
 
   const isLoading = isLoadingUserScope || isLoadingProjects || isLoadingProfiles;
@@ -219,6 +236,8 @@ export function SkillsPage() {
       // Reload the skill
       const details = await readSkill(path);
       setSelectedSkill(details);
+      await queryClient.invalidateQueries({ queryKey: ['codex-skill-bridges'] });
+      await refetch();
       toast.success('Skill saved');
     } catch (err) {
       console.error('Failed to save skill:', err);
@@ -236,11 +255,11 @@ export function SkillsPage() {
       return;
     }
     if (createScope === 'profile' && !selectedProfileId) {
-      toast.error('Please select a profile');
+      toast.error('Please select a bundle');
       return;
     }
     if (addToProfile && !selectedProfileId) {
-      toast.error('Please select a profile');
+      toast.error('Please select a bundle');
       return;
     }
 
@@ -262,7 +281,7 @@ export function SkillsPage() {
           ? 'user scope'
           : createScope === 'project'
             ? `project "${projects.find((p) => p.path === selectedProject)?.name}"`
-            : `profile "${profiles.find((p) => p.id === selectedProfileId)?.name}"`;
+            : `bundle "${profiles.find((p) => p.id === selectedProfileId)?.name}"`;
       toast.success(`Created skill "${toolName}"`, {
         description: `Added to ${scopeDesc}`,
       });
@@ -276,10 +295,10 @@ export function SkillsPage() {
             createScope
           );
           const profileName =
-            profiles.find((profile) => profile.id === selectedProfileId)?.name || 'profile';
-          toast.success(`Added to profile "${profileName}"`);
+            profiles.find((profile) => profile.id === selectedProfileId)?.name || 'bundle';
+          toast.success(`Added to bundle "${profileName}"`);
         } catch (err) {
-          toast.error('Failed to add skill to profile', {
+          toast.error('Failed to add skill to bundle', {
             description: err instanceof Error ? err.message : String(err),
           });
         }
@@ -319,6 +338,7 @@ export function SkillsPage() {
 
       // Refresh the list
       await refetch();
+      await queryClient.invalidateQueries({ queryKey: ['codex-skill-bridges'] });
     } catch (err) {
       console.error('Failed to delete skill:', err);
       toast.error('Failed to delete skill', {
@@ -327,6 +347,33 @@ export function SkillsPage() {
     } finally {
       setDeleting(false);
       setSkillToDelete(null);
+    }
+  }
+
+  function isCodexBridgeEligible(skill: SkillInfo) {
+    return (
+      isSkillEditable(skill.scope, skill.path) &&
+      skill.scope.type !== 'Plugin' &&
+      skill.scope.type !== 'Managed' &&
+      !isProfileToolPath(skill.path)
+    );
+  }
+
+  async function handleMakeSkillAvailableForCodex(skill: SkillInfo) {
+    setBridgingSkillPath(skill.path);
+    try {
+      await bridgeLocalSkillToCodex(skill.path);
+      toast.success(`Made ${skill.name} available for Codex`, {
+        description: 'Restart Codex if it is already running.',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['codex-skill-bridges'] });
+      await refetch();
+    } catch (err) {
+      toast.error('Failed to make skill available for Codex', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBridgingSkillPath(null);
     }
   }
 
@@ -341,43 +388,96 @@ export function SkillsPage() {
         <ul className="space-y-1">
           {groupSkills.map((skill) => (
             <li key={skill.path} className="group relative">
-              <button
-                onClick={() => handleSelectSkill(skill)}
-                className={`tars-nav-item w-full text-left px-3 py-2.5 rounded text-sm transition-all ${
-                  selectedSkill?.path === skill.path
-                    ? 'active text-foreground font-medium'
-                    : 'text-muted-foreground hover:text-foreground'
-                } ${showActions ? 'pr-12' : ''}`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium flex-1 truncate">{skill.name}</span>
-                  {isProfileToolPath(skill.path) && (
-                    <span className="inline-flex items-center justify-center h-7 px-2.5 text-xs bg-emerald-500/10 text-emerald-500 rounded">
-                      Profile
-                    </span>
-                  )}
-                  {skill.user_invocable && (
-                    <span className="inline-flex items-center justify-center h-7 w-7 text-xs bg-primary/10 text-primary rounded">
-                      /
-                    </span>
-                  )}
-                </div>
-                {skill.description && (
-                  <div className="text-xs opacity-60 truncate mt-0.5">{skill.description}</div>
-                )}
-              </button>
-              {showActions && isSkillEditable(skill.scope, skill.path) && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSkillToDelete(skill);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
-                  title="Delete skill"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
+              {(() => {
+                const codexSynced = codexSkillBridges.some(
+                  (bridge) => bridge.source_path === skill.path
+                );
+                const canBridgeToCodex = isCodexBridgeEligible(skill);
+
+                return (
+                  <>
+                    <button
+                      onClick={() => handleSelectSkill(skill)}
+                      className={`tars-nav-item w-full text-left px-3 py-2.5 rounded text-sm transition-all ${
+                        selectedSkill?.path === skill.path
+                          ? 'active text-foreground font-medium'
+                          : 'text-muted-foreground hover:text-foreground'
+                      } ${showActions ? 'pr-20' : ''}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium flex-1 truncate">{skill.name}</span>
+                        {codexSynced && (
+                          <span className="inline-flex items-center justify-center h-7 px-2.5 text-xs bg-primary/10 text-primary rounded">
+                            Codex
+                          </span>
+                        )}
+                        {isProfileToolPath(skill.path) && (
+                          <span className="inline-flex items-center justify-center h-7 px-2.5 text-xs bg-emerald-500/10 text-emerald-500 rounded">
+                            Bundle
+                          </span>
+                        )}
+                        {skill.user_invocable && (
+                          <span className="inline-flex items-center justify-center h-7 w-7 text-xs bg-primary/10 text-primary rounded">
+                            /
+                          </span>
+                        )}
+                      </div>
+                      {skill.description && (
+                        <div className="text-xs opacity-60 truncate mt-0.5">
+                          {skill.description}
+                        </div>
+                      )}
+                      <RuntimeBadges
+                        items={
+                          skill.runtime_support?.length
+                            ? toRuntimeSupportItems(skill.runtime_support)
+                            : skillRuntimeSupport
+                        }
+                        className="mt-1"
+                      />
+                    </button>
+                    {showActions && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        {canBridgeToCodex && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMakeSkillAvailableForCodex(skill);
+                            }}
+                            className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all"
+                            title={
+                              codexSynced ? 'Sync Codex copy again' : 'Make available for Codex'
+                            }
+                            disabled={bridgingSkillPath === skill.path}
+                          >
+                            <Code2
+                              className={`h-4 w-4 ${
+                                bridgingSkillPath === skill.path
+                                  ? 'animate-pulse text-primary'
+                                  : codexSynced
+                                    ? 'text-primary'
+                                    : ''
+                              }`}
+                            />
+                          </button>
+                        )}
+                        {isSkillEditable(skill.scope, skill.path) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSkillToDelete(skill);
+                            }}
+                            className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                            title="Delete skill"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </li>
           ))}
         </ul>
@@ -390,6 +490,7 @@ export function SkillsPage() {
       {/* Header */}
       <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
+          <PageBackButton />
           <div className="tars-indicator" />
           <h2 className="text-lg font-semibold tracking-wide">Skills</h2>
           <HelpButton section="SKILLS" />
@@ -498,7 +599,7 @@ export function SkillsPage() {
           <DialogHeader>
             <DialogTitle>Create New Skill</DialogTitle>
             <DialogDescription>
-              Create a new skill in your user, project, or profile scope.
+              Create a new skill in your user, project, or bundle scope.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -568,7 +669,7 @@ export function SkillsPage() {
                     }}
                     className="accent-primary"
                   />
-                  <span className="text-sm">Profile</span>
+                  <span className="text-sm">Bundle</span>
                 </label>
               </div>
             </div>
@@ -614,10 +715,10 @@ export function SkillsPage() {
 
             {createScope === 'profile' && (
               <div>
-                <Label>Profile</Label>
+                <Label>Bundle</Label>
                 {profiles.length === 0 ? (
                   <p className="text-sm text-muted-foreground mt-2">
-                    No profiles configured. Create a profile first.
+                    No bundles configured. Create a bundle first.
                   </p>
                 ) : (
                   <div className="mt-2 space-y-1">
@@ -656,9 +757,9 @@ export function SkillsPage() {
               <div className="rounded-md border border-border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <Label htmlFor="add-skill-to-profile">Add to profile</Label>
+                    <Label htmlFor="add-skill-to-profile">Add to bundle</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Copies this skill into a profile for reuse.
+                      Copies this skill into a bundle for reuse.
                     </p>
                   </div>
                   <input
@@ -681,7 +782,7 @@ export function SkillsPage() {
 
                 {profiles.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Create a profile first to enable this option.
+                    Create a bundle first to enable this option.
                   </p>
                 )}
                 {createScope === 'project' && !selectedProject && (
@@ -692,13 +793,13 @@ export function SkillsPage() {
 
                 {addToProfile && profiles.length > 0 && (
                   <div className="space-y-2">
-                    <Label>Profile</Label>
+                    <Label>Bundle</Label>
                     <Select
                       value={selectedProfileId || undefined}
                       onValueChange={(value) => setSelectedProfileId(value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select profile" />
+                        <SelectValue placeholder="Select bundle" />
                       </SelectTrigger>
                       <SelectContent>
                         {profiles.map((profile) => (

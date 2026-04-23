@@ -89,11 +89,11 @@ export function ProfileDetail({
   const installToProjectMutation = useMutation({
     mutationFn: (projectId: string) => assignProfileAsPlugin(projectId, profile.id),
     onSuccess: (result) => {
-      toast.success(`Installed to project: ${result.plugin_id}`);
+      toast.success(`Installed bundle to project: ${result.plugin_id}`);
       setIsProjectSelectorOpen(false);
     },
     onError: (err) => {
-      toast.error(`Failed to install to project: ${err}`);
+      toast.error(`Failed to install bundle to project: ${err}`);
     },
   });
 
@@ -101,10 +101,10 @@ export function ProfileDetail({
   const installToUserMutation = useMutation({
     mutationFn: () => installProfileToUser(profile.id),
     onSuccess: (result) => {
-      toast.success(`Installed globally: ${result.plugin_id}`);
+      toast.success(`Installed bundle globally: ${result.plugin_id}`);
     },
     onError: (err) => {
-      toast.error(`Failed to install globally: ${err}`);
+      toast.error(`Failed to install bundle globally: ${err}`);
     },
   });
 
@@ -439,8 +439,8 @@ export function ProfileDetail({
         open={isProjectSelectorOpen}
         onOpenChange={setIsProjectSelectorOpen}
         onSelectProject={(project) => installToProjectMutation.mutate(project.id)}
-        title="Apply Profile to Project"
-        description={`Select a project to install the "${profile.name}" profile as a plugin.`}
+        title="Apply Bundle to Project"
+        description={`Select a project to install the "${profile.name}" bundle as a plugin.`}
       />
 
       {/* Tool Picker Dialog */}

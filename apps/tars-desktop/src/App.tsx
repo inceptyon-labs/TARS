@@ -14,6 +14,9 @@ import { ProfilesPage } from './pages/ProfilesPage';
 const SkillsPage = lazy(() =>
   import('./pages/SkillsPage').then((m) => ({ default: m.SkillsPage }))
 );
+const InventoryPage = lazy(() =>
+  import('./pages/InventoryPage').then((m) => ({ default: m.InventoryPage }))
+);
 const AgentsPage = lazy(() =>
   import('./pages/AgentsPage').then((m) => ({ default: m.AgentsPage }))
 );
@@ -41,6 +44,9 @@ const SettingsPage = lazy(() =>
 const UsagePage = lazy(() => import('./pages/UsagePage').then((m) => ({ default: m.UsagePage })));
 const ClaudeSettingsPage = lazy(() =>
   import('./pages/ClaudeSettingsPage').then((m) => ({ default: m.ClaudeSettingsPage }))
+);
+const CodexSettingsPage = lazy(() =>
+  import('./pages/CodexSettingsPage').then((m) => ({ default: m.CodexSettingsPage }))
 );
 const GalleryPage = lazy(() =>
   import('./pages/GalleryPage').then((m) => ({ default: m.GalleryPage }))
@@ -121,12 +127,21 @@ function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Navigate to="/gallery" replace />} />
               <Route path="projects" element={<ProjectsPage />} />
-              <Route path="profiles" element={<ProfilesPage />} />
+              <Route path="bundles" element={<ProfilesPage />} />
+              <Route path="profiles" element={<Navigate to="/bundles" replace />} />
               <Route
                 path="gallery"
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <GalleryPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="inventory"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <InventoryPage />
                   </Suspense>
                 }
               />
@@ -251,12 +266,24 @@ function App() {
                 }
               />
               <Route
-                path="claude-settings"
+                path="runtimes/claude-code"
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <ClaudeSettingsPage />
                   </Suspense>
                 }
+              />
+              <Route
+                path="runtimes/codex"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <CodexSettingsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="claude-settings"
+                element={<Navigate to="/runtimes/claude-code" replace />}
               />
               <Route
                 path="usage"

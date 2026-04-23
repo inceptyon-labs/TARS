@@ -129,7 +129,7 @@ export function ExportPluginDialog({
             )}
           </DialogTitle>
           <DialogDescription>
-            {step === 'form' && `Export "${profile.name}" as a Claude Code plugin (ZIP)`}
+            {step === 'form' && `Export bundle "${profile.name}" as a Claude Code plugin (ZIP)`}
             {step === 'exporting' && 'Please wait while the plugin is being created...'}
             {step === 'success' && 'Your plugin has been exported successfully.'}
             {step === 'error' && 'An error occurred while exporting the plugin.'}

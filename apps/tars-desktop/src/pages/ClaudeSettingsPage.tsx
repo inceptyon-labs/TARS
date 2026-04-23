@@ -4,6 +4,7 @@ import { FileJson, RefreshCw, ExternalLink } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { toast } from 'sonner';
 import { SettingsFileEditor } from '../components/settings/SettingsFileEditor';
+import { PageBackButton } from '../components/PageBackButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { listProjects, type SettingsScope } from '../lib/ipc';
 
@@ -120,8 +121,14 @@ export function ClaudeSettingsPage() {
     <div className="h-full flex flex-col">
       <header className="h-14 border-b border-border px-6 flex items-center justify-between shrink-0 tars-header relative z-10">
         <div className="flex items-center gap-3">
+          <PageBackButton />
           <div className="tars-indicator" />
-          <h2 className="text-lg font-semibold tracking-wide">Claude Settings</h2>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Runtimes / Claude Code
+            </p>
+            <h2 className="text-lg font-semibold tracking-wide">Claude Settings</h2>
+          </div>
         </div>
         <button
           onClick={handleOpenDocs}

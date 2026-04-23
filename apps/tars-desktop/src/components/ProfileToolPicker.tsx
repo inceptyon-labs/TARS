@@ -327,7 +327,7 @@ export function ProfileToolPicker({
       <div className="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Add Tools to Profile</h2>
+          <h2 className="text-lg font-semibold">Add Tools to Bundle</h2>
           <button
             onClick={handleClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -566,7 +566,7 @@ export function ProfileToolPicker({
               ) : (
                 <Plus className="h-4 w-4 mr-2" />
               )}
-              {isAdding ? 'Adding...' : 'Add to Profile'}
+              {isAdding ? 'Adding...' : 'Add to Bundle'}
             </Button>
           </div>
         </div>

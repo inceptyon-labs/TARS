@@ -641,13 +641,13 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
   },
   {
     id: 'profiles',
-    title: 'Profiles',
+    title: 'Bundles',
     icon: <Layers className="h-5 w-5" />,
     description: 'Reusable tool bundles that install as Claude Code plugins',
     content: (
       <div className="space-y-4">
         <p>
-          Profiles in TARS let you bundle MCP servers, skills, agents, commands, and hooks into
+          Bundles in TARS let you bundle MCP servers, skills, agents, commands, and hooks into
           reusable configurations. TARS generates a plugin, syncs it into a local marketplace, and
           installs it via the{' '}
           <code className="px-1.5 py-0.5 bg-muted rounded text-sm">claude plugin install</code>{' '}
@@ -691,7 +691,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
 
         <h4 className="font-semibold mt-6">Source Tracking Modes</h4>
         <p className="text-muted-foreground mb-3">
-          When adding tools to a profile, you can choose how they track their source:
+          When adding tools to a bundle, you can choose how they track their source:
         </p>
         <div className="space-y-3">
           <div className="flex items-start gap-3 p-3 bg-secondary/50 rounded-lg">
@@ -718,8 +718,8 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
 
         <h4 className="font-semibold mt-6">Authoring</h4>
         <p className="text-muted-foreground">
-          You can create tools directly in profile scope from the Skills, Agents, Commands, Hooks,
-          and MCP modules, or import them from projects during profile creation.
+          You can create tools directly in bundle scope from the Skills, Agents, Commands, Hooks,
+          and MCP modules, or import them from projects during bundle creation.
         </p>
 
         <h4 className="font-semibold mt-6">Generated Plugin Structure</h4>
@@ -736,7 +736,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
 ├── hooks.json          # Hook configuration (if present)
 └── .mcp.json           # MCP server configs (flat format)`}</pre>
 
-        <h4 className="font-semibold mt-6">Applying Profiles</h4>
+        <h4 className="font-semibold mt-6">Applying Bundles</h4>
         <ul className="list-disc list-inside space-y-2 text-muted-foreground">
           <li>
             <strong>Apply to Project</strong> - Installs{' '}
@@ -751,10 +751,10 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
             </code>
           </li>
           <li>
-            <strong>Marketplace sync</strong> - Local marketplace is refreshed on profile changes
+            <strong>Marketplace sync</strong> - Local marketplace is refreshed on bundle changes
           </li>
           <li>
-            <strong>Auto-regenerate</strong> - Plugin rebuilds when profile content changes
+            <strong>Auto-regenerate</strong> - Plugin rebuilds when bundle content changes
           </li>
         </ul>
 
@@ -762,7 +762,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
         <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
           <li>TARS computes a hash of tracked source files</li>
           <li>When hashes differ, an "Update Available" badge appears</li>
-          <li>Click "Pull" to copy updated content to profile storage</li>
+          <li>Click "Pull" to copy updated content to bundle storage</li>
           <li>The plugin regenerates with a new content-hash version</li>
           <li>Reinstall to affected projects to apply changes</li>
         </ol>
@@ -778,7 +778,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
           <tbody className="text-muted-foreground">
             <tr className="border-b border-border/50">
               <td className="py-2 font-mono text-xs">~/.tars/profiles/</td>
-              <td className="py-2">Profile storage (tools, plugins, metadata)</td>
+              <td className="py-2">Bundle storage (tools, plugins, metadata)</td>
             </tr>
             <tr className="border-b border-border/50">
               <td className="py-2 font-mono text-xs">~/.tars/profiles/&lt;id&gt;/plugin/</td>
@@ -788,7 +788,7 @@ conventional commits format. Use $ARGUMENTS for any specific instructions.`}</pr
               <td className="py-2 font-mono text-xs">
                 ~/.claude/plugins/marketplaces/tars-profiles/
               </td>
-              <td className="py-2">Local profile marketplace + manifest</td>
+              <td className="py-2">Local bundle marketplace + manifest</td>
             </tr>
             <tr className="border-b border-border/50">
               <td className="py-2 font-mono text-xs">~/.claude/plugins/</td>

@@ -4,6 +4,7 @@
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::{Path, PathBuf};
 use tars_core::profile::{regenerate_profile_plugin, sync_profile_marketplace, ToolRef, ToolType};
 use tars_core::storage::profiles::ProfileStore;
@@ -35,6 +36,179 @@ pub struct SupportingFile {
     pub file_type: String,
     /// Whether this file is referenced in SKILL.md
     pub is_referenced: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodexSkillBridge {
+    pub source_path: String,
+    pub skill_name: String,
+    pub codex_dir_name: String,
+    pub updated_at: String,
+}
+
+fn codex_skill_bridges_dir(home: &Path) -> PathBuf {
+    home.join(".agents")
+        .join("skills")
+        .join(".tars-skill-bridges")
+}
+
+fn codex_skill_bridges_index_path(home: &Path) -> PathBuf {
+    codex_skill_bridges_dir(home).join("bridges.json")
+}
+
+fn codex_skill_bridge_target_dir(home: &Path, source_path: &Path) -> PathBuf {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(source_path.to_string_lossy().as_bytes());
+    let digest = hex::encode(hasher.finalize());
+    home.join(".agents")
+        .join("skills")
+        .join(format!("tars-skill-{}", &digest[..12]))
+}
+
+fn load_codex_skill_bridges() -> Result<Vec<CodexSkillBridge>, String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let index_path = codex_skill_bridges_index_path(&home);
+
+    if !index_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = fs::read_to_string(&index_path)
+        .map_err(|e| format!("Failed to read skill bridges: {e}"))?;
+    serde_json::from_str(&content).map_err(|e| format!("Failed to parse skill bridges: {e}"))
+}
+
+fn save_codex_skill_bridges(bridges: &[CodexSkillBridge]) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let bridges_dir = codex_skill_bridges_dir(&home);
+    fs::create_dir_all(&bridges_dir)
+        .map_err(|e| format!("Failed to create Codex skill bridge directory: {e}"))?;
+    let content = serde_json::to_string_pretty(bridges)
+        .map_err(|e| format!("Failed to serialize skill bridges: {e}"))?;
+    fs::write(codex_skill_bridges_index_path(&home), content)
+        .map_err(|e| format!("Failed to write skill bridges: {e}"))?;
+    Ok(())
+}
+
+fn remove_codex_skill_bridge_target(dir_name: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let path = home.join(".agents").join("skills").join(dir_name);
+    if path.exists() {
+        fs::remove_dir_all(&path).map_err(|e| {
+            format!(
+                "Failed to remove bridged Codex skill {}: {e}",
+                path.display()
+            )
+        })?;
+    }
+    Ok(())
+}
+
+fn copy_directory_recursive(source: &Path, target: &Path) -> Result<(), String> {
+    if target.exists() {
+        fs::remove_dir_all(target)
+            .map_err(|e| format!("Failed to replace bridged Codex skill: {e}"))?;
+    }
+
+    fs::create_dir_all(target)
+        .map_err(|e| format!("Failed to create bridged Codex skill directory: {e}"))?;
+
+    for entry in fs::read_dir(source).map_err(|e| format!("Failed to read skill directory: {e}"))? {
+        let entry = entry.map_err(|e| format!("Failed to read skill directory entry: {e}"))?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("Failed to inspect bridged skill file type: {e}"))?;
+
+        if file_type.is_dir() {
+            copy_directory_recursive(&source_path, &target_path)?;
+        } else if file_type.is_file() {
+            fs::copy(&source_path, &target_path)
+                .map_err(|e| format!("Failed to copy skill file: {e}"))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn bridge_local_skill_to_codex_impl(skill_file: &Path) -> Result<CodexSkillBridge, String> {
+    let validated_path = validate_skill_path(skill_file)?;
+    let scope = determine_skill_scope(&validated_path);
+    if scope != "user" && scope != "project" {
+        return Err(
+            "Only your own user or project skills can be made available to Codex.".to_string(),
+        );
+    }
+
+    let skill_dir = validated_path.parent().ok_or("Invalid skill path")?;
+    let skill_name = skill_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("Invalid skill directory name")?
+        .to_string();
+
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let target_dir = codex_skill_bridge_target_dir(&home, &validated_path);
+    copy_directory_recursive(skill_dir, &target_dir)?;
+
+    let bridge = CodexSkillBridge {
+        source_path: validated_path.display().to_string(),
+        skill_name,
+        codex_dir_name: target_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or("Invalid Codex bridge directory")?
+            .to_string(),
+        updated_at: Utc::now().to_rfc3339(),
+    };
+
+    let mut bridges = load_codex_skill_bridges()?;
+    bridges.retain(|existing| existing.source_path != bridge.source_path);
+    bridges.push(bridge.clone());
+    bridges.sort_by(|a, b| a.skill_name.cmp(&b.skill_name));
+    save_codex_skill_bridges(&bridges)?;
+
+    Ok(bridge)
+}
+
+fn validate_codex_skill_path(path: &Path) -> Result<PathBuf, String> {
+    let path_str = path.display().to_string();
+
+    if path_str.contains("..") {
+        return Err("Path traversal not allowed".to_string());
+    }
+
+    if path_str.contains('\0') {
+        return Err("Invalid path".to_string());
+    }
+
+    if path.exists() {
+        if path.is_symlink() {
+            return Err("Symlinks not allowed".to_string());
+        }
+
+        let canonical = path
+            .canonicalize()
+            .map_err(|_| "Invalid path".to_string())?;
+        let canonical_str = canonical.display().to_string();
+
+        if canonical_str.contains("/.agents/skills/")
+            || canonical_str.contains("\\.agents\\skills\\")
+        {
+            return Ok(canonical);
+        }
+
+        return Err("Path is not within an allowed Codex skills directory".to_string());
+    }
+
+    if path_str.contains("/.agents/skills/") || path_str.contains("\\.agents\\skills\\") {
+        return Ok(path.to_path_buf());
+    }
+
+    Err("Path is not within an allowed Codex skills directory".to_string())
 }
 
 /// Read a skill file
@@ -109,6 +283,13 @@ pub async fn save_skill(path: String, content: String) -> Result<(), String> {
 
     std::fs::write(&validated_path, content).map_err(|_| "Failed to save skill".to_string())?;
 
+    if load_codex_skill_bridges()?
+        .iter()
+        .any(|bridge| bridge.source_path == validated_path.display().to_string())
+    {
+        bridge_local_skill_to_codex_impl(&validated_path)?;
+    }
+
     Ok(())
 }
 
@@ -134,9 +315,9 @@ pub async fn create_skill(
             (PathBuf::from(project).join(".claude").join("skills"), None)
         }
         "profile" => {
-            let profile_id = profile_id.ok_or("Profile ID required for profile-scoped skill")?;
+            let profile_id = profile_id.ok_or("Bundle ID required for bundle-scoped skill")?;
             let profile_uuid =
-                Uuid::parse_str(&profile_id).map_err(|_| "Invalid profile ID".to_string())?;
+                Uuid::parse_str(&profile_id).map_err(|_| "Invalid bundle ID".to_string())?;
             let profile_dir = tars_core::profile::storage::ensure_profile_dir(profile_uuid)
                 .map_err(|e| e.to_string())?;
             (profile_dir.join("skills"), Some(profile_uuid))
@@ -177,7 +358,7 @@ Add your skill instructions here.
             let mut profile = store
                 .get(profile_uuid)
                 .map_err(|e| format!("Database error: {e}"))?
-                .ok_or_else(|| "Profile not found".to_string())?;
+                .ok_or_else(|| "Bundle not found".to_string())?;
 
             if !profile
                 .tool_refs
@@ -196,7 +377,7 @@ Add your skill instructions here.
             profile.updated_at = Utc::now();
             store
                 .update(&profile)
-                .map_err(|e| format!("Failed to update profile: {e}"))?;
+                .map_err(|e| format!("Failed to update bundle: {e}"))?;
 
             regenerate_profile_plugin(&profile).map_err(|e| e.to_string())?;
             sync_profile_marketplace(&profile).map_err(|e| e.to_string())?;
@@ -354,7 +535,80 @@ pub async fn delete_skill(path: String) -> Result<(), String> {
     }
 
     // Now safe to remove the skill directory
+    let validated_path_string = validated_path.display().to_string();
     std::fs::remove_dir_all(skill_dir).map_err(|_| "Failed to delete skill".to_string())?;
+
+    let mut bridges = load_codex_skill_bridges()?;
+    if let Some(bridge) = bridges
+        .iter()
+        .find(|bridge| bridge.source_path == validated_path_string)
+        .cloned()
+    {
+        remove_codex_skill_bridge_target(&bridge.codex_dir_name)?;
+        bridges.retain(|existing| existing.source_path != validated_path_string);
+        save_codex_skill_bridges(&bridges)?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_codex_skill_bridges() -> Result<Vec<CodexSkillBridge>, String> {
+    load_codex_skill_bridges()
+}
+
+#[tauri::command]
+pub async fn bridge_local_skill_to_codex(path: String) -> Result<CodexSkillBridge, String> {
+    bridge_local_skill_to_codex_impl(&PathBuf::from(path))
+}
+
+#[tauri::command]
+pub async fn delete_codex_skill(path: String) -> Result<(), String> {
+    let skill_path = PathBuf::from(&path);
+    let validated_path = validate_codex_skill_path(&skill_path)?;
+
+    if !validated_path.exists() {
+        return Err("Codex skill not found".to_string());
+    }
+
+    let file_name = validated_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    if file_name != "SKILL.md" {
+        return Err("Can only delete Codex skill files (SKILL.md)".to_string());
+    }
+
+    let skill_dir = validated_path.parent().ok_or("Invalid Codex skill path")?;
+    let dir_name = skill_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Invalid Codex skill directory")?;
+
+    validate_name(dir_name).map_err(|_| "Invalid Codex skill directory name".to_string())?;
+
+    let skills_parent = skill_dir
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    if skills_parent != "skills" {
+        return Err("Codex skill must be directly under a skills directory".to_string());
+    }
+
+    std::fs::remove_dir_all(skill_dir).map_err(|_| "Failed to delete Codex skill".to_string())?;
+
+    let validated_path_string = validated_path.display().to_string();
+    let mut bridges = load_codex_skill_bridges()?;
+    let previous_len = bridges.len();
+    bridges.retain(|bridge| {
+        bridge.source_path != validated_path_string && bridge.codex_dir_name != dir_name
+    });
+    if bridges.len() != previous_len {
+        save_codex_skill_bridges(&bridges)?;
+    }
 
     Ok(())
 }

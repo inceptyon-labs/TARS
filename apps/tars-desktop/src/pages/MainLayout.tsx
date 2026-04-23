@@ -4,12 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   FolderGit2,
   Layers,
-  Cpu,
-  Server,
   Plug,
-  Bot,
-  Terminal,
-  Webhook,
   BookOpen,
   FileText,
   ChevronLeft,
@@ -19,7 +14,6 @@ import {
   BarChart3,
   Settings,
   GripVertical,
-  FileCog,
   Radio,
   LayoutGrid,
   Key,
@@ -30,6 +24,8 @@ import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/ui-store';
 import {
   getClaudeVersionInfo,
+  getCodexVersionInfo,
+  getGeminiVersionInfo,
   checkPluginUpdates,
   checkTarsUpdate,
   getTarsVersion,
@@ -44,14 +40,9 @@ const navigation = [
   { name: 'Developer', href: '/developer', icon: AppWindow },
   { name: 'AI Keys', href: '/api-keys', icon: Key },
   { name: 'Runtimes', href: '/runtimes', icon: Boxes },
-  { name: 'Profiles', href: '/profiles', icon: Layers },
-  { name: 'Skills', href: '/skills', icon: Cpu },
-  { name: 'Agents', href: '/agents', icon: Bot },
-  { name: 'Commands', href: '/commands', icon: Terminal },
-  { name: 'Hooks', href: '/hooks', icon: Webhook },
-  { name: 'MCP Servers', href: '/mcp', icon: Server },
-  { name: 'Plugins', href: '/plugins', icon: Plug },
-  { name: 'Claude Settings', href: '/claude-settings', icon: FileCog },
+  { name: 'Inventory', href: '/inventory', icon: FileText },
+  { name: 'Bundles', href: '/bundles', icon: Layers },
+  { name: 'Marketplace', href: '/plugins', icon: Plug },
 ];
 
 // Sidebar constraints
@@ -135,6 +126,20 @@ export function MainLayout() {
     staleTime: UPDATE_POLL_INTERVAL - 60000,
   });
 
+  const { data: codexVersionInfo } = useQuery({
+    queryKey: ['codex-version-info'],
+    queryFn: getCodexVersionInfo,
+    refetchInterval: UPDATE_POLL_INTERVAL,
+    staleTime: UPDATE_POLL_INTERVAL - 60000,
+  });
+
+  const { data: geminiVersionInfo } = useQuery({
+    queryKey: ['gemini-version-info'],
+    queryFn: getGeminiVersionInfo,
+    refetchInterval: UPDATE_POLL_INTERVAL,
+    staleTime: UPDATE_POLL_INTERVAL - 60000,
+  });
+
   const { data: pluginUpdates } = useQuery({
     queryKey: ['plugin-updates'],
     queryFn: checkPluginUpdates,
@@ -156,10 +161,16 @@ export function MainLayout() {
   });
 
   const claudeUpdateAvailable = versionInfo?.update_available ?? false;
+  const codexUpdateAvailable = codexVersionInfo?.update_available ?? false;
+  const geminiUpdateAvailable = geminiVersionInfo?.update_available ?? false;
   const tarsUpdateAvailable = tarsUpdate?.update_available ?? false;
   const pluginsWithUpdates = pluginUpdates?.plugins_with_updates ?? 0;
   const totalUpdates =
-    (claudeUpdateAvailable ? 1 : 0) + (tarsUpdateAvailable ? 1 : 0) + pluginsWithUpdates;
+    (claudeUpdateAvailable ? 1 : 0) +
+    (codexUpdateAvailable ? 1 : 0) +
+    (geminiUpdateAvailable ? 1 : 0) +
+    (tarsUpdateAvailable ? 1 : 0) +
+    pluginsWithUpdates;
   const hasUpdates = totalUpdates > 0;
 
   return (

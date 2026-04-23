@@ -148,10 +148,10 @@ export function ProjectsPage() {
         await handleScan(selectedProject);
       }
       setIsAssignDialogOpen(false);
-      toast.success(`Profile installed as plugin: ${result.plugin_id}`);
+      toast.success(`Bundle installed as plugin: ${result.plugin_id}`);
     },
     onError: (err) => {
-      toast.error(`Failed to assign profile: ${err}`);
+      toast.error(`Failed to assign bundle: ${err}`);
     },
   });
 
@@ -163,10 +163,10 @@ export function ProjectsPage() {
         await handleScan(selectedProject);
       }
       setIsAssignDialogOpen(false);
-      toast.success('Profile plugin uninstalled');
+      toast.success('Bundle plugin uninstalled');
     },
     onError: (err) => {
-      toast.error(`Failed to unassign profile: ${err}`);
+      toast.error(`Failed to unassign bundle: ${err}`);
     },
   });
 

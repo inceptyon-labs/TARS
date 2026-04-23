@@ -92,19 +92,19 @@ pub async fn scan_profiles(state: State<'_, AppState>) -> Result<ProfileToolInve
 
     for profile in profiles {
         let profile_dir = tars_core::profile::storage::profile_dir(profile.id)
-            .map_err(|e| format!("Failed to read profile storage: {e}"))?;
+            .map_err(|e| format!("Failed to read bundle storage: {e}"))?;
         let scope = Scope::Plugin(format!("tars-profile-{}", profile.id));
 
         let skills = scan_skills_directory(&profile_dir.join("skills"), scope.clone())
-            .map_err(|e| format!("Failed to scan profile skills: {e}"))?;
+            .map_err(|e| format!("Failed to scan bundle skills: {e}"))?;
         inventory.skills.extend(skills);
 
         let commands = scan_commands_directory(&profile_dir.join("commands"), scope.clone())
-            .map_err(|e| format!("Failed to scan profile commands: {e}"))?;
+            .map_err(|e| format!("Failed to scan bundle commands: {e}"))?;
         inventory.commands.extend(commands);
 
         let agents = scan_agents_directory(&profile_dir.join("agents"), scope.clone())
-            .map_err(|e| format!("Failed to scan profile agents: {e}"))?;
+            .map_err(|e| format!("Failed to scan bundle agents: {e}"))?;
         inventory.agents.extend(agents);
     }
 
