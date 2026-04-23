@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 8;
+const CURRENT_VERSION: i32 = 10;
 
 /// Run all pending migrations
 ///
@@ -43,6 +43,14 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 8 {
         migrate_v8(conn)?;
+    }
+
+    if version < 9 {
+        migrate_v9(conn)?;
+    }
+
+    if version < 10 {
+        migrate_v10(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -382,6 +390,46 @@ fn migrate_v8(conn: &Connection) -> Result<(), DatabaseError> {
     Ok(())
 }
 
+fn migrate_v9(conn: &Connection) -> Result<(), DatabaseError> {
+    conn.execute_batch(
+        r"
+        CREATE TABLE IF NOT EXISTS plugin_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plugin_name TEXT NOT NULL,
+            source TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            targets_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(source, scope)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_plugin_subscriptions_scope
+            ON plugin_subscriptions(scope);
+        CREATE INDEX IF NOT EXISTS idx_plugin_subscriptions_name
+            ON plugin_subscriptions(plugin_name);
+        ",
+    )?;
+
+    Ok(())
+}
+
+fn migrate_v10(conn: &Connection) -> Result<(), DatabaseError> {
+    conn.execute_batch(
+        r"
+        ALTER TABLE plugin_subscriptions ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'direct';
+        ALTER TABLE plugin_subscriptions ADD COLUMN marketplace_source TEXT;
+        ALTER TABLE plugin_subscriptions ADD COLUMN marketplace_name TEXT;
+        ALTER TABLE plugin_subscriptions ADD COLUMN codex_source TEXT;
+        ",
+    )
+    .map_err(|e| {
+        DatabaseError::Migration(format!("v10 plugin subscription migration failed: {e}"))
+    })?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -573,6 +621,43 @@ mod tests {
             assert!(
                 cols.contains(&expected.to_string()),
                 "missing app settings col {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn v9_creates_plugin_subscriptions_table() {
+        let conn = fresh_conn();
+        let cols = table_columns(&conn, "plugin_subscriptions");
+        for expected in [
+            "id",
+            "plugin_name",
+            "source",
+            "scope",
+            "targets_json",
+            "created_at",
+            "updated_at",
+        ] {
+            assert!(
+                cols.contains(&expected.to_string()),
+                "missing plugin subscription col {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn v10_adds_plugin_subscription_source_columns() {
+        let conn = fresh_conn();
+        let cols = table_columns(&conn, "plugin_subscriptions");
+        for expected in [
+            "source_kind",
+            "marketplace_source",
+            "marketplace_name",
+            "codex_source",
+        ] {
+            assert!(
+                cols.contains(&expected.to_string()),
+                "missing plugin subscription col {expected}"
             );
         }
     }

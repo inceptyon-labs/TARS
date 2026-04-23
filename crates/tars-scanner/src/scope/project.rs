@@ -12,6 +12,8 @@ use crate::error::{ScanError, ScanResult};
 use crate::inventory::{GitInfo, ProjectScope, ProjectSettings};
 use crate::parser::{parse_mcp_config, parse_settings};
 use crate::plugins::PluginInventory;
+use crate::runtime::hook_runtime_support;
+use crate::scope::codex::scan_project_codex_scope;
 use crate::scope::user::{scan_agents_directory, scan_commands_directory, scan_skills_directory};
 use crate::settings::{McpConfig, SettingsFile};
 use crate::types::{FileInfo, Scope};
@@ -126,6 +128,7 @@ pub fn scan_project_with_plugins(
         commands,
         agents,
         hooks,
+        codex: scan_project_codex_scope(path)?,
     })
 }
 
@@ -621,6 +624,7 @@ fn parse_plugin_hooks_json(
                     trigger,
                     matcher: Some(matcher.matcher.clone()),
                     definition,
+                    runtime_support: hook_runtime_support(),
                 });
             }
         }
@@ -686,6 +690,7 @@ fn parse_hooks_json(path: &Path, content: &str) -> ScanResult<Vec<HookInfo>> {
                 trigger,
                 matcher: h.matcher,
                 definition,
+                runtime_support: hook_runtime_support(),
             })
         })
         .collect())

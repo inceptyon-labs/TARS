@@ -3,6 +3,7 @@
 use crate::error::{ScanError, ScanResult};
 use crate::types::Scope;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -795,6 +796,55 @@ pub struct PluginSkillInfo {
     pub is_settings: bool,
 }
 
+/// Codex marketplace file discovered from a user or project scope
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodexMarketplace {
+    /// Marketplace identifier
+    pub name: String,
+    /// Optional marketplace title shown in Codex
+    pub display_name: Option<String>,
+    /// Path to the marketplace.json file
+    pub path: PathBuf,
+    /// SHA256 of the marketplace.json contents
+    pub sha256: String,
+    /// Where the marketplace was found
+    pub scope: Scope,
+    /// Plugins exposed through this marketplace
+    #[serde(default)]
+    pub plugins: Vec<CodexAvailablePlugin>,
+}
+
+/// Codex plugin entry discovered through a marketplace
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodexAvailablePlugin {
+    /// Stable plugin identifier
+    pub id: String,
+    /// Optional install-surface display title
+    pub display_name: Option<String>,
+    /// Description from the manifest when available
+    pub description: Option<String>,
+    /// Plugin version from the manifest when available
+    pub version: Option<String>,
+    /// Plugin author metadata when available
+    pub author: Option<Author>,
+    /// Marketplace category label
+    pub category: Option<String>,
+    /// Install policy from the marketplace entry
+    pub installation_policy: Option<String>,
+    /// Authentication policy from the marketplace entry
+    pub authentication_policy: Option<String>,
+    /// Marketplace source kind (`local`, `url`, `git-subdir`, etc.)
+    pub source_type: String,
+    /// Resolved plugin directory when the source points to local files
+    pub plugin_path: Option<PathBuf>,
+    /// Source URL for remote entries
+    pub source_url: Option<String>,
+    /// Resolved plugin manifest path if available
+    pub manifest_path: Option<PathBuf>,
+    /// Whether TARS could resolve the plugin manifest locally
+    pub resolved: bool,
+}
+
 /// Author information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Author {
@@ -802,6 +852,247 @@ pub struct Author {
     pub name: String,
     /// Author email
     pub email: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawCodexMarketplace {
+    name: Option<String>,
+    interface: Option<RawCodexMarketplaceInterface>,
+    #[serde(default)]
+    plugins: Vec<RawCodexMarketplacePlugin>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawCodexMarketplaceInterface {
+    #[serde(rename = "displayName")]
+    display_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawCodexMarketplacePlugin {
+    name: Option<String>,
+    #[serde(default)]
+    source: RawCodexSource,
+    policy: Option<RawCodexMarketplacePolicy>,
+    category: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(untagged)]
+enum RawCodexSource {
+    Path(String),
+    Object {
+        #[serde(rename = "source")]
+        kind: Option<String>,
+        path: Option<String>,
+        url: Option<String>,
+        #[serde(rename = "ref")]
+        _git_ref: Option<String>,
+        #[serde(rename = "sha")]
+        _sha: Option<String>,
+    },
+    #[default]
+    Missing,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawCodexMarketplacePolicy {
+    installation: Option<String>,
+    authentication: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawCodexPluginManifest {
+    name: Option<String>,
+    version: Option<String>,
+    description: Option<String>,
+    author: Option<RawCodexPluginAuthor>,
+    interface: Option<RawCodexPluginInterface>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawCodexPluginAuthor {
+    name: Option<String>,
+    email: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawCodexPluginInterface {
+    #[serde(rename = "displayName")]
+    display_name: Option<String>,
+    #[serde(rename = "shortDescription")]
+    short_description: Option<String>,
+}
+
+/// Scan a Codex marketplace file and resolve any local plugin manifests it references.
+///
+/// `marketplace.json` resolves plugin paths relative to the marketplace root, not the
+/// `.agents/plugins/` directory that contains the file.
+///
+/// # Errors
+/// Returns an error if the marketplace file exists but cannot be read or parsed.
+pub fn scan_codex_marketplace_file(
+    marketplace_path: &Path,
+    scope: Scope,
+) -> ScanResult<Option<CodexMarketplace>> {
+    if !marketplace_path.exists() || !marketplace_path.is_file() {
+        return Ok(None);
+    }
+
+    let content = fs::read_to_string(marketplace_path)?;
+    let sha256 = hex::encode(sha2::Sha256::digest(content.as_bytes()));
+    let raw: RawCodexMarketplace = serde_json::from_str(&content).map_err(ScanError::JsonParse)?;
+    let marketplace_root = codex_marketplace_root(marketplace_path);
+
+    let mut plugins = raw
+        .plugins
+        .into_iter()
+        .filter_map(|plugin| {
+            let id = plugin.name?;
+            Some(resolve_codex_marketplace_plugin(
+                &marketplace_root,
+                id,
+                plugin.source,
+                plugin.policy,
+                plugin.category,
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    plugins.sort_by(|a, b| a.id.cmp(&b.id));
+
+    Ok(Some(CodexMarketplace {
+        name: raw
+            .name
+            .unwrap_or_else(|| "unnamed-marketplace".to_string()),
+        display_name: raw.interface.and_then(|interface| interface.display_name),
+        path: marketplace_path.to_path_buf(),
+        sha256,
+        scope,
+        plugins,
+    }))
+}
+
+fn resolve_codex_marketplace_plugin(
+    marketplace_root: &Path,
+    id: String,
+    source: RawCodexSource,
+    policy: Option<RawCodexMarketplacePolicy>,
+    category: Option<String>,
+) -> CodexAvailablePlugin {
+    let (source_type, plugin_path, source_url) =
+        resolve_codex_plugin_source(marketplace_root, &source);
+    let manifest_path = plugin_path
+        .as_ref()
+        .map(|path| path.join(".codex-plugin").join("plugin.json"))
+        .filter(|path| path.exists() && path.is_file());
+    let manifest = manifest_path
+        .as_ref()
+        .and_then(|path| read_codex_plugin_manifest(path).ok().flatten());
+
+    CodexAvailablePlugin {
+        id: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.name.clone())
+            .unwrap_or(id),
+        display_name: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.interface.as_ref())
+            .and_then(|interface| interface.display_name.clone()),
+        description: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.interface.as_ref())
+            .and_then(|interface| interface.short_description.clone())
+            .or_else(|| {
+                manifest
+                    .as_ref()
+                    .and_then(|manifest| manifest.description.clone())
+            }),
+        version: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.version.clone()),
+        author: manifest.as_ref().and_then(|manifest| {
+            manifest.author.as_ref().and_then(|author| {
+                author.name.as_ref().map(|name| Author {
+                    name: name.clone(),
+                    email: author.email.clone(),
+                })
+            })
+        }),
+        category,
+        installation_policy: policy
+            .as_ref()
+            .and_then(|policy| policy.installation.clone()),
+        authentication_policy: policy.and_then(|policy| policy.authentication),
+        source_type,
+        plugin_path,
+        source_url,
+        manifest_path,
+        resolved: manifest.is_some(),
+    }
+}
+
+fn resolve_codex_plugin_source(
+    marketplace_root: &Path,
+    source: &RawCodexSource,
+) -> (String, Option<PathBuf>, Option<String>) {
+    match source {
+        RawCodexSource::Path(path) => (
+            "local".to_string(),
+            resolve_codex_local_source(marketplace_root, path),
+            None,
+        ),
+        RawCodexSource::Object {
+            kind,
+            path,
+            url,
+            _git_ref: _,
+            _sha: _,
+        } => {
+            let source_type = kind.clone().unwrap_or_else(|| "local".to_string());
+            let plugin_path = path
+                .as_deref()
+                .filter(|_| source_type == "local")
+                .and_then(|path| resolve_codex_local_source(marketplace_root, path));
+            (source_type, plugin_path, url.clone())
+        }
+        RawCodexSource::Missing => ("unknown".to_string(), None, None),
+    }
+}
+
+fn resolve_codex_local_source(marketplace_root: &Path, source_path: &str) -> Option<PathBuf> {
+    let candidate = marketplace_root.join(source_path);
+    if candidate.exists() && candidate.is_dir() {
+        Some(candidate)
+    } else {
+        None
+    }
+}
+
+fn read_codex_plugin_manifest(path: &Path) -> ScanResult<Option<RawCodexPluginManifest>> {
+    if !path.exists() || !path.is_file() {
+        return Ok(None);
+    }
+
+    let content = fs::read_to_string(path)?;
+    let manifest = serde_json::from_str(&content).map_err(ScanError::JsonParse)?;
+    Ok(Some(manifest))
+}
+
+fn codex_marketplace_root(marketplace_path: &Path) -> PathBuf {
+    marketplace_path
+        .parent()
+        .and_then(Path::parent)
+        .and_then(Path::parent)
+        .map_or_else(
+            || {
+                marketplace_path
+                    .parent()
+                    .unwrap_or(marketplace_path)
+                    .to_path_buf()
+            },
+            Path::to_path_buf,
+        )
 }
 
 // ============================================================================

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>A cross-platform desktop application for managing Claude Code configuration across projects</strong>
+  <strong>A cross-platform desktop application for managing AI coding agent configuration across projects</strong>
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 ## Overview
 
-TARS is a centralized hub for discovering, creating, editing, and managing Claude Code resources. It provides a visual interface for managing skills, agents, commands, hooks, MCP servers, and plugins across multiple projects with safe apply/rollback operations and profile-based configuration sharing via a local profile marketplace.
+TARS is a centralized hub for discovering, creating, editing, and managing AI coding agent resources. It provides a visual interface for managing skills, agents, commands, hooks, MCP servers, and plugins across multiple projects with safe apply/rollback operations and profile-based configuration sharing via a local profile marketplace.
 
 Inspired by the robot from Interstellar, TARS brings order to your Claude Code configuration chaos.
 

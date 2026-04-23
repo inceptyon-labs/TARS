@@ -5,6 +5,7 @@ use crate::error::{ScanError, ScanResult};
 use crate::inventory::UserScope;
 use crate::parser::{parse_agent, parse_command, parse_mcp_config, parse_settings, parse_skill};
 use crate::plugins::PluginInventory;
+use crate::scope::codex::scan_user_codex_scope;
 use crate::settings::{McpConfig, SettingsFile};
 use crate::types::Scope;
 use std::collections::HashSet;
@@ -54,6 +55,7 @@ pub fn scan_user_scope_with_plugins(plugin_inventory: &PluginInventory) -> ScanR
         skills,
         commands,
         agents,
+        codex: scan_user_codex_scope(&home)?,
     })
 }
 

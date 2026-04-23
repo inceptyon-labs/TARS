@@ -2,6 +2,7 @@
 
 use crate::artifacts::{AgentInfo, CommandInfo, HookDefinition, SkillInfo};
 use crate::error::{ScanError, ScanResult};
+use crate::runtime::{agent_runtime_support, command_runtime_support, skill_runtime_support};
 use crate::types::Scope;
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
@@ -86,6 +87,7 @@ pub fn parse_skill(path: &Path, content: &str, scope: Scope) -> ScanResult<Skill
         agent: data.agent,
         hooks: data.hooks,
         sha256,
+        runtime_support: skill_runtime_support(),
         scope,
     })
 }
@@ -116,6 +118,7 @@ pub fn parse_agent(path: &Path, content: &str, scope: Scope) -> ScanResult<Agent
         skills: data.skills,
         hooks: data.hooks,
         sha256,
+        runtime_support: agent_runtime_support(),
         scope,
     })
 }
@@ -155,6 +158,7 @@ pub fn parse_command(path: &Path, content: &str, scope: Scope) -> ScanResult<Com
         thinking,
         body: result.content,
         sha256,
+        runtime_support: command_runtime_support(),
         scope,
     })
 }
