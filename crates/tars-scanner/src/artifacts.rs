@@ -1,5 +1,6 @@
 //! Artifact types: Skills, Commands, Agents, Hooks
 
+use crate::runtime::RuntimeCompatibility;
 use crate::types::Scope;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -34,6 +35,8 @@ pub struct SkillInfo {
     pub hooks: HashMap<String, Vec<HookDefinition>>,
     /// SHA256 hash of SKILL.md content
     pub sha256: String,
+    /// Runtime compatibility metadata
+    pub runtime_support: Vec<RuntimeCompatibility>,
     /// Scope where found
     pub scope: Scope,
 }
@@ -54,6 +57,8 @@ pub struct CommandInfo {
     pub body: String,
     /// SHA256 hash of file content
     pub sha256: String,
+    /// Runtime compatibility metadata
+    pub runtime_support: Vec<RuntimeCompatibility>,
     /// Scope where found
     pub scope: Scope,
 }
@@ -83,12 +88,31 @@ pub struct AgentInfo {
     pub hooks: HashMap<String, Vec<HookDefinition>>,
     /// SHA256 hash of file content
     pub sha256: String,
+    /// Runtime compatibility metadata
+    pub runtime_support: Vec<RuntimeCompatibility>,
     /// Scope where found
     pub scope: Scope,
 }
 
 fn default_permission_mode() -> String {
     "default".to_string()
+}
+
+/// Codex custom agent file information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodexAgentInfo {
+    /// Path to the agent file
+    pub path: PathBuf,
+    /// Agent name
+    pub name: String,
+    /// Optional description from the file
+    pub description: Option<String>,
+    /// SHA256 hash of file content
+    pub sha256: String,
+    /// Runtime compatibility metadata
+    pub runtime_support: Vec<RuntimeCompatibility>,
+    /// Scope where found
+    pub scope: Scope,
 }
 
 /// Hook information
@@ -102,6 +126,8 @@ pub struct HookInfo {
     pub matcher: Option<String>,
     /// Hook definition
     pub definition: HookDefinition,
+    /// Runtime compatibility metadata
+    pub runtime_support: Vec<RuntimeCompatibility>,
 }
 
 /// Source of a hook definition

@@ -1,5 +1,6 @@
 //! Settings and MCP configuration types
 
+use crate::runtime::RuntimeCompatibility;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -72,6 +73,8 @@ pub struct McpServer {
     pub env: HashMap<String, String>,
     /// URL (for http/sse)
     pub url: Option<String>,
+    /// Runtime compatibility metadata
+    pub runtime_support: Vec<RuntimeCompatibility>,
 }
 
 /// MCP transport types

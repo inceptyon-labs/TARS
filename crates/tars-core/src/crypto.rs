@@ -4,13 +4,20 @@
 //! - macOS: Keychain
 //! - Windows: Credential Manager
 //! - Linux: Secret Service (GNOME Keyring, `KWallet`)
+//!
+//! Debug and test builds intentionally default to a deterministic local dev key
+//! so local development does not constantly prompt for keychain access. Set
+//! `TARS_USE_SYSTEM_KEYRING=1` to force debug builds back onto the OS keychain.
 
 use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit, Nonce};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 const KEYRING_SERVICE: &str = "com.tars.desktop";
 const KEYRING_USER: &str = "master-key";
+const FORCE_SYSTEM_KEYRING_ENV: &str = "TARS_USE_SYSTEM_KEYRING";
+const DEV_KEY_SEED: &str = "tars-debug-master-key:v1";
 
 /// Crypto errors
 #[derive(Error, Debug)]
@@ -33,6 +40,10 @@ pub enum CryptoError {
 /// On first call, generates a random 256-bit key and stores it.
 /// Subsequent calls retrieve the stored key.
 fn get_or_create_master_key() -> Result<[u8; 32], CryptoError> {
+    if should_use_local_dev_key() {
+        return Ok(local_dev_master_key());
+    }
+
     let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER)
         .map_err(|e| CryptoError::Keyring(e.to_string()))?;
 
@@ -60,6 +71,37 @@ fn get_or_create_master_key() -> Result<[u8; 32], CryptoError> {
         }
         Err(e) => Err(CryptoError::Keyring(e.to_string())),
     }
+}
+
+fn should_use_local_dev_key() -> bool {
+    if !cfg!(debug_assertions) {
+        return false;
+    }
+
+    !env_flag_enabled(FORCE_SYSTEM_KEYRING_ENV)
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    std::env::var(name).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+fn local_dev_master_key() -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(KEYRING_SERVICE.as_bytes());
+    hasher.update(b":");
+    hasher.update(KEYRING_USER.as_bytes());
+    hasher.update(b":");
+    hasher.update(DEV_KEY_SEED.as_bytes());
+
+    let digest = hasher.finalize();
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&digest);
+    key
 }
 
 /// Encrypt a plaintext string.
@@ -110,18 +152,14 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
-        // This test requires OS keychain access - skip in CI
         let plaintext = "my-secret-api-key-12345";
-        match encrypt(plaintext) {
-            Ok((nonce, ciphertext)) => {
-                let decrypted = decrypt(&nonce, &ciphertext).expect("decryption failed");
-                assert_eq!(decrypted, plaintext);
-            }
-            Err(CryptoError::Keyring(_)) => {
-                // Keychain not available (CI environment), skip
-                eprintln!("Skipping crypto test: keychain not available");
-            }
-            Err(e) => panic!("Unexpected error: {e}"),
-        }
+        let (nonce, ciphertext) = encrypt(plaintext).expect("encryption failed");
+        let decrypted = decrypt(&nonce, &ciphertext).expect("decryption failed");
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_debug_builds_default_to_local_dev_key() {
+        assert!(should_use_local_dev_key());
     }
 }

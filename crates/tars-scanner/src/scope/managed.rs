@@ -6,9 +6,11 @@
 //! - Windows: C:\ProgramData\ClaudeCode\
 
 use crate::error::ScanResult;
-use crate::inventory::ManagedScope;
+use crate::inventory::{CodexManagedScope, ManagedScope};
 use crate::parser::{parse_mcp_config, parse_settings};
 use crate::settings::{McpConfig, SettingsFile};
+use crate::types::FileInfo;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -41,9 +43,10 @@ fn managed_dir() -> PathBuf {
 /// Returns an error if scanning fails
 pub fn scan_managed_scope() -> ScanResult<Option<ManagedScope>> {
     let managed_dir = managed_dir();
+    let codex = scan_managed_codex_scope()?;
 
     // If the managed directory doesn't exist, there's no managed config
-    if !managed_dir.exists() {
+    if !managed_dir.exists() && codex.system_config.is_none() && codex.managed_config.is_none() {
         return Ok(None);
     }
 
@@ -51,8 +54,16 @@ pub fn scan_managed_scope() -> ScanResult<Option<ManagedScope>> {
     let mcp = scan_managed_mcp(&managed_dir)?;
 
     // Only return Some if there's actual managed configuration
-    if settings.is_some() || mcp.is_some() {
-        Ok(Some(ManagedScope { settings, mcp }))
+    if settings.is_some()
+        || mcp.is_some()
+        || codex.system_config.is_some()
+        || codex.managed_config.is_some()
+    {
+        Ok(Some(ManagedScope {
+            settings,
+            mcp,
+            codex,
+        }))
     } else {
         Ok(None)
     }
@@ -78,4 +89,55 @@ fn scan_managed_mcp(managed_dir: &Path) -> ScanResult<Option<McpConfig>> {
     } else {
         Ok(None)
     }
+}
+
+fn scan_managed_codex_scope() -> ScanResult<CodexManagedScope> {
+    Ok(CodexManagedScope {
+        system_config: scan_file(&codex_system_config_path())?,
+        managed_config: scan_file(&codex_managed_config_path())?,
+    })
+}
+
+fn codex_system_config_path() -> PathBuf {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        PathBuf::from("/etc/codex/config.toml")
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        PathBuf::new()
+    }
+}
+
+fn codex_managed_config_path() -> PathBuf {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        PathBuf::from("/etc/codex/managed_config.toml")
+    }
+    #[cfg(target_os = "windows")]
+    {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".codex")
+            .join("managed_config.toml")
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        PathBuf::new()
+    }
+}
+
+fn scan_file(path: &Path) -> ScanResult<Option<FileInfo>> {
+    if path.as_os_str().is_empty() || !path.exists() || !path.is_file() {
+        return Ok(None);
+    }
+
+    let content = fs::read_to_string(path)?;
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+
+    Ok(Some(FileInfo {
+        path: path.to_path_buf(),
+        sha256: hex::encode(hasher.finalize()),
+    }))
 }

@@ -1,6 +1,7 @@
 //! MCP configuration parser
 
 use crate::error::ScanResult;
+use crate::runtime::mcp_runtime_support;
 use crate::settings::{McpConfig, McpServer, McpTransport};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -46,6 +47,7 @@ fn convert_servers(servers: HashMap<String, RawMcpServer>) -> Vec<McpServer> {
                 args: server.args,
                 env: server.env,
                 url: server.url,
+                runtime_support: mcp_runtime_support(),
             }
         })
         .collect()

@@ -3,7 +3,7 @@
 //! Tests the full scanning pipeline against fixture directories.
 
 use std::fs;
-use tars_scanner::Scanner;
+use tars_scanner::{scope::codex::scan_user_codex_scope, Scanner};
 use tempfile::TempDir;
 
 /// Create a test fixture directory with Claude Code configuration
@@ -104,6 +104,140 @@ This is a test project for TARS scanner integration tests.
     }"#;
     fs::write(base.join(".claude.json"), mcp_config).expect("Failed to write .claude.json");
 
+    // Create a fake repo root marker for upward Codex layer scanning
+    fs::create_dir_all(base.join(".git")).expect("Failed to create .git directory");
+
+    // Create Codex project config
+    let codex_dir = base.join(".codex");
+    fs::create_dir_all(codex_dir.join("agents")).expect("Failed to create .codex/agents");
+    fs::write(
+        codex_dir.join("config.toml"),
+        "model = \"gpt-5\"\napproval_policy = \"never\"\n",
+    )
+    .expect("Failed to write .codex/config.toml");
+    fs::write(codex_dir.join("AGENTS.md"), "# User Agent Instructions\n")
+        .expect("Failed to write .codex/AGENTS.md");
+    fs::write(
+        codex_dir.join("AGENTS.override.md"),
+        "# User Override Instructions\n",
+    )
+    .expect("Failed to write .codex/AGENTS.override.md");
+    fs::write(
+        codex_dir.join("agents").join("reviewer.toml"),
+        "name = \"reviewer\"\ndescription = \"Review code changes\"\n",
+    )
+    .expect("Failed to write Codex agent file");
+
+    // Create Codex skill layer
+    let codex_skills_dir = base.join(".agents").join("skills").join("codex-skill");
+    fs::create_dir_all(&codex_skills_dir).expect("Failed to create .agents/skills");
+    fs::write(
+        codex_skills_dir.join("SKILL.md"),
+        r"---
+name: codex-skill
+description: A Codex-discovered skill
+---
+
+# Codex Skill
+
+This skill is discovered from .agents/skills.
+",
+    )
+    .expect("Failed to write Codex SKILL.md");
+
+    // Create instruction layers and marketplace
+    fs::write(base.join("AGENTS.md"), "# Project Agent Instructions\n")
+        .expect("Failed to write AGENTS.md");
+    fs::write(base.join("AGENTS.override.md"), "# Override Instructions\n")
+        .expect("Failed to write AGENTS.override.md");
+    fs::create_dir_all(base.join(".agents").join("plugins"))
+        .expect("Failed to create .agents/plugins");
+    fs::write(
+        base.join(".agents")
+            .join("plugins")
+            .join("marketplace.json"),
+        r#"{
+  "name": "local-dev",
+  "interface": {
+    "displayName": "Local Dev Plugins"
+  },
+  "plugins": [
+    {
+      "name": "repo-plugin",
+      "source": {
+        "source": "local",
+        "path": "./plugins/repo-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "personal-plugin",
+      "source": {
+        "source": "local",
+        "path": "./.codex/plugins/personal-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Utilities"
+    }
+  ]
+}"#,
+    )
+    .expect("Failed to write Codex marketplace");
+    fs::create_dir_all(
+        base.join("plugins")
+            .join("repo-plugin")
+            .join(".codex-plugin"),
+    )
+    .expect("Failed to create repo Codex plugin directory");
+    fs::write(
+        base.join("plugins")
+            .join("repo-plugin")
+            .join(".codex-plugin")
+            .join("plugin.json"),
+        r#"{
+  "name": "repo-plugin",
+  "version": "0.1.0",
+  "description": "Repo scoped Codex plugin",
+  "interface": {
+    "displayName": "Repo Plugin",
+    "shortDescription": "Project plugin"
+  }
+}"#,
+    )
+    .expect("Failed to write repo Codex plugin manifest");
+
+    fs::create_dir_all(
+        base.join(".codex")
+            .join("plugins")
+            .join("personal-plugin")
+            .join(".codex-plugin"),
+    )
+    .expect("Failed to create personal Codex plugin directory");
+    fs::write(
+        base.join(".codex")
+            .join("plugins")
+            .join("personal-plugin")
+            .join(".codex-plugin")
+            .join("plugin.json"),
+        r#"{
+  "name": "personal-plugin",
+  "version": "1.2.3",
+  "description": "Personal Codex plugin",
+  "interface": {
+    "displayName": "Personal Plugin",
+    "shortDescription": "Personal plugin"
+  }
+}"#,
+    )
+    .expect("Failed to write personal Codex plugin manifest");
+
     temp_dir
 }
 
@@ -198,6 +332,93 @@ fn test_scan_extracts_hooks() {
 
     let project_scope = result.unwrap();
     assert!(!project_scope.hooks.is_empty(), "Should extract hooks");
+}
+
+#[test]
+fn test_scan_discovers_codex_project_files() {
+    let fixture = create_test_fixture();
+    let scanner = Scanner::new();
+
+    let result = scanner.scan_project(fixture.path());
+    assert!(result.is_ok());
+
+    let project_scope = result.unwrap();
+    assert!(
+        project_scope.codex.config.is_some(),
+        "Should detect .codex/config.toml"
+    );
+    assert_eq!(
+        project_scope.codex.instructions.len(),
+        2,
+        "Should detect AGENTS.md layers"
+    );
+    assert_eq!(
+        project_scope.codex.skills.len(),
+        1,
+        "Should detect .agents/skills"
+    );
+    assert_eq!(project_scope.codex.skills[0].name, "codex-skill");
+    assert_eq!(
+        project_scope.codex.agents.len(),
+        1,
+        "Should detect .codex/agents"
+    );
+    assert_eq!(project_scope.codex.agents[0].name, "reviewer");
+    assert_eq!(
+        project_scope.codex.marketplaces.len(),
+        1,
+        "Should detect project marketplace.json"
+    );
+    assert_eq!(project_scope.codex.marketplaces[0].name, "local-dev");
+    assert_eq!(project_scope.codex.marketplaces[0].plugins.len(), 2);
+    assert!(project_scope.codex.marketplaces[0]
+        .plugins
+        .iter()
+        .all(|plugin| plugin.resolved));
+    assert!(project_scope.codex.marketplaces[0]
+        .plugins
+        .iter()
+        .any(|plugin| plugin.id == "repo-plugin"));
+}
+
+#[test]
+fn test_scan_discovers_codex_user_files() {
+    let fixture = create_test_fixture();
+
+    let user_scope = scan_user_codex_scope(fixture.path()).expect("User Codex scan should succeed");
+
+    assert!(
+        user_scope.config.is_some(),
+        "Should detect ~/.codex/config.toml"
+    );
+    assert_eq!(
+        user_scope.instructions.len(),
+        2,
+        "Should detect user AGENTS.md layers"
+    );
+    assert_eq!(
+        user_scope.skills.len(),
+        1,
+        "Should detect ~/.agents/skills content"
+    );
+    assert_eq!(user_scope.skills[0].name, "codex-skill");
+    assert_eq!(user_scope.agents.len(), 1, "Should detect ~/.codex/agents");
+    assert_eq!(user_scope.agents[0].name, "reviewer");
+    assert_eq!(
+        user_scope.marketplaces.len(),
+        1,
+        "Should detect ~/.agents/plugins/marketplace.json"
+    );
+    assert_eq!(user_scope.marketplaces[0].name, "local-dev");
+    assert_eq!(user_scope.marketplaces[0].plugins.len(), 2);
+    assert!(user_scope.marketplaces[0]
+        .plugins
+        .iter()
+        .any(|plugin| plugin.id == "personal-plugin"));
+    assert!(user_scope.marketplaces[0]
+        .plugins
+        .iter()
+        .all(|plugin| plugin.resolved));
 }
 
 #[test]

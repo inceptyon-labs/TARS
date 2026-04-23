@@ -31,6 +31,7 @@ pub mod inventory;
 pub mod output;
 pub mod parser;
 pub mod plugins;
+pub mod runtime;
 pub mod scan;
 pub mod scope;
 pub mod settings;

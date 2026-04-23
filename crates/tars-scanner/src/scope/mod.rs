@@ -1,5 +1,6 @@
 //! Scope scanners for user, project, and managed scopes
 
+pub mod codex;
 pub mod managed;
 pub mod project;
 pub mod user;
