@@ -208,7 +208,6 @@ pub fn run() {
             commands::get_claude_usage_stats,
             // Runtime commands
             commands::get_runtime_statuses,
-            commands::get_project_runtime_coverage,
             // Settings commands
             commands::read_settings_file,
             commands::save_settings_file,

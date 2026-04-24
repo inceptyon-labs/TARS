@@ -670,14 +670,6 @@ export interface RuntimeCompatibility {
   support: RuntimeSupportLevel;
 }
 
-export interface ProjectRuntimeCoverage {
-  id: string;
-  name: string;
-  support: RuntimeSupportLevel;
-  summary: string;
-  surfaces: RuntimePathStatus[];
-}
-
 export interface ChangelogEntry {
   version: string;
   content: string;
