@@ -988,7 +988,6 @@ import type {
   GeminiVersionInfo,
   ChangelogResponse,
   PluginUpdatesResponse,
-  ProjectRuntimeCoverage,
   TarsUpdateInfo,
   RuntimeStatus,
 } from '../types';
@@ -1027,12 +1026,6 @@ export async function getGeminiVersionInfo(): Promise<GeminiVersionInfo> {
 
 export async function getRuntimeStatuses(): Promise<RuntimeStatus[]> {
   return invoke('get_runtime_statuses');
-}
-
-export async function getProjectRuntimeCoverage(
-  projectPath: string
-): Promise<ProjectRuntimeCoverage[]> {
-  return invoke('get_project_runtime_coverage', { projectPath });
 }
 
 export async function checkPluginUpdates(): Promise<PluginUpdatesResponse> {
