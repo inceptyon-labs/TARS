@@ -41,6 +41,7 @@ import {
   syncCodexPluginBridges,
   syncPluginSubscription,
   trackPluginVersions,
+  updatePlugin as updatePluginByKey,
 } from '../lib/ipc';
 import type {
   AvailablePlugin,
@@ -530,8 +531,8 @@ export function PluginsPage() {
     return plugin.marketplace ? `${plugin.id}@${plugin.marketplace}` : plugin.id;
   }
 
-  async function installPlugin(plugin: (typeof sortedInstalledPlugins)[number]) {
-    return installPluginByKey(
+  async function updatePlugin(plugin: (typeof sortedInstalledPlugins)[number]) {
+    return updatePluginByKey(
       getPluginInstallId(plugin),
       plugin.scope.type.toLowerCase(),
       plugin.project_path ?? undefined
@@ -603,7 +604,7 @@ export function PluginsPage() {
 
       for (const plugin of sortedInstalledPlugins) {
         try {
-          await installPlugin(plugin);
+          await updatePlugin(plugin);
         } catch (err) {
           console.error('Failed to update plugin:', plugin.id, err);
           failures.push(plugin.id);
@@ -649,7 +650,7 @@ export function PluginsPage() {
   async function handleUpdatePlugin(plugin: (typeof sortedInstalledPlugins)[number], key: string) {
     setUpdatingPlugin(key);
     try {
-      await installPlugin(plugin);
+      await updatePlugin(plugin);
       if (bridgedCodexPluginKeys.has(codexBridgeKeyForPlugin(plugin))) {
         const bridge = await bridgeClaudePluginToCodex(
           plugin.id,

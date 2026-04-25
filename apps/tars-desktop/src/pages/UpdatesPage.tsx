@@ -32,7 +32,7 @@ import {
   checkPluginUpdates,
   checkTarsUpdate,
   installTarsUpdate,
-  installPlugin as installPluginByKey,
+  updatePlugin as updatePluginByKey,
 } from '../lib/ipc';
 import type { ChangelogEntry, PluginUpdateInfo, RuntimeStatus } from '../lib/types';
 import { PageBackButton } from '../components/PageBackButton';
@@ -211,7 +211,7 @@ export function UpdatesPage() {
         ? `${plugin.plugin_id}@${plugin.marketplace}`
         : plugin.plugin_id;
 
-      return installPluginByKey(
+      return updatePluginByKey(
         pluginKey,
         plugin.scope_type.toLowerCase(),
         plugin.project_path ?? undefined
