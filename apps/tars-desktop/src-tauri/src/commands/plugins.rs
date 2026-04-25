@@ -1783,6 +1783,62 @@ pub async fn plugin_install(
     }
 }
 
+/// Update an installed plugin
+/// For project/local scope, `project_path` must be provided to run CLI from that directory
+#[tauri::command]
+pub async fn plugin_update(
+    plugin: String,
+    scope: Option<String>,
+    project_path: Option<String>,
+) -> Result<String, String> {
+    // Validate plugin source (can be name@marketplace format)
+    validate_plugin_source(&plugin)?;
+
+    // Validate scope if provided
+    if let Some(ref s) = scope {
+        validate_scope(s)?;
+    }
+
+    let mut args = vec!["plugin", "update"];
+
+    // Add scope if specified (user, project, or local)
+    let scope_flag;
+    if let Some(ref s) = scope {
+        scope_flag = format!("--scope={s}");
+        args.push(&scope_flag);
+    }
+
+    args.push(&plugin);
+
+    let claude = find_claude_binary()?;
+    let mut cmd = Command::new(&claude);
+    cmd.args(&args);
+
+    // For project/local scope, run from the project directory
+    if let Some(ref path) = project_path {
+        cmd.current_dir(path);
+    }
+
+    let output = cmd
+        .output()
+        .map_err(|e| format!("Failed to run claude CLI: {e}"))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = if !stderr.is_empty() {
+            stderr.to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown error".to_string()
+        };
+        Err(format!("Failed to update plugin: {error_msg}"))
+    }
+}
+
 /// Uninstall a plugin
 /// Note: CLI only accepts plugin name without marketplace
 /// For project scope, `project_path` must be provided to run CLI from that directory

@@ -1152,6 +1152,14 @@ export async function installPlugin(
   return invoke('plugin_install', { plugin, scope, projectPath });
 }
 
+export async function updatePlugin(
+  plugin: string,
+  scope: string,
+  projectPath?: string | null
+): Promise<void> {
+  return invoke('plugin_update', { plugin, scope, projectPath });
+}
+
 // Track plugin versions and return when each actually changed
 // Returns a map of plugin_key -> version_changed_at (ISO 8601)
 export async function trackPluginVersions(

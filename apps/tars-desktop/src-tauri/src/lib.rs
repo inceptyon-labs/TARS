@@ -177,6 +177,7 @@ pub fn run() {
             commands::plugin_marketplace_update,
             commands::plugin_marketplace_set_auto_update,
             commands::plugin_install,
+            commands::plugin_update,
             commands::plugin_uninstall,
             commands::plugin_move_scope,
             commands::plugin_enable,
