@@ -42,10 +42,18 @@ export function ProjectsPage() {
   const isDialogOpen = useUIStore((state) => state.isAddProjectDialogOpen);
   const setDialogOpen = useUIStore((state) => state.setAddProjectDialogOpen);
 
-  const { data: projects = [], isLoading } = useQuery({
+  const {
+    data: projects = [],
+    isLoading,
+    isError: isProjectsError,
+    error: projectsError,
+  } = useQuery({
     queryKey: ['projects'],
     queryFn: listProjects,
   });
+
+  const projectsErrorMessage =
+    projectsError instanceof Error ? projectsError.message : String(projectsError);
 
   // Fetch git status for all projects
   const { data: gitStatuses = [] } = useQuery({
@@ -316,6 +324,16 @@ export function ProjectsPage() {
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <RefreshCw className="h-5 w-5 animate-spin text-primary" />
                 <span className="text-xs text-muted-foreground">Loading...</span>
+              </div>
+            ) : isProjectsError ? (
+              <div className="text-center py-12 px-4">
+                <div className="w-16 h-16 rounded-lg bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="h-8 w-8 text-destructive" />
+                </div>
+                <p className="text-sm font-medium text-destructive">Failed to load projects</p>
+                <p className="text-xs text-muted-foreground mt-2 break-words">
+                  {projectsErrorMessage}
+                </p>
               </div>
             ) : projects.length === 0 ? (
               <div className="text-center py-12 px-4">
