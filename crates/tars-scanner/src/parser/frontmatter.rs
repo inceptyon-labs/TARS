@@ -21,7 +21,7 @@ struct SkillFrontmatter {
     user_invocable: bool,
     #[serde(default)]
     disable_model_invocation: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_tool_list")]
     allowed_tools: Vec<String>,
     model: Option<String>,
     context: Option<String>,
@@ -36,7 +36,7 @@ struct SkillFrontmatter {
 struct AgentFrontmatter {
     name: String,
     description: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_tool_list")]
     tools: Vec<String>,
     model: Option<String>,
     #[serde(default = "default_permission_mode")]
@@ -49,6 +49,42 @@ struct AgentFrontmatter {
 
 fn default_permission_mode() -> String {
     "default".to_string()
+}
+
+/// Deserialize a tool list that may be either a YAML sequence
+/// (`[Read, Grep]`) or a single string. Claude Code accepts the string form,
+/// either comma-separated (`Read, Write, Edit`) or whitespace-separated
+/// (`Bash Read Grep`), so we tolerate both.
+fn deserialize_tool_list<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrSeq {
+        Seq(Vec<String>),
+        Str(String),
+    }
+
+    Ok(match StringOrSeq::deserialize(deserializer)? {
+        StringOrSeq::Seq(items) => items,
+        StringOrSeq::Str(s) => split_tool_string(&s),
+    })
+}
+
+/// Split a tool string into individual tool names. Commas take precedence
+/// (preserving names with internal spaces like `Bash(git add:*)`); otherwise
+/// split on whitespace.
+fn split_tool_string(s: &str) -> Vec<String> {
+    if s.contains(',') {
+        s.split(',')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .map(String::from)
+            .collect()
+    } else {
+        s.split_whitespace().map(String::from).collect()
+    }
 }
 
 /// Command frontmatter structure
@@ -194,6 +230,40 @@ allowed-tools:
         assert_eq!(skill.description, "A test skill");
         assert!(skill.user_invocable);
         assert_eq!(skill.allowed_tools, vec!["Read", "Grep"]);
+    }
+
+    #[test]
+    fn test_parse_skill_space_separated_tools() {
+        let content = r"---
+name: tenet-security
+description: A test skill
+allowed-tools: Bash Read Grep Glob Write
+---
+
+# Instructions
+";
+        let skill = parse_skill(&PathBuf::from("test"), content, Scope::User).unwrap();
+        assert_eq!(
+            skill.allowed_tools,
+            vec!["Bash", "Read", "Grep", "Glob", "Write"]
+        );
+    }
+
+    #[test]
+    fn test_parse_agent_comma_separated_tools() {
+        let content = r"---
+name: edit-applier
+description: A test agent
+tools: Read, Write, Edit, Bash, Glob, Grep
+---
+
+# Instructions
+";
+        let agent = parse_agent(&PathBuf::from("test.md"), content, Scope::User).unwrap();
+        assert_eq!(
+            agent.tools,
+            vec!["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
+        );
     }
 
     #[test]

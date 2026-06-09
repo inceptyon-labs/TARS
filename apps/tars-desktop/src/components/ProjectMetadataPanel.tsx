@@ -19,11 +19,12 @@ import {
   Copy,
   Check,
   FolderOpen,
+  Rocket,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getProjectMetadata, saveProjectMetadata, fetchGithubDescription } from '../lib/ipc';
-import type { ProjectMetadata, CustomField } from '../lib/types';
+import type { ProjectMetadata, CustomField, DeployStep } from '../lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -55,6 +56,13 @@ const APP_FRAMEWORK_OPTIONS = [
   '.NET MAUI',
   'KMP',
   'Ionic',
+  'Astro',
+  'Svelte',
+  'SvelteKit',
+  'Next.js',
+  'React',
+  'Vue',
+  'Nuxt',
   'Other',
 ];
 
@@ -229,8 +237,17 @@ const EMPTY_METADATA: ProjectMetadata = {
   homebrew_tap: null,
   homebrew_deploy_commands: [],
   deploy_commands: [],
+  deploy_steps: [],
   custom_fields: [],
 };
+
+// Legacy deploy command lists stored bare strings; normalize to DeployStep[].
+function normalizeDeploySteps(steps: unknown): DeployStep[] {
+  if (!Array.isArray(steps)) return [];
+  return steps.map((s) =>
+    typeof s === 'string' ? { kind: 'command', text: s } : (s as DeployStep)
+  );
+}
 
 // ── Edit mode field components ──────────────────────────────────
 
@@ -313,6 +330,99 @@ function CopyableCode({ value }: { value: string }) {
         <Copy className="h-3 w-3 opacity-0 group-hover:opacity-50 flex-shrink-0 transition-opacity" />
       )}
     </button>
+  );
+}
+
+function DeployStepsField({
+  steps,
+  onChange,
+  label = 'Deploy Steps',
+}: {
+  steps: DeployStep[];
+  onChange: (steps: DeployStep[]) => void;
+  label?: string;
+}) {
+  const addStep = (kind: DeployStep['kind']) => onChange([...steps, { kind, text: '' }]);
+  const updateStep = (i: number, text: string) =>
+    onChange(steps.map((s, idx) => (idx === i ? { ...s, text } : s)));
+  const removeStep = (i: number) => onChange(steps.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => addStep('command')}
+            className="h-5 text-xs gap-0.5 px-1.5"
+          >
+            <Plus className="h-3 w-3" />
+            Command
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => addStep('note')}
+            className="h-5 text-xs gap-0.5 px-1.5"
+          >
+            <Plus className="h-3 w-3" />
+            Note
+          </Button>
+        </div>
+      </div>
+      {steps.map((step, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          {step.kind === 'command' ? (
+            <Terminal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          ) : (
+            <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          )}
+          <Input
+            className={`h-8 text-sm flex-1 ${step.kind === 'command' ? 'font-mono' : ''}`}
+            value={step.text}
+            onChange={(e) => updateStep(i, e.target.value)}
+            placeholder={
+              step.kind === 'command' ? './scripts/release.sh' : 'Header or info between commands'
+            }
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => removeStep(i)}
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+      {steps.length === 0 && (
+        <p className="text-xs text-muted-foreground/50 italic">No deploy steps configured</p>
+      )}
+    </div>
+  );
+}
+
+// View-mode renderer for deploy steps inside a platform section:
+// commands are click-to-copy, notes render as plain header/info text.
+function DeployStepsView({ steps }: { steps: DeployStep[] }) {
+  const filled = steps.filter((s) => s.text);
+  return (
+    <>
+      {filled.map((step, i) => (
+        <div key={i} className="flex items-baseline gap-3 min-w-0">
+          <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
+            {i === 0 ? 'Deploy' : ''}
+          </span>
+          {step.kind === 'command' ? (
+            <CopyableCode value={step.text} />
+          ) : (
+            <span className="text-sm font-medium text-muted-foreground">{step.text}</span>
+          )}
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -505,14 +615,17 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
         migrated.deploy_commands = [migrated.deploy_command];
         migrated.deploy_command = null;
       }
-      if (!migrated.ios_deploy_commands) migrated.ios_deploy_commands = [];
+      // Normalize deploy steps: legacy entries were bare command strings
+      migrated.ios_deploy_commands = normalizeDeploySteps(migrated.ios_deploy_commands);
       if (migrated.ios_deploy_command && migrated.ios_deploy_commands.length === 0) {
-        migrated.ios_deploy_commands = [migrated.ios_deploy_command];
+        migrated.ios_deploy_commands = [{ kind: 'command', text: migrated.ios_deploy_command }];
         migrated.ios_deploy_command = null;
       }
-      if (!migrated.android_deploy_commands) migrated.android_deploy_commands = [];
+      migrated.android_deploy_commands = normalizeDeploySteps(migrated.android_deploy_commands);
       if (migrated.android_deploy_command && migrated.android_deploy_commands.length === 0) {
-        migrated.android_deploy_commands = [migrated.android_deploy_command];
+        migrated.android_deploy_commands = [
+          { kind: 'command', text: migrated.android_deploy_command },
+        ];
         migrated.android_deploy_command = null;
       }
       // Ensure new array fields exist
@@ -649,13 +762,14 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
       metadata.homebrew_formula_name,
       metadata.homebrew_tap,
     ].filter(Boolean).length +
+    metadata.deploy_steps.filter((s) => s.text).length +
     (metadata.requires_tunnel ? 1 : 0) +
     (metadata.ios_uses_push_notifications ? 1 : 0) +
     (metadata.macos_hardened_runtime ? 1 : 0) +
     (metadata.macos_app_sandbox ? 1 : 0) +
     metadata.deploy_commands.filter(Boolean).length +
-    metadata.ios_deploy_commands.filter(Boolean).length +
-    metadata.android_deploy_commands.filter(Boolean).length +
+    metadata.ios_deploy_commands.filter((s) => s.text).length +
+    metadata.android_deploy_commands.filter((s) => s.text).length +
     metadata.macos_deploy_commands.filter(Boolean).length +
     metadata.homebrew_deploy_commands.filter(Boolean).length +
     metadata.custom_fields.filter((f) => f.key && f.value).length;
@@ -719,6 +833,24 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
           <ViewRow label="Framework" value={metadata.app_framework} />
         </ViewSection>
 
+        {metadata.deploy_steps.filter((s) => s.text).length > 0 && (
+          <ViewSection icon={<Rocket className="h-3.5 w-3.5" />} title="Deployment">
+            <div className="space-y-1.5">
+              {metadata.deploy_steps
+                .filter((s) => s.text)
+                .map((step, i) =>
+                  step.kind === 'command' ? (
+                    <CopyableCode key={i} value={step.text} />
+                  ) : (
+                    <p key={i} className="text-sm font-medium text-muted-foreground pt-1">
+                      {step.text}
+                    </p>
+                  )
+                )}
+            </div>
+          </ViewSection>
+        )}
+
         {hasWeb && (
           <ViewSection icon={<Cloud className="h-3.5 w-3.5" />} title="Web Hosting & Deployment">
             <ViewRow label="Hosting" value={metadata.web_hosting} />
@@ -747,14 +879,7 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
               <ViewRow label="Push Notifications" value="Enabled" />
             )}
             <ViewRow label="Provisioning" value={metadata.ios_provisioning} />
-            {metadata.ios_deploy_commands.filter(Boolean).map((cmd, i) => (
-              <div key={i} className="flex items-baseline gap-3 min-w-0">
-                <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
-                  {i === 0 ? 'Deploy' : ''}
-                </span>
-                <CopyableCode value={cmd} />
-              </div>
-            ))}
+            <DeployStepsView steps={metadata.ios_deploy_commands} />
           </ViewSection>
         )}
 
@@ -765,14 +890,7 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
             <ViewRow label="Target SDK" value={metadata.android_target_sdk} />
             <ViewRow label="Signing Key" value={metadata.android_signing_key} />
             <ViewRow label="Play Console" value={metadata.google_play_console_url} />
-            {metadata.android_deploy_commands.filter(Boolean).map((cmd, i) => (
-              <div key={i} className="flex items-baseline gap-3 min-w-0">
-                <span className="text-xs text-muted-foreground w-[140px] flex-shrink-0 text-right">
-                  {i === 0 ? 'Deploy' : ''}
-                </span>
-                <CopyableCode value={cmd} />
-              </div>
-            ))}
+            <DeployStepsView steps={metadata.android_deploy_commands} />
           </ViewSection>
         )}
 
@@ -934,6 +1052,23 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
         </div>
       </div>
 
+      {/* Deployment — general steps spanning all targets */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Rocket className="h-3.5 w-3.5" />
+          Deployment
+        </div>
+        <DeployStepsField
+          steps={metadata.deploy_steps}
+          onChange={(v) => update('deploy_steps', v)}
+        />
+        <p className="text-xs text-muted-foreground/50">
+          Commands are click-to-copy; notes are plain headers/info between them. Use for scripts
+          that deploy to multiple targets at once. Platform-specific commands live in their own
+          sections below.
+        </p>
+      </div>
+
       {/* Web Hosting & Deployment — shown when Web platform selected */}
       {hasWeb && (
         <div className="space-y-3">
@@ -1038,11 +1173,10 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
               </button>
             </div>
           </div>
-          <MultiCommandField
-            label="Deploy Commands"
-            values={metadata.ios_deploy_commands}
+          <DeployStepsField
+            label="Deploy Steps"
+            steps={metadata.ios_deploy_commands}
             onChange={(v) => update('ios_deploy_commands', v)}
-            placeholder="fastlane beta, xcodebuild archive, etc."
           />
         </div>
       )}
@@ -1087,11 +1221,10 @@ export function ProjectMetadataPanel({ projectId, projectPath }: ProjectMetadata
             onChange={(v) => update('google_play_console_url', v)}
             placeholder="https://play.google.com/console/..."
           />
-          <MultiCommandField
-            label="Deploy Commands"
-            values={metadata.android_deploy_commands}
+          <DeployStepsField
+            label="Deploy Steps"
+            steps={metadata.android_deploy_commands}
             onChange={(v) => update('android_deploy_commands', v)}
-            placeholder="fastlane android deploy, ./gradlew bundleRelease, etc."
           />
         </div>
       )}

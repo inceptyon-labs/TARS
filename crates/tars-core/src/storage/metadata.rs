@@ -77,9 +77,9 @@ pub struct ProjectMetadata {
     /// Legacy single deploy command (migrated to `ios_deploy_commands`)
     #[serde(default)]
     pub ios_deploy_command: Option<String>,
-    /// Multiple deploy commands for iOS
-    #[serde(default)]
-    pub ios_deploy_commands: Vec<String>,
+    /// Deploy steps for iOS — copyable commands and informational notes
+    #[serde(default, deserialize_with = "deserialize_deploy_steps")]
+    pub ios_deploy_commands: Vec<DeployStep>,
 
     /// Android
     #[serde(default)]
@@ -93,9 +93,9 @@ pub struct ProjectMetadata {
     /// Legacy single deploy command (migrated to `android_deploy_commands`)
     #[serde(default)]
     pub android_deploy_command: Option<String>,
-    /// Multiple deploy commands for Android
-    #[serde(default)]
-    pub android_deploy_commands: Vec<String>,
+    /// Deploy steps for Android — copyable commands and informational notes
+    #[serde(default, deserialize_with = "deserialize_deploy_steps")]
+    pub android_deploy_commands: Vec<DeployStep>,
     #[serde(default)]
     pub google_play_console_url: Option<String>,
 
@@ -127,6 +127,12 @@ pub struct ProjectMetadata {
     #[serde(default)]
     pub deploy_commands: Vec<String>,
 
+    /// General deploy steps — an ordered list of copyable commands and
+    /// non-copyable notes/headers (e.g. a script that deploys to multiple
+    /// targets at once, with context between commands)
+    #[serde(default)]
+    pub deploy_steps: Vec<DeployStep>,
+
     /// Custom key-value pairs
     #[serde(default)]
     pub custom_fields: Vec<CustomField>,
@@ -137,6 +143,43 @@ pub struct ProjectMetadata {
 pub struct CustomField {
     pub key: String,
     pub value: String,
+}
+
+/// A single deploy step: either a copyable `command` or an informational
+/// `note`/header rendered as plain text.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeployStep {
+    /// Either "command" or "note"
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub text: String,
+}
+
+/// Deserialize a list of deploy steps, tolerating the legacy format where
+/// each entry was a bare command string. Bare strings become `command` steps.
+fn deserialize_deploy_steps<'de, D>(deserializer: D) -> Result<Vec<DeployStep>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StepOrString {
+        Step(DeployStep),
+        Str(String),
+    }
+
+    let items = Vec::<StepOrString>::deserialize(deserializer)?;
+    Ok(items
+        .into_iter()
+        .map(|item| match item {
+            StepOrString::Step(step) => step,
+            StepOrString::Str(text) => DeployStep {
+                kind: "command".to_string(),
+                text,
+            },
+        })
+        .collect())
 }
 
 /// Metadata storage operations
@@ -199,5 +242,49 @@ impl<'a> MetadataStore<'a> {
             params![project_id.to_string()],
         )?;
         Ok(deleted > 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Serialize a default metadata, override one field, return the JSON —
+    /// mirrors how `get()` reads back fully-serialized rows.
+    fn metadata_json_with(field: &str, value: serde_json::Value) -> String {
+        let mut obj: serde_json::Value = serde_json::to_value(ProjectMetadata::default()).unwrap();
+        obj[field] = value;
+        obj.to_string()
+    }
+
+    #[test]
+    fn deploy_steps_accept_legacy_string_array() {
+        // Pre-existing data stored deploy commands as bare strings.
+        let json = metadata_json_with(
+            "ios_deploy_commands",
+            serde_json::json!(["fastlane beta", "xcodebuild archive"]),
+        );
+        let meta: ProjectMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(meta.ios_deploy_commands.len(), 2);
+        assert_eq!(meta.ios_deploy_commands[0].kind, "command");
+        assert_eq!(meta.ios_deploy_commands[0].text, "fastlane beta");
+    }
+
+    #[test]
+    fn deploy_steps_accept_structured_form() {
+        let json = metadata_json_with(
+            "android_deploy_commands",
+            serde_json::json!([
+                {"kind": "note", "text": "Deploy to both stores"},
+                {"kind": "command", "text": "./gradlew bundleRelease"}
+            ]),
+        );
+        let meta: ProjectMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(meta.android_deploy_commands.len(), 2);
+        assert_eq!(meta.android_deploy_commands[0].kind, "note");
+        assert_eq!(
+            meta.android_deploy_commands[1].text,
+            "./gradlew bundleRelease"
+        );
     }
 }

@@ -907,13 +907,13 @@ export interface ProjectMetadata {
   ios_uses_push_notifications: boolean;
   ios_provisioning: string | null;
   ios_deploy_command: string | null;
-  ios_deploy_commands: string[];
+  ios_deploy_commands: DeployStep[];
   android_package_name: string | null;
   android_min_sdk: string | null;
   android_target_sdk: string | null;
   android_signing_key: string | null;
   android_deploy_command: string | null;
-  android_deploy_commands: string[];
+  android_deploy_commands: DeployStep[];
   google_play_console_url: string | null;
   macos_bundle_id: string | null;
   macos_signing_team: string | null;
@@ -926,7 +926,13 @@ export interface ProjectMetadata {
   homebrew_tap: string | null;
   homebrew_deploy_commands: string[];
   deploy_commands: string[];
+  deploy_steps: DeployStep[];
   custom_fields: CustomField[];
+}
+
+export interface DeployStep {
+  kind: 'command' | 'note';
+  text: string;
 }
 
 // Project secrets types

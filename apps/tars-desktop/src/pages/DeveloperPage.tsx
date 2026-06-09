@@ -14,6 +14,7 @@ import {
   Link2,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -131,6 +132,7 @@ function extensionForCredentialType(value: string): string {
 
 function CredentialForm() {
   const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState({
     provider: 'apple',
     credential_type: 'asc_api_key',
@@ -160,6 +162,7 @@ function CredentialForm() {
         file_name: '',
         source_path: '',
       }));
+      setIsOpen(false);
       toast.success('Credential saved');
     },
     onError: (err) => toast.error(`Failed to save credential: ${err}`),
@@ -228,16 +231,33 @@ function CredentialForm() {
     }
   };
 
+  if (!isOpen) {
+    return (
+      <Button onClick={() => setIsOpen(true)}>
+        <Plus className="h-4 w-4" />
+        New Credential
+      </Button>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <KeyRound className="h-4 w-4" />
-          New Credential
-        </CardTitle>
-        <CardDescription>
-          Reusable encrypted credentials for store and release workflows.
-        </CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
+              New Credential
+            </CardTitle>
+            <CardDescription>
+              Reusable encrypted credentials for store and release workflows.
+            </CardDescription>
+          </div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4" />
+            Cancel
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3 md:grid-cols-3">
@@ -541,6 +561,7 @@ function CredentialList({ credentials }: { credentials: DeveloperCredentialSumma
 
 function AppTargetForm() {
   const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
   const projectsQuery = useQuery({
     queryKey: ['projects'],
     queryFn: listProjects,
@@ -568,6 +589,7 @@ function AppTargetForm() {
         store_app_id: '',
         team_id: '',
       });
+      setIsOpen(false);
       toast.success('App target saved');
     },
     onError: (err) => toast.error(`Failed to save app target: ${err}`),
@@ -589,14 +611,33 @@ function AppTargetForm() {
     });
   };
 
+  if (!isOpen) {
+    return (
+      <Button onClick={() => setIsOpen(true)}>
+        <Plus className="h-4 w-4" />
+        New App Target
+      </Button>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <AppWindow className="h-4 w-4" />
-          New App Target
-        </CardTitle>
-        <CardDescription>Store-facing apps that can reference shared credentials.</CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2">
+              <AppWindow className="h-4 w-4" />
+              New App Target
+            </CardTitle>
+            <CardDescription>
+              Store-facing apps that can reference shared credentials.
+            </CardDescription>
+          </div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4" />
+            Cancel
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3 md:grid-cols-3">
@@ -833,6 +874,7 @@ function AppTargetList({
 
 function CommandForm({ targets }: { targets: AppTarget[] }) {
   const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState({
     name: '',
     command: '',
@@ -846,6 +888,7 @@ function CommandForm({ targets }: { targets: AppTarget[] }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['developer-commands'] });
       setForm({ name: '', command: '', working_dir: '', app_target_id: '', tags: '' });
+      setIsOpen(false);
       toast.success('Command saved');
     },
     onError: (err) => toast.error(`Failed to save command: ${err}`),
@@ -865,14 +908,31 @@ function CommandForm({ targets }: { targets: AppTarget[] }) {
     });
   };
 
+  if (!isOpen) {
+    return (
+      <Button onClick={() => setIsOpen(true)}>
+        <Plus className="h-4 w-4" />
+        New Command Preset
+      </Button>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ClipboardList className="h-4 w-4" />
-          New Command Preset
-        </CardTitle>
-        <CardDescription>Common build, upload, release, and store commands.</CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              New Command Preset
+            </CardTitle>
+            <CardDescription>Common build, upload, release, and store commands.</CardDescription>
+          </div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4" />
+            Cancel
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3 md:grid-cols-3">

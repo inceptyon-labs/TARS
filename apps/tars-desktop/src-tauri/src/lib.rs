@@ -289,7 +289,7 @@ fn spawn_pricing_refresh_loop(app_handle: tauri::AppHandle) {
     use std::time::Duration;
     use tars_core::pricing::{get_metadata, METADATA_KEY_LAST_REFRESH};
 
-    const REFRESH_INTERVAL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+    const REFRESH_INTERVAL: Duration = Duration::from_hours(168);
     // Stagger the first refresh slightly so app startup is not delayed by the
     // network call. 30 seconds is enough for the UI to render and the user to
     // start interacting before we hit the network.

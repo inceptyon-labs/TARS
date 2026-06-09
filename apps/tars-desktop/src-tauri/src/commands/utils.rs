@@ -172,7 +172,7 @@ pub async fn list_subdirectories(path: String) -> Result<Vec<DirectoryInfo>, Str
     }
 
     // Sort by name
-    dirs.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    dirs.sort_by_key(|a| a.name.to_lowercase());
 
     Ok(dirs)
 }

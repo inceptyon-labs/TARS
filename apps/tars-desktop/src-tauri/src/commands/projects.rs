@@ -321,7 +321,7 @@ fn estimate_tokens(chars: usize) -> usize {
 }
 
 fn read_file_size(path: &PathBuf) -> usize {
-    std::fs::read_to_string(path).map(|s| s.len()).unwrap_or(0)
+    std::fs::read_to_string(path).map_or(0, |s| s.len())
 }
 
 fn collect_directory_items(dir: &PathBuf, extension: &str, scope: &str) -> Vec<ContextItem> {
@@ -351,7 +351,7 @@ fn collect_directory_items(dir: &PathBuf, extension: &str, scope: &str) -> Vec<C
     }
 
     // Sort by tokens descending
-    items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+    items.sort_by_key(|b| std::cmp::Reverse(b.tokens));
     items
 }
 
@@ -518,7 +518,7 @@ fn parse_mcp_servers(home: &str, project_path: &PathBuf) -> Vec<McpComplexity> {
     }
 
     // Sort by complexity score descending
-    servers.sort_by(|a, b| b.complexity_score.cmp(&a.complexity_score));
+    servers.sort_by_key(|b| std::cmp::Reverse(b.complexity_score));
     servers
 }
 
@@ -543,7 +543,7 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
         "md",
         "project",
     ));
-    skills_items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+    skills_items.sort_by_key(|b| std::cmp::Reverse(b.tokens));
     let skills_chars: usize = skills_items.iter().map(|i| i.chars).sum();
     let skills_count = skills_items.len();
 
@@ -554,7 +554,7 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
         "md",
         "project",
     ));
-    commands_items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+    commands_items.sort_by_key(|b| std::cmp::Reverse(b.tokens));
     let commands_chars: usize = commands_items.iter().map(|i| i.chars).sum();
     let commands_count = commands_items.len();
 
@@ -565,7 +565,7 @@ pub async fn get_context_stats(project_path: String) -> Result<ContextStats, Str
         "md",
         "project",
     ));
-    agents_items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+    agents_items.sort_by_key(|b| std::cmp::Reverse(b.tokens));
     let agents_chars: usize = agents_items.iter().map(|i| i.chars).sum();
     let agents_count = agents_items.len();
 
