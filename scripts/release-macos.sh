@@ -16,6 +16,23 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
 
+# Revert a stranded version bump if the release aborts before committing.
+# Without this, a failed build leaves the version files dirty and the next
+# unrelated commit silently swallows the bump.
+VERSION_BUMPED=0
+cleanup() {
+    local code=$?
+    if [[ $code -ne 0 && $VERSION_BUMPED -eq 1 ]]; then
+        echo ""
+        echo -e "${YELLOW}  Release aborted — reverting version bump...${NC}"
+        git checkout -- Cargo.toml \
+            apps/tars-desktop/package.json \
+            apps/tars-desktop/src-tauri/tauri.conf.json 2>/dev/null || true
+        echo -e "${YELLOW}  Version files restored to last commit.${NC}"
+    fi
+}
+trap cleanup EXIT
+
 # Get current version
 CURRENT_VERSION=$(grep '"version"' apps/tars-desktop/package.json | head -1 | sed 's/.*"version": "\([^"]*\)".*/\1/')
 
@@ -96,6 +113,13 @@ SIGNING_KEY_FILE="$HOME/.tauri/tars.key"
 if [[ -f "$SIGNING_KEY_FILE" ]]; then
     export TAURI_SIGNING_PRIVATE_KEY=$(cat "$SIGNING_KEY_FILE")
     export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="***REMOVED***"
+    # Fail loudly now rather than 4 minutes into the build: the updater bundle
+    # is signed at the very end, so an empty/unreadable key would otherwise only
+    # surface after the full compile.
+    if [[ -z "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
+        echo -e "${RED}  Signing key file is empty or unreadable: $SIGNING_KEY_FILE${NC}"
+        exit 1
+    fi
     echo -e "${BLUE}[0/7]${NC} Loaded signing key from ~/.tauri/tars.key"
     echo ""
 else
@@ -132,6 +156,10 @@ if [[ "$CARGO_VER" != "$NEW_VERSION" || "$PKG_VER" != "$NEW_VERSION" || "$TAURI_
     echo "    tauri.conf.json: $TAURI_VER"
     exit 1
 fi
+
+# From here on, the version files are modified; if anything below fails the
+# EXIT trap reverts them so we never strand a dirty bump.
+VERSION_BUMPED=1
 
 # Run checks
 echo ""
@@ -179,6 +207,8 @@ git add Cargo.toml apps/tars-desktop/package.json apps/tars-desktop/src-tauri/ta
 git add Cargo.lock 2>/dev/null || true
 git add apps/tars-desktop/ 2>/dev/null || true
 git commit -m "chore: bump version to $NEW_VERSION"
+# Bump is now committed; the trap must not revert it on a later failure.
+VERSION_BUMPED=0
 git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
 
 echo "       ✓ Committed version bump"
