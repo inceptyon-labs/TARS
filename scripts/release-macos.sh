@@ -108,16 +108,27 @@ echo -e "${BOLD}  Starting release process...${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Load signing key
+# Load signing key + password.
+# NEVER hardcode the password here — this script is committed. The password is
+# read from $TAURI_SIGNING_PRIVATE_KEY_PASSWORD if already exported, otherwise
+# from ~/.tauri/tars.key.pass (which lives outside the repo and is never tracked).
 SIGNING_KEY_FILE="$HOME/.tauri/tars.key"
+SIGNING_PASS_FILE="$HOME/.tauri/tars.key.pass"
 if [[ -f "$SIGNING_KEY_FILE" ]]; then
     export TAURI_SIGNING_PRIVATE_KEY=$(cat "$SIGNING_KEY_FILE")
-    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="***REMOVED***"
+    if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" && -f "$SIGNING_PASS_FILE" ]]; then
+        export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(cat "$SIGNING_PASS_FILE")
+    fi
     # Fail loudly now rather than 4 minutes into the build: the updater bundle
     # is signed at the very end, so an empty/unreadable key would otherwise only
     # surface after the full compile.
     if [[ -z "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
         echo -e "${RED}  Signing key file is empty or unreadable: $SIGNING_KEY_FILE${NC}"
+        exit 1
+    fi
+    if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
+        echo -e "${RED}  Signing key password not found.${NC}"
+        echo "  Set TAURI_SIGNING_PRIVATE_KEY_PASSWORD, or write it to ~/.tauri/tars.key.pass"
         exit 1
     fi
     echo -e "${BLUE}[0/7]${NC} Loaded signing key from ~/.tauri/tars.key"
