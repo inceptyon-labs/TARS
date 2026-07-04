@@ -136,6 +136,7 @@ pub fn run() {
             commands::deploy_skill,
             commands::undeploy_skill,
             commands::get_project_skill_matrix,
+            commands::get_plugin_skill_names,
             // Agent commands
             commands::read_agent,
             commands::save_agent,

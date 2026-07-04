@@ -468,7 +468,7 @@ fn collect_plugin_command_paths(plugin: &InstalledPlugin) -> Result<Vec<PathBuf>
     Ok(command_paths)
 }
 
-fn plugin_skills_root(plugin: &InstalledPlugin) -> PathBuf {
+pub(crate) fn plugin_skills_root(plugin: &InstalledPlugin) -> PathBuf {
     plugin.manifest.skills.as_ref().map_or_else(
         || plugin.path.join("skills"),
         |path| resolve_plugin_relative_path(&plugin.path, path),

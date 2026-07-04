@@ -5,20 +5,24 @@
 //! (default) or copy; its presence is the on/off state — nothing is written to
 //! `settings.json` or `config.toml`.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use tars_scanner::plugins::PluginInventory;
+
 use tars_core::skills::{
-    deploy, probe_target, resolve_skills_dir, scan_sources, symlink_points_to, undeploy, Agent,
-    CatalogSkill, LinkKind, Scope, TargetProbe,
+    deploy, probe_target, resolve_skills_dir, scan_source, scan_sources, symlink_points_to,
+    undeploy, Agent, CatalogSkill, LinkKind, Scope, TargetProbe,
 };
 use tars_core::storage::skill_library::{
     SkillDeployment, SkillDeploymentInput, SkillDeploymentStore, SkillSource, SkillSourceStore,
 };
 use tars_core::storage::{Database, ProjectStore};
 
+use crate::commands::plugins::plugin_skills_root;
 use crate::state::AppState;
 
 /// Resolve a project's absolute root path from its UUID.
@@ -91,6 +95,45 @@ fn source_dirs(state: &State<'_, AppState>) -> Result<Vec<PathBuf>, String> {
             .into_iter()
             .map(|s| PathBuf::from(s.path))
             .collect())
+    })
+}
+
+/// Skill names provided by installed, enabled plugins, per agent — a map of
+/// skill name to the providing plugin's id. The Skill Library uses this to
+/// badge (and withhold a duplicate standalone toggle for) skills that already
+/// reach an agent via a plugin.
+#[derive(Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginSkillNames {
+    pub claude: HashMap<String, String>,
+    pub codex: HashMap<String, String>,
+}
+
+#[tauri::command]
+pub async fn get_plugin_skill_names() -> Result<PluginSkillNames, String> {
+    // Claude plugin skills come from installed, enabled plugins under
+    // ~/.claude/plugins. We scan each plugin's real skills directory (the same
+    // way the catalog is scanned) so skill names match by frontmatter name.
+    // Codex plugins surface as discovered marketplaces rather than installed
+    // skill bundles, so there is nothing to map there yet.
+    let inventory = PluginInventory::scan().map_err(|e| format!("Failed to scan plugins: {e}"))?;
+
+    let mut claude = HashMap::new();
+    for plugin in inventory.installed {
+        if !plugin.enabled {
+            continue;
+        }
+        let skills_root = plugin_skills_root(&plugin);
+        for skill in scan_source(&skills_root) {
+            claude
+                .entry(skill.name)
+                .or_insert_with(|| plugin.id.clone());
+        }
+    }
+
+    Ok(PluginSkillNames {
+        claude,
+        codex: HashMap::new(),
     })
 }
 

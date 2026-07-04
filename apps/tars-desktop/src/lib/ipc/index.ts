@@ -1593,3 +1593,13 @@ export async function undeploySkill(id: number): Promise<boolean> {
 export async function getProjectSkillMatrix(projectId: string | null): Promise<SkillMatrixRow[]> {
   return invoke('get_project_skill_matrix', { projectId });
 }
+
+export interface PluginSkillNames {
+  // skill name -> providing plugin id
+  claude: Record<string, string>;
+  codex: Record<string, string>;
+}
+
+export async function getPluginSkillNames(): Promise<PluginSkillNames> {
+  return invoke('get_plugin_skill_names');
+}

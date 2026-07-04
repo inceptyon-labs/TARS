@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   Bot,
   Box,
@@ -96,6 +97,7 @@ type CodexPluginRow = CodexAvailablePlugin & {
 
 export function PluginsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [runtimeFilter, setRuntimeFilter] = useState<RuntimeFilter>('all');
   const [showAddPluginDialog, setShowAddPluginDialog] = useState(false);
   const [pluginSourceKind, setPluginSourceKind] = useState<'direct' | 'marketplace'>('direct');
@@ -1000,16 +1002,16 @@ export function PluginsPage() {
         <section className="rounded-md border border-border bg-muted/20 p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <Badge variant="outline">Claude Code native</Badge>
-                <Badge variant="secondary">Codex discovery</Badge>
-                <Badge variant="outline">Managed targets</Badge>
-              </div>
-              <h3 className="text-base font-semibold">Runtime-aware plugin marketplace</h3>
+              <h3 className="text-base font-semibold">Plugins</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Claude Code marketplace management stays fully available here, and Codex support
-                surfaces discovered marketplace files and plugin manifests across user and project
-                scopes.
+                Install and manage plugins for Claude Code and Codex. A plugin bundles skills,
+                commands, agents, and MCP servers, and toggles on or off as a single unit.{' '}
+                <button
+                  onClick={() => navigate('/skill-library')}
+                  className="text-primary hover:underline"
+                >
+                  Standalone (non-plugin) skills live in the Skill Library →
+                </button>
               </p>
             </div>
 
@@ -1072,8 +1074,8 @@ export function PluginsPage() {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 {codexMarketplaces.length > 0
-                  ? `${codexPlugins.length} plugins surfaced from ${codexMarketplaces.length} discovered marketplace${codexMarketplaces.length !== 1 ? 's' : ''}.`
-                  : 'No Codex marketplace files are currently discovered in the scanned user or project scopes.'}
+                  ? `${codexPlugins.length} plugin${codexPlugins.length !== 1 ? 's' : ''} available from ${codexMarketplaces.length} Codex marketplace${codexMarketplaces.length !== 1 ? 's' : ''}.`
+                  : 'No Codex plugin marketplaces found yet.'}
               </p>
             </div>
 
@@ -1086,8 +1088,8 @@ export function PluginsPage() {
                 <Badge variant="outline">Preview</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Bundle export is the planned bridge for authoring once and targeting Claude Code
-                plugins and Codex plugins from the same source.
+                Not built yet — a planned exporter to author a plugin once and publish it to both
+                Claude Code and Codex.
               </p>
             </div>
           </div>
@@ -1099,8 +1101,8 @@ export function PluginsPage() {
               <div>
                 <CardTitle className="text-base">Managed Plugins</CardTitle>
                 <CardDescription>
-                  TARS remembers the plugins you want available across Claude Code, Codex, or both,
-                  then lets you reapply or remove them from one place.
+                  Optional: pin a plugin here to keep it available across Claude Code and/or Codex
+                  and re-apply or remove it from one place.
                 </CardDescription>
               </div>
               <Badge variant="outline">{pluginSubscriptions.length} managed</Badge>
@@ -1109,8 +1111,9 @@ export function PluginsPage() {
           <CardContent>
             {pluginSubscriptions.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-6 text-sm text-muted-foreground">
-                No managed plugins yet. Use <span className="font-medium">Add Plugin</span> to save
-                a cross-runtime plugin subscription.
+                Nothing pinned yet — this is optional. Use{' '}
+                <span className="font-medium">Add Plugin</span> to pin a plugin across Claude Code
+                and Codex.
               </div>
             ) : (
               <div className="space-y-3">
