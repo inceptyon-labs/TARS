@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  EyeOff,
 } from 'lucide-react';
 import {
   listProjects,
@@ -25,10 +26,14 @@ import {
   getProjectSkillMatrix,
   deploySkill,
   undeploySkill,
+  setSkillMute,
+  resyncSkillDeployment,
+  setProjectPluginEnabled,
   type SkillCell,
   type SkillMatrixRow,
   type SkillAgent,
   type SkillGroup,
+  type SkillMuteState,
 } from '../lib/ipc';
 import type { ProjectInfo } from '../lib/types';
 import { cn } from '../lib/utils';
@@ -158,6 +163,61 @@ export function SkillLibraryPage() {
         await applyCell(row, agent, row[agent], turnOn);
       }
       invalidateMatrix();
+    } catch (e) {
+      toast.error(`${e}`);
+    } finally {
+      setBusyGroup(null);
+    }
+  }
+
+  // Set a Claude standalone skill's mute state (null = fully visible).
+  async function muteCell(row: SkillMatrixRow, agent: SkillAgent, next: SkillMuteState | null) {
+    const cell = row[agent];
+    if (cell.deploymentId == null) return;
+    const key = `${row.name}:${agent}`;
+    setBusyCell(key);
+    try {
+      await setSkillMute(cell.deploymentId, next);
+      invalidateMatrix();
+    } catch (e) {
+      toast.error(`${e}`);
+    } finally {
+      setBusyCell(null);
+    }
+  }
+
+  // Re-copy a drifted copy deployment from its source.
+  async function resyncCell(row: SkillMatrixRow, agent: SkillAgent) {
+    const cell = row[agent];
+    if (cell.deploymentId == null) return;
+    const key = `${row.name}:${agent}`;
+    setBusyCell(key);
+    try {
+      await resyncSkillDeployment(cell.deploymentId);
+      invalidateMatrix();
+      toast.success(`Re-synced ${row.name}`);
+    } catch (e) {
+      toast.error(`${e}`);
+    } finally {
+      setBusyCell(null);
+    }
+  }
+
+  // Enable/disable a whole plugin for the current project (enabledPlugins).
+  async function togglePluginHere(group: SkillGroup) {
+    if (!targetProjectId || !group.pluginId) return;
+    const pluginKey = group.pluginMarketplace
+      ? `${group.pluginId}@${group.pluginMarketplace}`
+      : group.pluginId;
+    setBusyGroup(`${groupKey(group)}:plugin-here`);
+    try {
+      await setProjectPluginEnabled(targetProjectId, pluginKey, group.pluginDisabledHere);
+      invalidateMatrix();
+      toast.success(
+        group.pluginDisabledHere
+          ? `Enabled ${group.label} here`
+          : `Disabled ${group.label} for this project`
+      );
     } catch (e) {
       toast.error(`${e}`);
     } finally {
@@ -320,6 +380,8 @@ export function SkillLibraryPage() {
                                   busy={busyCell === `${row.name}:${a.key}`}
                                   onToggle={() => toggleCell(row, a.key, row[a.key])}
                                   onBadgeClick={() => navigate('/plugins')}
+                                  onMute={(next) => muteCell(row, a.key, next)}
+                                  onResync={() => resyncCell(row, a.key)}
                                 />
                               </div>
                             ))}
@@ -355,6 +417,27 @@ export function SkillLibraryPage() {
                               {group.skills.length} skill{group.skills.length !== 1 ? 's' : ''}
                             </span>
                           </button>
+                          {group.kind === 'plugin' && scope === 'project' && (
+                            <button
+                              type="button"
+                              onClick={() => togglePluginHere(group)}
+                              disabled={busyGroup === `${key}:plugin-here`}
+                              title={
+                                group.pluginDisabledHere
+                                  ? 'Disabled for this project — click to re-enable'
+                                  : "Disable this whole plugin for this project (writes enabledPlugins). Claude can't mute individual plugin skills."
+                              }
+                              className={cn(
+                                'shrink-0 mr-2 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition-colors',
+                                group.pluginDisabledHere
+                                  ? 'border-amber-500/50 bg-amber-500/10 text-amber-500'
+                                  : 'border-border text-muted-foreground hover:text-foreground'
+                              )}
+                            >
+                              <EyeOff className="w-3 h-3" />
+                              {group.pluginDisabledHere ? 'off here' : 'disable here'}
+                            </button>
+                          )}
                           <div className="flex items-center shrink-0">
                             {AGENTS.map((a) => (
                               <div key={a.key} className="w-20 flex justify-center">
@@ -392,6 +475,8 @@ export function SkillLibraryPage() {
                                       busy={busyCell === `${row.name}:${a.key}`}
                                       onToggle={() => toggleCell(row, a.key, row[a.key])}
                                       onBadgeClick={() => navigate('/plugins')}
+                                      onMute={(next) => muteCell(row, a.key, next)}
+                                      onResync={() => resyncCell(row, a.key)}
                                     />
                                   </div>
                                 ))}
@@ -460,18 +545,31 @@ function SkillCellControl({
   busy,
   onToggle,
   onBadgeClick,
+  onMute,
+  onResync,
 }: {
   row: SkillMatrixRow;
   agent: SkillAgent;
   busy: boolean;
   onToggle: () => void;
   onBadgeClick: () => void;
+  onMute: (next: SkillMuteState | null) => void;
+  onResync: () => void;
 }) {
   const cell = row[agent];
   if (cell.status === 'plugin' && cell.pluginId) {
     return <PluginBadge pluginId={cell.pluginId} onClick={onBadgeClick} />;
   }
-  return <CellToggle cell={cell} busy={busy} onToggle={onToggle} />;
+  return (
+    <CellToggle
+      cell={cell}
+      agent={agent}
+      busy={busy}
+      onToggle={onToggle}
+      onMute={onMute}
+      onResync={onResync}
+    />
+  );
 }
 
 function GroupCell({
@@ -536,14 +634,27 @@ function TargetRow({
   );
 }
 
+const MUTE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Full' },
+  { value: 'name-only', label: 'Name only' },
+  { value: 'user-invocable-only', label: 'Slash-only' },
+  { value: 'off', label: 'Muted' },
+];
+
 function CellToggle({
   cell,
+  agent,
   busy,
   onToggle,
+  onMute,
+  onResync,
 }: {
   cell: SkillCell;
+  agent: SkillAgent;
   busy: boolean;
   onToggle: () => void;
+  onMute: (next: SkillMuteState | null) => void;
+  onResync: () => void;
 }) {
   if (cell.status === 'collision') {
     return (
@@ -555,21 +666,60 @@ function CellToggle({
       </span>
     );
   }
+  // Muting only applies to a deployed Claude skill on a build that honors it.
+  const canMute = agent === 'claude' && cell.deployed && cell.muteSupported;
+  const muted = cell.muteState != null;
   return (
-    <label className="inline-flex items-center justify-center gap-1.5 cursor-pointer">
-      <input
-        type="checkbox"
-        className="accent-primary w-4 h-4"
-        checked={cell.deployed}
-        disabled={busy}
-        onChange={onToggle}
-      />
-      {cell.status === 'adopted' && (
-        <span title="Deployed via an existing symlink (not created by TARS)">
-          <Link2 className="w-3 h-3 text-blue-400" />
-        </span>
+    <div className="inline-flex flex-col items-center gap-1">
+      <div className="inline-flex items-center gap-1">
+        <input
+          type="checkbox"
+          className="accent-primary w-4 h-4 cursor-pointer"
+          checked={cell.deployed}
+          disabled={busy}
+          onChange={onToggle}
+        />
+        {cell.status === 'adopted' && (
+          <span title="Deployed via an existing symlink (not created by TARS)">
+            <Link2 className="w-3 h-3 text-blue-400" />
+          </span>
+        )}
+        {muted && !canMute && (
+          <span title="Hidden from the model in this scope">
+            <EyeOff className="w-3 h-3 text-amber-500" />
+          </span>
+        )}
+        {cell.drifted && (
+          <button
+            type="button"
+            onClick={onResync}
+            disabled={busy}
+            title="Source changed since this copy was deployed — click to re-sync"
+            className="text-amber-500 hover:text-amber-400"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {canMute && (
+        <select
+          className={cn(
+            'text-[10px] bg-transparent border border-border rounded px-0.5 py-0 max-w-[76px] cursor-pointer',
+            muted ? 'text-amber-500' : 'text-muted-foreground'
+          )}
+          value={cell.muteState ?? ''}
+          disabled={busy}
+          title="Model visibility for this scope (writes skillOverrides in settings.json)"
+          onChange={(e) => onMute((e.target.value || null) as SkillMuteState | null)}
+        >
+          {MUTE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       )}
-    </label>
+    </div>
   );
 }
 

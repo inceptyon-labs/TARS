@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 11;
+const CURRENT_VERSION: i32 = 12;
 
 /// Run all pending migrations
 ///
@@ -55,6 +55,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 11 {
         migrate_v11(conn)?;
+    }
+
+    if version < 12 {
+        migrate_v12(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -483,6 +487,27 @@ fn migrate_v11(conn: &Connection) -> Result<(), DatabaseError> {
         ",
     )?;
 
+    Ok(())
+}
+
+fn migrate_v12(conn: &Connection) -> Result<(), DatabaseError> {
+    // Muting middle-state (v2). A deployed skill can be present-but-hidden from
+    // the model via the agent's settings file. NULL / 'on' = fully visible;
+    // 'name-only' | 'user-invocable-only' | 'off' mirror Claude's
+    // skillOverrides states. Only ever set where the agent build supports it
+    // (Claude Code >= 2.1.129 for standalone skills); Codex has no working
+    // file-based per-project mute.
+    let has_column: bool = conn
+        .prepare("PRAGMA table_info(skill_deployments)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(Result::ok)
+        .any(|name| name == "mute_state");
+    if !has_column {
+        conn.execute(
+            "ALTER TABLE skill_deployments ADD COLUMN mute_state TEXT",
+            [],
+        )?;
+    }
     Ok(())
 }
 

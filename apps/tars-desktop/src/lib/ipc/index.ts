@@ -1037,34 +1037,6 @@ export interface RuntimeTargetResult {
   message: string;
 }
 
-export interface AddPluginTargetsResponse {
-  source: string;
-  plugin_name: string;
-  claude: RuntimeTargetResult | null;
-  codex: RuntimeTargetResult | null;
-}
-
-export interface PluginSubscription {
-  id: number;
-  plugin_name: string;
-  source: string;
-  source_kind: string;
-  marketplace_source: string | null;
-  marketplace_name: string | null;
-  codex_source: string | null;
-  scope: string;
-  targets: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RemovePluginSubscriptionResponse {
-  id: number;
-  plugin_name: string;
-  claude: RuntimeTargetResult | null;
-  codex: RuntimeTargetResult | null;
-}
-
 export interface CodexPluginBridge {
   key: string;
   plugin_name: string;
@@ -1086,40 +1058,6 @@ export interface CodexPluginBridgeOperationResult {
 
 export interface CodexPluginBridgeSyncResponse {
   results: CodexPluginBridgeOperationResult[];
-}
-
-export async function addPluginToTargets(
-  sourceKind: 'direct' | 'marketplace',
-  source: string,
-  pluginName: string | null,
-  marketplaceSource: string | null,
-  marketplaceName: string | null,
-  codexSource: string | null,
-  targets: Array<'claude-code' | 'codex'>
-): Promise<AddPluginTargetsResponse> {
-  return invoke('add_plugin_to_targets', {
-    sourceKind,
-    source,
-    pluginName,
-    marketplaceSource,
-    marketplaceName,
-    codexSource,
-    targets,
-  });
-}
-
-export async function listPluginSubscriptions(): Promise<PluginSubscription[]> {
-  return invoke('list_plugin_subscriptions');
-}
-
-export async function syncPluginSubscription(id: number): Promise<AddPluginTargetsResponse> {
-  return invoke('sync_plugin_subscription', { id });
-}
-
-export async function removePluginSubscription(
-  id: number
-): Promise<RemovePluginSubscriptionResponse> {
-  return invoke('remove_plugin_subscription', { id });
 }
 
 export async function listCodexPluginBridges(): Promise<CodexPluginBridge[]> {
@@ -1536,6 +1474,10 @@ export interface CatalogSkill {
 
 export type SkillCellStatus = 'on' | 'off' | 'adopted' | 'collision' | 'plugin';
 
+// Muting middle-state. null == fully visible ('on'); the others mirror Claude
+// `skillOverrides`. Only settable on Claude standalone skills where supported.
+export type SkillMuteState = 'name-only' | 'user-invocable-only' | 'off';
+
 export interface SkillCell {
   status: SkillCellStatus;
   deployed: boolean;
@@ -1545,6 +1487,12 @@ export interface SkillCell {
   linkPath: string;
   // Providing plugin id when status === 'plugin'.
   pluginId: string | null;
+  // Copy deploy whose on-disk source no longer matches the deploy-time hash.
+  drifted: boolean;
+  // null/'on' = visible; otherwise a mute state written to settings.json.
+  muteState: SkillMuteState | null;
+  // Whether this cell can be muted on the installed agent build.
+  muteSupported: boolean;
 }
 
 export interface SkillMatrixRow {
@@ -1559,6 +1507,10 @@ export interface SkillGroup {
   kind: 'plugin' | 'source';
   label: string;
   pluginId: string | null;
+  // Marketplace behind a plugin group; forms the `id@marketplace` enabledPlugins key.
+  pluginMarketplace: string | null;
+  // Whether this plugin is disabled for the current project via enabledPlugins.
+  pluginDisabledHere: boolean;
   sourceRoot: string | null;
   // True when the source dir is itself a single skill (not a folder of skills).
   singleSkill: boolean;
@@ -1604,4 +1556,28 @@ export async function undeploySkill(id: number): Promise<boolean> {
 
 export async function getProjectSkillMatrix(projectId: string | null): Promise<SkillGroup[]> {
   return invoke('get_project_skill_matrix', { projectId });
+}
+
+// Set (or clear, with null) a Claude standalone skill's mute state via
+// skillOverrides in the deployment's scope settings.json.
+export async function setSkillMute(
+  deploymentId: number,
+  muteState: SkillMuteState | null
+): Promise<void> {
+  return invoke('set_skill_mute', { deploymentId, muteState });
+}
+
+// Re-copy a drifted copy deployment from its source, refreshing the hash.
+export async function resyncSkillDeployment(deploymentId: number): Promise<boolean> {
+  return invoke('resync_skill_deployment', { deploymentId });
+}
+
+// Enable/disable a whole plugin for a project via enabledPlugins (the only
+// per-project lever for plugin-provided skills).
+export async function setProjectPluginEnabled(
+  projectId: string,
+  pluginKey: string,
+  enabled: boolean
+): Promise<void> {
+  return invoke('set_project_plugin_enabled', { projectId, pluginKey, enabled });
 }

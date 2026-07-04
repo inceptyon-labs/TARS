@@ -99,6 +99,8 @@ pub enum SkillDeployError {
     TargetExists { name: String, path: PathBuf },
     #[error("refusing to remove {0}: expected a TARS-created symlink but found a real file/dir")]
     NotASymlink(PathBuf),
+    #[error("refusing to re-sync {0}: expected a copied directory but found a symlink or file")]
+    TargetNotACopy(PathBuf),
     #[error("a project root is required for project scope")]
     ProjectRootRequired,
     #[error("io error: {0}")]
@@ -203,7 +205,7 @@ pub fn deploy(
 
     // Only copies can drift from the source; symlinks are the source.
     let sha256 = match link_kind {
-        LinkKind::Copy => hash_skill_md(source_skill_dir),
+        LinkKind::Copy => hash_bundle(source_skill_dir),
         LinkKind::Symlink => None,
     };
 
@@ -236,6 +238,23 @@ pub fn undeploy(link_path: &Path, link_kind: LinkKind) -> Result<(), SkillDeploy
         return Err(SkillDeployError::NotASymlink(link_path.to_path_buf()));
     }
 
+    Ok(())
+}
+
+/// Repoint an existing symlink deployment at a new source (pin-following).
+///
+/// Removes the current link — only if it is actually a symlink — and recreates
+/// it pointing at `new_source`. Refuses to touch a real file or directory at
+/// `link_path`, so it can never destroy a hand-placed skill. A missing link is
+/// simply created.
+pub fn repoint_symlink(new_source: &Path, link_path: &Path) -> Result<(), SkillDeployError> {
+    match link_path.symlink_metadata() {
+        Ok(meta) if meta.file_type().is_symlink() => remove_symlink(link_path)?,
+        Ok(_) => return Err(SkillDeployError::NotASymlink(link_path.to_path_buf())),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
+    }
+    make_symlink(new_source, link_path)?;
     Ok(())
 }
 
@@ -279,9 +298,69 @@ fn copy_dir(src: &Path, dst: &Path) -> Result<(), SkillDeployError> {
     Ok(())
 }
 
-fn hash_skill_md(skill_dir: &Path) -> Option<String> {
-    let content = fs::read(skill_dir.join("SKILL.md")).ok()?;
-    Some(hex::encode(Sha256::digest(&content)))
+/// Hash a skill's entire on-disk bundle, not just `SKILL.md`.
+///
+/// Every regular file under `skill_dir` contributes its relative path and
+/// contents, in sorted-path order, so a changed supporting file
+/// (`scripts/*`, `references/*`, …) shifts the hash. Nested symlinks are
+/// skipped, matching [`copy_dir`] (which does not follow them) so the hash
+/// describes exactly what a copy deploy materializes. Returns `None` if the
+/// tree cannot be read.
+///
+/// Used for drift detection on COPY deploys — a symlink deploy *is* the source
+/// and never drifts, so it carries no hash.
+pub fn hash_bundle(skill_dir: &Path) -> Option<String> {
+    let mut files: Vec<(String, PathBuf)> = Vec::new();
+    for entry in WalkDir::new(skill_dir).follow_links(false) {
+        let entry = entry.ok()?;
+        // Skip directories and nested symlinks; only real files are content.
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let rel = entry.path().strip_prefix(skill_dir).ok()?;
+        // Normalize separators so the hash is stable across platforms.
+        let rel = rel.to_string_lossy().replace('\\', "/");
+        files.push((rel, entry.path().to_path_buf()));
+    }
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let mut hasher = Sha256::new();
+    for (rel, path) in files {
+        let content = fs::read(&path).ok()?;
+        hasher.update(rel.as_bytes());
+        hasher.update([0u8]); // path/content delimiter
+        hasher.update((content.len() as u64).to_le_bytes());
+        hasher.update(&content);
+    }
+    Some(hex::encode(hasher.finalize()))
+}
+
+/// Re-copy a COPY deployment from its source, refreshing a drifted bundle.
+///
+/// Removes the existing copy (only if it is a real directory — never a
+/// symlink) and re-materializes the whole folder, returning the new bundle
+/// hash. Refuses anything that is not a plain directory at `link_path`, so it
+/// can never clobber a symlink deploy or a foreign file.
+pub fn resync_copy(
+    source_skill_dir: &Path,
+    link_path: &Path,
+) -> Result<Option<String>, SkillDeployError> {
+    if !source_skill_dir.is_dir() {
+        return Err(SkillDeployError::SourceNotFound(
+            source_skill_dir.to_path_buf(),
+        ));
+    }
+    match link_path.symlink_metadata() {
+        Ok(meta) if meta.file_type().is_symlink() => {
+            return Err(SkillDeployError::TargetNotACopy(link_path.to_path_buf()))
+        }
+        Ok(meta) if meta.is_dir() => fs::remove_dir_all(link_path)?,
+        Ok(_) => return Err(SkillDeployError::TargetNotACopy(link_path.to_path_buf())),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
+    }
+    copy_dir(source_skill_dir, link_path)?;
+    Ok(hash_bundle(source_skill_dir))
 }
 
 #[cfg(test)]
@@ -430,6 +509,57 @@ mod tests {
             fs::read_to_string(copied.link_path.join("scripts/run.sh")).unwrap(),
             "#!/bin/sh\necho hi\n"
         );
+    }
+
+    #[test]
+    fn bundle_hash_reflects_supporting_files_and_resync_clears_drift() {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("home");
+        let lib = tmp.path().join("lib");
+        fs::create_dir_all(&home).unwrap();
+        let src = make_skill_with_extras(&lib, "rich");
+
+        let res = deploy(
+            &src,
+            "rich",
+            Agent::Codex,
+            Scope::User,
+            None,
+            LinkKind::Copy,
+            &home,
+        )
+        .unwrap();
+        let deployed_hash = res.sha256.clone().unwrap();
+
+        // Changing a SUPPORTING file (not SKILL.md) must move the hash — the
+        // v1 SKILL.md-only hash would have missed this.
+        fs::write(src.join("references").join("guide.md"), "# guide v2\n").unwrap();
+        let current = hash_bundle(&src).unwrap();
+        assert_ne!(deployed_hash, current, "supporting-file edit should drift");
+
+        // Re-sync re-copies the source and returns the fresh hash, clearing drift.
+        let refreshed = resync_copy(&src, &res.link_path).unwrap().unwrap();
+        assert_eq!(refreshed, current);
+        assert_eq!(
+            fs::read_to_string(res.link_path.join("references/guide.md")).unwrap(),
+            "# guide v2\n"
+        );
+
+        // Re-sync refuses to touch a symlink deploy.
+        let link = deploy(
+            &src,
+            "rich",
+            Agent::Claude,
+            Scope::User,
+            None,
+            LinkKind::Symlink,
+            &home,
+        )
+        .unwrap();
+        assert!(matches!(
+            resync_copy(&src, &link.link_path),
+            Err(SkillDeployError::TargetNotACopy(_))
+        ));
     }
 
     #[test]

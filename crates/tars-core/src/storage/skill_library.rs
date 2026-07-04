@@ -41,6 +41,10 @@ pub struct SkillDeployment {
     pub link_kind: String,
     /// Content hash captured at deploy time (used to detect drift for copies).
     pub sha256: Option<String>,
+    /// Muting middle-state: `None`/`"on"` = fully visible; `"name-only"`,
+    /// `"user-invocable-only"`, `"off"` mirror Claude `skillOverrides`. Non-null
+    /// implies a settings-file entry was written for this target.
+    pub mute_state: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -91,6 +95,7 @@ fn row_to_deployment(row: &rusqlite::Row<'_>) -> Result<SkillDeployment, rusqlit
         link_path: row.get(6)?,
         link_kind: row.get(7)?,
         sha256: row.get(8)?,
+        mute_state: row.get(11)?,
         created_at: parse_datetime(&created_at)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
         updated_at: parse_datetime(&updated_at)
@@ -168,7 +173,7 @@ impl<'a> SkillSourceStore<'a> {
 }
 
 const DEPLOYMENT_COLUMNS: &str = "id, skill_name, source_path, agent, scope, project_id, \
-     link_path, link_kind, sha256, created_at, updated_at";
+     link_path, link_kind, sha256, created_at, updated_at, mute_state";
 
 /// Store for cross-agent skill deployments.
 pub struct SkillDeploymentStore<'a> {
@@ -281,6 +286,38 @@ impl<'a> SkillDeploymentStore<'a> {
             .conn
             .execute("DELETE FROM skill_deployments WHERE id = ?1", params![id])?;
         Ok(count > 0)
+    }
+
+    /// Refresh the stored content hash after a copy deploy is re-synced.
+    pub fn update_sha256(&self, id: i64, sha256: Option<&str>) -> Result<(), DatabaseError> {
+        let now = Utc::now().to_rfc3339();
+        self.conn.execute(
+            "UPDATE skill_deployments SET sha256 = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id, sha256, now],
+        )?;
+        Ok(())
+    }
+
+    /// Repoint a deployment at a new source (pin-following: a plugin update
+    /// moved its version-pinned cache dir, so the symlink was recreated to the
+    /// current version and the recorded origin must follow).
+    pub fn update_source_path(&self, id: i64, source_path: &str) -> Result<(), DatabaseError> {
+        let now = Utc::now().to_rfc3339();
+        self.conn.execute(
+            "UPDATE skill_deployments SET source_path = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id, source_path, now],
+        )?;
+        Ok(())
+    }
+
+    /// Set (or clear, with `None`) the muting middle-state for a deployment.
+    pub fn set_mute_state(&self, id: i64, mute_state: Option<&str>) -> Result<(), DatabaseError> {
+        let now = Utc::now().to_rfc3339();
+        self.conn.execute(
+            "UPDATE skill_deployments SET mute_state = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id, mute_state, now],
+        )?;
+        Ok(())
     }
 }
 
