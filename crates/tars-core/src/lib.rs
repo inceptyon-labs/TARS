@@ -31,6 +31,7 @@ pub mod export;
 pub mod pricing;
 pub mod profile;
 pub mod project;
+pub mod skills;
 pub mod storage;
 pub mod util;
 

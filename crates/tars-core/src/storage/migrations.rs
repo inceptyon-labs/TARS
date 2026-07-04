@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use super::db::DatabaseError;
 
-const CURRENT_VERSION: i32 = 10;
+const CURRENT_VERSION: i32 = 11;
 
 /// Run all pending migrations
 ///
@@ -51,6 +51,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), DatabaseError> {
 
     if version < 10 {
         migrate_v10(conn)?;
+    }
+
+    if version < 11 {
+        migrate_v11(conn)?;
     }
 
     conn.pragma_update(None, "user_version", CURRENT_VERSION)?;
@@ -430,6 +434,58 @@ fn migrate_v10(conn: &Connection) -> Result<(), DatabaseError> {
     Ok(())
 }
 
+fn migrate_v11(conn: &Connection) -> Result<(), DatabaseError> {
+    // Cross-agent standalone skills manager.
+    //
+    // `skill_sources` are directories TARS scans for standalone SKILL.md
+    // bundles (the "library"). Skills there are dormant catalog entries until
+    // deployed.
+    //
+    // `skill_deployments` record where a catalog skill has been materialized,
+    // keyed by agent (claude | codex) and scope (user | project). A row present
+    // means the skill is deployed ("on") for that target; absence means "off".
+    // `link_path` is the symlink (or copy) TARS created and must be removed on
+    // undeploy. `project_id` is NULL for user-scope targets.
+    conn.execute_batch(
+        r"
+        CREATE TABLE IF NOT EXISTS skill_sources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL UNIQUE,
+            label TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS skill_deployments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            skill_name TEXT NOT NULL,
+            source_path TEXT NOT NULL,
+            agent TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+            link_path TEXT NOT NULL,
+            link_kind TEXT NOT NULL DEFAULT 'symlink',
+            sha256 TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        -- One deployment of a given skill per (agent, scope, project) target.
+        -- IFNULL folds user-scope rows (NULL project_id) so they dedupe too,
+        -- since SQLite treats NULLs as distinct in a plain UNIQUE constraint.
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_deployments_target
+            ON skill_deployments(agent, scope, IFNULL(project_id, ''), skill_name);
+
+        CREATE INDEX IF NOT EXISTS idx_skill_deployments_project
+            ON skill_deployments(project_id);
+        CREATE INDEX IF NOT EXISTS idx_skill_deployments_skill
+            ON skill_deployments(skill_name);
+        ",
+    )?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -660,6 +716,88 @@ mod tests {
                 "missing plugin subscription col {expected}"
             );
         }
+    }
+
+    #[test]
+    fn v11_creates_skill_library_tables() {
+        let conn = fresh_conn();
+        let source_cols = table_columns(&conn, "skill_sources");
+        for expected in ["id", "path", "label", "created_at", "updated_at"] {
+            assert!(
+                source_cols.contains(&expected.to_string()),
+                "missing skill_sources col {expected}"
+            );
+        }
+        let deploy_cols = table_columns(&conn, "skill_deployments");
+        for expected in [
+            "id",
+            "skill_name",
+            "source_path",
+            "agent",
+            "scope",
+            "project_id",
+            "link_path",
+            "link_kind",
+            "sha256",
+            "created_at",
+            "updated_at",
+        ] {
+            assert!(
+                deploy_cols.contains(&expected.to_string()),
+                "missing skill_deployments col {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn skill_deployments_target_unique_including_user_scope() {
+        let conn = fresh_conn();
+        let now = "2026-07-03T00:00:00Z";
+        conn.execute(
+            "INSERT INTO skill_deployments (skill_name, source_path, agent, scope, project_id, link_path, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?6)",
+            params![
+                "deep-research",
+                "/lib/deep-research",
+                "claude",
+                "user",
+                "/u/.claude/skills/deep-research",
+                now
+            ],
+        )
+        .unwrap();
+        // Same (agent, scope, NULL project, skill) must violate the unique index
+        // even though both project_ids are NULL.
+        let dup = conn.execute(
+            "INSERT INTO skill_deployments (skill_name, source_path, agent, scope, project_id, link_path, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?6)",
+            params![
+                "deep-research",
+                "/lib/deep-research",
+                "claude",
+                "user",
+                "/u/.claude/skills/deep-research",
+                now
+            ],
+        );
+        assert!(
+            dup.is_err(),
+            "duplicate user-scope target should violate unique index"
+        );
+        // Same skill on a different agent is a distinct target and allowed.
+        conn.execute(
+            "INSERT INTO skill_deployments (skill_name, source_path, agent, scope, project_id, link_path, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?6)",
+            params![
+                "deep-research",
+                "/lib/deep-research",
+                "codex",
+                "user",
+                "/u/.agents/skills/deep-research",
+                now
+            ],
+        )
+        .unwrap();
     }
 
     #[test]
