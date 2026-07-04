@@ -15,6 +15,7 @@ import {
   Puzzle,
   ChevronDown,
   ChevronRight,
+  FileText,
 } from 'lucide-react';
 import {
   listProjects,
@@ -293,6 +294,39 @@ export function SkillLibraryPage() {
                 <div className="divide-y divide-border/50">
                   {groups.map((group) => {
                     const key = groupKey(group);
+
+                    // A single-skill source is just one skill — render it flat,
+                    // no collapsible header.
+                    if (group.skills.length === 1) {
+                      const row = group.skills[0];
+                      return (
+                        <div key={key} className="flex items-center px-4 py-2.5 hover:bg-muted/30">
+                          <div className="flex-1 min-w-0 flex items-center gap-2 pr-4">
+                            <GroupIcon kind={group.kind} single />
+                            <div className="min-w-0">
+                              <div className="font-medium text-foreground truncate">{row.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {row.description}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center shrink-0">
+                            {AGENTS.map((a) => (
+                              <div key={a.key} className="w-20 flex justify-center">
+                                <SkillCellControl
+                                  row={row}
+                                  agent={a.key}
+                                  busy={busyCell === `${row.name}:${a.key}`}
+                                  onToggle={() => toggleCell(row, a.key, row[a.key])}
+                                  onBadgeClick={() => navigate('/plugins')}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     const isOpen = expanded.has(key);
                     return (
                       <div key={key}>
@@ -307,11 +341,7 @@ export function SkillLibraryPage() {
                             ) : (
                               <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
                             )}
-                            {group.kind === 'plugin' ? (
-                              <Puzzle className="w-3.5 h-3.5 shrink-0 text-blue-400" />
-                            ) : (
-                              <FolderGit2 className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                            )}
+                            <GroupIcon kind={group.kind} />
                             <span className="font-medium text-foreground truncate">
                               {group.label}
                             </span>
@@ -321,7 +351,7 @@ export function SkillLibraryPage() {
                               </span>
                             )}
                             <span className="text-xs text-muted-foreground shrink-0">
-                              {group.skills.length} skill{group.skills.length !== 1 ? 's' : ''}
+                              {group.skills.length} skills
                             </span>
                           </button>
                           <div className="flex items-center shrink-0">
@@ -353,26 +383,17 @@ export function SkillLibraryPage() {
                                 </div>
                               </div>
                               <div className="flex items-center shrink-0">
-                                {AGENTS.map((a) => {
-                                  const cell = row[a.key];
-                                  const cellKey = `${row.name}:${a.key}`;
-                                  return (
-                                    <div key={a.key} className="w-20 flex justify-center">
-                                      {cell.status === 'plugin' && cell.pluginId ? (
-                                        <PluginBadge
-                                          pluginId={cell.pluginId}
-                                          onClick={() => navigate('/plugins')}
-                                        />
-                                      ) : (
-                                        <CellToggle
-                                          cell={cell}
-                                          busy={busyCell === cellKey}
-                                          onToggle={() => toggleCell(row, a.key, cell)}
-                                        />
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                                {AGENTS.map((a) => (
+                                  <div key={a.key} className="w-20 flex justify-center">
+                                    <SkillCellControl
+                                      row={row}
+                                      agent={a.key}
+                                      busy={busyCell === `${row.name}:${a.key}`}
+                                      onToggle={() => toggleCell(row, a.key, row[a.key])}
+                                      onBadgeClick={() => navigate('/plugins')}
+                                    />
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           ))}
@@ -417,6 +438,39 @@ function agentSummary(rows: SkillMatrixRow[], agent: SkillAgent): AgentSummary {
     all: eligible.length > 0 && deployedCount === eligible.length,
     partial: deployedCount > 0 && deployedCount < eligible.length,
   };
+}
+
+/** Origin icon: plugin (puzzle), a single standalone skill (file), or a
+ * folder of standalone skills. */
+function GroupIcon({ kind, single }: { kind: 'plugin' | 'source'; single?: boolean }) {
+  if (kind === 'plugin') {
+    return <Puzzle className="w-3.5 h-3.5 shrink-0 text-blue-400" />;
+  }
+  if (single) {
+    return <FileText className="w-3.5 h-3.5 shrink-0 text-emerald-400" />;
+  }
+  return <FolderGit2 className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />;
+}
+
+/** One agent's control for a single skill: a plugin badge or a toggle. */
+function SkillCellControl({
+  row,
+  agent,
+  busy,
+  onToggle,
+  onBadgeClick,
+}: {
+  row: SkillMatrixRow;
+  agent: SkillAgent;
+  busy: boolean;
+  onToggle: () => void;
+  onBadgeClick: () => void;
+}) {
+  const cell = row[agent];
+  if (cell.status === 'plugin' && cell.pluginId) {
+    return <PluginBadge pluginId={cell.pluginId} onClick={onBadgeClick} />;
+  }
+  return <CellToggle cell={cell} busy={busy} onToggle={onToggle} />;
 }
 
 function GroupCell({
