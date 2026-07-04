@@ -19,6 +19,7 @@ import {
   Key,
   AppWindow,
   Boxes,
+  Library,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUIStore } from '../stores/ui-store';
@@ -41,6 +42,7 @@ const navigation = [
   { name: 'AI Keys', href: '/api-keys', icon: Key },
   { name: 'Runtimes', href: '/runtimes', icon: Boxes },
   { name: 'Inventory', href: '/inventory', icon: FileText },
+  { name: 'Skill Library', href: '/skill-library', icon: Library },
   { name: 'Bundles', href: '/bundles', icon: Layers },
   { name: 'Marketplace', href: '/plugins', icon: Plug },
 ];

@@ -1502,3 +1502,94 @@ export async function updateDeveloperCommand(
 export async function deleteDeveloperCommand(id: number): Promise<boolean> {
   return invoke('delete_developer_command', { id });
 }
+
+// Skill library (cross-agent) commands
+
+export interface SkillSource {
+  id: number;
+  path: string;
+  label: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SkillDeployment {
+  id: number;
+  skill_name: string;
+  source_path: string;
+  agent: string;
+  scope: string;
+  project_id: string | null;
+  link_path: string;
+  link_kind: string;
+  sha256: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CatalogSkill {
+  name: string;
+  description: string;
+  source_dir: string;
+  sha256: string;
+}
+
+export type SkillCellStatus = 'on' | 'off' | 'adopted' | 'collision';
+
+export interface SkillCell {
+  status: SkillCellStatus;
+  deployed: boolean;
+  tracked: boolean;
+  linkKind: string | null;
+  deploymentId: number | null;
+  linkPath: string;
+}
+
+export interface SkillMatrixRow {
+  name: string;
+  description: string;
+  sourceDir: string;
+  claude: SkillCell;
+  codex: SkillCell;
+}
+
+export type SkillAgent = 'claude' | 'codex';
+export type SkillScope = 'user' | 'project';
+export type SkillLinkKind = 'symlink' | 'copy';
+
+export interface DeploySkillInput {
+  skillName: string;
+  sourceDir: string;
+  agent: SkillAgent;
+  scope: SkillScope;
+  projectId: string | null;
+  linkKind: SkillLinkKind;
+}
+
+export async function listSkillSources(): Promise<SkillSource[]> {
+  return invoke('list_skill_sources');
+}
+
+export async function addSkillSource(path: string, label?: string): Promise<SkillSource> {
+  return invoke('add_skill_source', { path, label: label ?? null });
+}
+
+export async function removeSkillSource(id: number): Promise<boolean> {
+  return invoke('remove_skill_source', { id });
+}
+
+export async function scanSkillLibrary(): Promise<CatalogSkill[]> {
+  return invoke('scan_skill_library');
+}
+
+export async function deploySkill(input: DeploySkillInput): Promise<SkillDeployment> {
+  return invoke('deploy_skill', { input });
+}
+
+export async function undeploySkill(id: number): Promise<boolean> {
+  return invoke('undeploy_skill', { id });
+}
+
+export async function getProjectSkillMatrix(projectId: string | null): Promise<SkillMatrixRow[]> {
+  return invoke('get_project_skill_matrix', { projectId });
+}

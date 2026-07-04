@@ -14,6 +14,9 @@ import { ProfilesPage } from './pages/ProfilesPage';
 const SkillsPage = lazy(() =>
   import('./pages/SkillsPage').then((m) => ({ default: m.SkillsPage }))
 );
+const SkillLibraryPage = lazy(() =>
+  import('./pages/SkillLibraryPage').then((m) => ({ default: m.SkillLibraryPage }))
+);
 const InventoryPage = lazy(() =>
   import('./pages/InventoryPage').then((m) => ({ default: m.InventoryPage }))
 );
@@ -150,6 +153,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <SkillsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="skill-library"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <SkillLibraryPage />
                   </Suspense>
                 }
               />
