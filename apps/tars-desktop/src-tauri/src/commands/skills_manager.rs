@@ -14,8 +14,8 @@ use tauri::State;
 use tars_scanner::plugins::PluginInventory;
 
 use tars_core::skills::{
-    deploy, probe_target, resolve_skills_dir, scan_source, scan_sources, symlink_points_to,
-    undeploy, Agent, CatalogSkill, LinkKind, Scope, TargetProbe,
+    deploy, probe_target, resolve_skills_dir, scan_source, scan_sources, undeploy, Agent,
+    CatalogSkill, LinkKind, Scope, TargetProbe,
 };
 use tars_core::storage::skill_library::{
     SkillDeployment, SkillDeploymentInput, SkillDeploymentStore, SkillSource, SkillSourceStore,
@@ -98,45 +98,6 @@ fn source_dirs(state: &State<'_, AppState>) -> Result<Vec<PathBuf>, String> {
     })
 }
 
-/// Skill names provided by installed, enabled plugins, per agent — a map of
-/// skill name to the providing plugin's id. The Skill Library uses this to
-/// badge (and withhold a duplicate standalone toggle for) skills that already
-/// reach an agent via a plugin.
-#[derive(Debug, Serialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct PluginSkillNames {
-    pub claude: HashMap<String, String>,
-    pub codex: HashMap<String, String>,
-}
-
-#[tauri::command]
-pub async fn get_plugin_skill_names() -> Result<PluginSkillNames, String> {
-    // Claude plugin skills come from installed, enabled plugins under
-    // ~/.claude/plugins. We scan each plugin's real skills directory (the same
-    // way the catalog is scanned) so skill names match by frontmatter name.
-    // Codex plugins surface as discovered marketplaces rather than installed
-    // skill bundles, so there is nothing to map there yet.
-    let inventory = PluginInventory::scan().map_err(|e| format!("Failed to scan plugins: {e}"))?;
-
-    let mut claude = HashMap::new();
-    for plugin in inventory.installed {
-        if !plugin.enabled {
-            continue;
-        }
-        let skills_root = plugin_skills_root(&plugin);
-        for skill in scan_source(&skills_root) {
-            claude
-                .entry(skill.name)
-                .or_insert_with(|| plugin.id.clone());
-        }
-    }
-
-    Ok(PluginSkillNames {
-        claude,
-        codex: HashMap::new(),
-    })
-}
-
 /// Payload for [`deploy_skill`].
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -186,22 +147,24 @@ pub async fn deploy_skill(
                 .map_err(|e| e.to_string())?
                 .join(&input.skill_name);
 
-        // Adopt a hand-made symlink that already points at our source; otherwise
-        // materialize a fresh deployment.
-        let (final_link_path, link_kind, sha256) = if symlink_points_to(&link_path, &source_dir) {
-            (link_path, LinkKind::Symlink, None)
-        } else {
-            let result = deploy(
-                &source_dir,
-                &input.skill_name,
-                input.agent,
-                input.scope,
-                project_root.as_deref(),
-                input.link_kind,
-                &home,
-            )
-            .map_err(|e| e.to_string())?;
-            (result.link_path, result.link_kind, result.sha256)
+        // Adopt any existing symlink at the target (regardless of where it
+        // points — e.g. a hand-made link to a plugin's repo) instead of
+        // colliding; otherwise materialize a fresh deployment.
+        let (final_link_path, link_kind, sha256) = match probe_target(&link_path) {
+            TargetProbe::Symlink { .. } => (link_path, LinkKind::Symlink, None),
+            _ => {
+                let result = deploy(
+                    &source_dir,
+                    &input.skill_name,
+                    input.agent,
+                    input.scope,
+                    project_root.as_deref(),
+                    input.link_kind,
+                    &home,
+                )
+                .map_err(|e| e.to_string())?;
+                (result.link_path, result.link_kind, result.sha256)
+            }
         };
 
         let record = SkillDeploymentInput {
@@ -237,7 +200,7 @@ pub async fn undeploy_skill(id: i64, state: State<'_, AppState>) -> Result<bool,
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillCell {
-    /// `"on"` | `"off"` | `"adopted"` | `"collision"`.
+    /// `"on"` | `"off"` | `"adopted"` | `"collision"` | `"plugin"`.
     pub status: String,
     pub deployed: bool,
     /// Whether TARS has a deployment record (vs. a hand-made symlink).
@@ -245,6 +208,8 @@ pub struct SkillCell {
     pub link_kind: Option<String>,
     pub deployment_id: Option<i64>,
     pub link_path: String,
+    /// Set when this agent receives the skill from a plugin (status `"plugin"`).
+    pub plugin_id: Option<String>,
 }
 
 /// One catalog skill with its per-agent state for the selected scope.
@@ -258,20 +223,62 @@ pub struct SkillMatrixRow {
     pub codex: SkillCell,
 }
 
+/// A group of skills in the Library: an installed plugin (auto-listed from the
+/// Marketplace) or a registered standalone source directory.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillGroup {
+    /// `"plugin"` or `"source"`.
+    pub kind: String,
+    pub label: String,
+    pub plugin_id: Option<String>,
+    pub source_root: Option<String>,
+    pub skills: Vec<SkillMatrixRow>,
+}
+
 #[tauri::command]
 pub async fn get_project_skill_matrix(
     project_id: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<SkillMatrixRow>, String> {
+) -> Result<Vec<SkillGroup>, String> {
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-    let catalog = scan_sources(&source_dirs(&state)?);
     let scope = if project_id.is_some() {
         Scope::Project
     } else {
         Scope::User
     };
 
-    let (project_root, deployments) = state.with_db(|db| {
+    // Installed, enabled plugins become auto-listed groups. We also build a
+    // name -> plugin-id map so the Claude column always badges a skill a plugin
+    // already provides (even one that also exists in a standalone source).
+    let inventory = PluginInventory::scan().map_err(|e| format!("Failed to scan plugins: {e}"))?;
+    let mut plugin_catalog: Vec<(String, String, Vec<CatalogSkill>)> = Vec::new();
+    let mut claude_plugin_by_name: HashMap<String, String> = HashMap::new();
+    for plugin in inventory.installed {
+        if !plugin.enabled {
+            continue;
+        }
+        let skills = scan_source(&plugin_skills_root(&plugin));
+        if skills.is_empty() {
+            continue;
+        }
+        for skill in &skills {
+            claude_plugin_by_name
+                .entry(skill.name.clone())
+                .or_insert_with(|| plugin.id.clone());
+        }
+        let label = if plugin.manifest.name.is_empty() {
+            plugin.id.clone()
+        } else {
+            plugin.manifest.name.clone()
+        };
+        plugin_catalog.push((plugin.id.clone(), label, skills));
+    }
+
+    let (sources, project_root, deployments) = state.with_db(|db| {
+        let sources = SkillSourceStore::new(db.connection())
+            .list()
+            .map_err(|e| e.to_string())?;
         let root = match project_id.as_deref() {
             Some(pid) => Some(project_root_for(db, pid)?),
             None => None,
@@ -281,39 +288,85 @@ pub async fn get_project_skill_matrix(
             Some(pid) => store.list_for_project(pid).map_err(|e| e.to_string())?,
             None => store.list_user_scope().map_err(|e| e.to_string())?,
         };
-        Ok((root, deps))
+        Ok((sources, root, deps))
     })?;
 
-    let rows = catalog
-        .into_iter()
-        .map(|skill| {
-            let claude = cell_for(
+    let build_row = |skill: &CatalogSkill| -> SkillMatrixRow {
+        let claude = match claude_plugin_by_name.get(&skill.name) {
+            Some(pid) => plugin_cell(pid),
+            None => cell_for(
                 Agent::Claude,
                 scope,
                 project_root.as_deref(),
                 &home,
-                &skill,
+                skill,
                 &deployments,
-            );
-            let codex = cell_for(
-                Agent::Codex,
-                scope,
-                project_root.as_deref(),
-                &home,
-                &skill,
-                &deployments,
-            );
-            SkillMatrixRow {
-                name: skill.name,
-                description: skill.description,
-                source_dir: skill.source_dir.display().to_string(),
-                claude,
-                codex,
-            }
-        })
-        .collect();
+            ),
+        };
+        let codex = cell_for(
+            Agent::Codex,
+            scope,
+            project_root.as_deref(),
+            &home,
+            skill,
+            &deployments,
+        );
+        SkillMatrixRow {
+            name: skill.name.clone(),
+            description: skill.description.clone(),
+            source_dir: skill.source_dir.display().to_string(),
+            claude,
+            codex,
+        }
+    };
 
-    Ok(rows)
+    let mut groups: Vec<SkillGroup> = Vec::new();
+
+    // Plugin groups first (auto, from the Marketplace).
+    for (id, label, skills) in &plugin_catalog {
+        groups.push(SkillGroup {
+            kind: "plugin".to_string(),
+            label: label.clone(),
+            plugin_id: Some(id.clone()),
+            source_root: None,
+            skills: skills.iter().map(&build_row).collect(),
+        });
+    }
+
+    // Standalone source groups.
+    for source in &sources {
+        let dir = PathBuf::from(&source.path);
+        let skills = scan_source(&dir);
+        if skills.is_empty() {
+            continue;
+        }
+        let label = source
+            .label
+            .clone()
+            .unwrap_or_else(|| short_path(&source.path));
+        groups.push(SkillGroup {
+            kind: "source".to_string(),
+            label,
+            plugin_id: None,
+            source_root: Some(source.path.clone()),
+            skills: skills.iter().map(&build_row).collect(),
+        });
+    }
+
+    Ok(groups)
+}
+
+/// A Claude cell for a skill provided by an installed plugin.
+fn plugin_cell(plugin_id: &str) -> SkillCell {
+    SkillCell {
+        status: "plugin".to_string(),
+        deployed: false,
+        tracked: false,
+        link_kind: None,
+        deployment_id: None,
+        link_path: String::new(),
+        plugin_id: Some(plugin_id.to_string()),
+    }
 }
 
 fn cell_for(
@@ -336,36 +389,37 @@ fn cell_for(
             link_kind: Some(dep.link_kind.clone()),
             deployment_id: Some(dep.id),
             link_path: dep.link_path.clone(),
+            plugin_id: None,
         };
     }
 
-    // No record: inspect the filesystem for an adopted symlink or a collision.
+    // No record: adopt any symlink at the target (by name), else off/collision.
     let Ok(dir) = resolve_skills_dir(agent, scope, project_root, home) else {
         return off_cell(String::new());
     };
     let link_path = dir.join(&skill.name);
     let link_str = link_path.display().to_string();
 
-    if symlink_points_to(&link_path, &skill.source_dir) {
-        SkillCell {
+    match probe_target(&link_path) {
+        TargetProbe::Symlink { .. } => SkillCell {
             status: "adopted".to_string(),
             deployed: true,
             tracked: false,
             link_kind: Some("symlink".to_string()),
             deployment_id: None,
             link_path: link_str,
-        }
-    } else if matches!(probe_target(&link_path), TargetProbe::Absent) {
-        off_cell(link_str)
-    } else {
-        SkillCell {
+            plugin_id: None,
+        },
+        TargetProbe::Absent => off_cell(link_str),
+        _ => SkillCell {
             status: "collision".to_string(),
             deployed: false,
             tracked: false,
             link_kind: None,
             deployment_id: None,
             link_path: link_str,
-        }
+            plugin_id: None,
+        },
     }
 }
 
@@ -377,5 +431,16 @@ fn off_cell(link_path: String) -> SkillCell {
         link_kind: None,
         deployment_id: None,
         link_path,
+        plugin_id: None,
+    }
+}
+
+/// Last two path segments, for a compact source label.
+fn short_path(path: &str) -> String {
+    let parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+    if parts.len() <= 2 {
+        path.to_string()
+    } else {
+        format!("…/{}", parts[parts.len() - 2..].join("/"))
     }
 }

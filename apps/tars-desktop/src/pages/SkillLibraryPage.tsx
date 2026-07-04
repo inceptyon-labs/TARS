@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Link2,
   Puzzle,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import {
   listProjects,
@@ -20,12 +22,12 @@ import {
   removeSkillSource,
   addSkillSource,
   getProjectSkillMatrix,
-  getPluginSkillNames,
   deploySkill,
   undeploySkill,
   type SkillCell,
   type SkillMatrixRow,
   type SkillAgent,
+  type SkillGroup,
 } from '../lib/ipc';
 import type { ProjectInfo } from '../lib/types';
 import { cn } from '../lib/utils';
@@ -41,19 +43,17 @@ export function SkillLibraryPage() {
   // null = User scope; otherwise a project id.
   const [targetProjectId, setTargetProjectId] = useState<string | null>(null);
   const [busyCell, setBusyCell] = useState<string | null>(null);
+  const [busyGroup, setBusyGroup] = useState<string | null>(null);
+  // Source roots whose skill list is expanded (default: collapsed).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: listProjects });
-  // Skill names an installed plugin already provides, per agent (skill -> plugin id).
-  const { data: pluginSkills = { claude: {}, codex: {} } } = useQuery({
-    queryKey: ['plugin-skill-names'],
-    queryFn: getPluginSkillNames,
-  });
   const { data: sources = [] } = useQuery({
     queryKey: ['skill-sources'],
     queryFn: listSkillSources,
   });
   const {
-    data: matrix = [],
+    data: groups = [],
     isLoading,
     isError,
     error,
@@ -68,6 +68,8 @@ export function SkillLibraryPage() {
   const invalidateMatrix = () => {
     queryClient.invalidateQueries({ queryKey: ['skill-matrix'] });
   };
+
+  const groupKey = (group: SkillGroup) => `${group.kind}:${group.pluginId ?? group.sourceRoot}`;
 
   async function handleAddSource() {
     const selected = await open({
@@ -96,13 +98,25 @@ export function SkillLibraryPage() {
     }
   }
 
-  async function toggleCell(row: SkillMatrixRow, agent: SkillAgent, cell: SkillCell) {
-    if (cell.status === 'collision') return;
-    const key = `${row.name}:${agent}`;
-    setBusyCell(key);
-    try {
-      if (!cell.deployed) {
-        await deploySkill({
+  // Deploy or remove one skill for one agent (no query invalidation — callers
+  // batch it). Adopts a hand-made symlink before removing when there's no
+  // tracked deployment id.
+  async function applyCell(row: SkillMatrixRow, agent: SkillAgent, cell: SkillCell, on: boolean) {
+    if (on) {
+      if (cell.deployed) return;
+      await deploySkill({
+        skillName: row.name,
+        sourceDir: row.sourceDir,
+        agent,
+        scope,
+        projectId: targetProjectId,
+        linkKind: 'symlink',
+      });
+    } else {
+      if (!cell.deployed) return;
+      let id = cell.deploymentId;
+      if (id == null) {
+        const dep = await deploySkill({
           skillName: row.name,
           sourceDir: row.sourceDir,
           agent,
@@ -110,23 +124,18 @@ export function SkillLibraryPage() {
           projectId: targetProjectId,
           linkKind: 'symlink',
         });
-      } else {
-        // Turning off: a tracked cell has an id; an adopted (hand-made) symlink
-        // must first be recorded before we can remove it.
-        let id = cell.deploymentId;
-        if (id == null) {
-          const dep = await deploySkill({
-            skillName: row.name,
-            sourceDir: row.sourceDir,
-            agent,
-            scope,
-            projectId: targetProjectId,
-            linkKind: 'symlink',
-          });
-          id = dep.id;
-        }
-        await undeploySkill(id);
+        id = dep.id;
       }
+      await undeploySkill(id);
+    }
+  }
+
+  async function toggleCell(row: SkillMatrixRow, agent: SkillAgent, cell: SkillCell) {
+    if (cell.status === 'collision') return;
+    const key = `${row.name}:${agent}`;
+    setBusyCell(key);
+    try {
+      await applyCell(row, agent, cell, !cell.deployed);
       invalidateMatrix();
     } catch (e) {
       toast.error(`${e}`);
@@ -135,10 +144,36 @@ export function SkillLibraryPage() {
     }
   }
 
-  const deployedCount = useMemo(
-    () => matrix.filter((r) => r.claude.deployed || r.codex.deployed).length,
-    [matrix]
-  );
+  // Deploy/remove a whole group for one agent at once (the common case —
+  // piecemeal plugin skills break the workflow). If everything eligible is on,
+  // turn it all off; otherwise fill in the rest.
+  async function toggleGroup(group: SkillGroup, agent: SkillAgent) {
+    const s = agentSummary(group.skills, agent);
+    if (s.eligible.length === 0) return;
+    const turnOn = !s.all;
+    setBusyGroup(`${groupKey(group)}:${agent}`);
+    try {
+      for (const row of s.eligible) {
+        await applyCell(row, agent, row[agent], turnOn);
+      }
+      invalidateMatrix();
+    } catch (e) {
+      toast.error(`${e}`);
+    } finally {
+      setBusyGroup(null);
+    }
+  }
+
+  const toggleExpand = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const allRows = useMemo(() => groups.flatMap((g) => g.skills), [groups]);
+  const deployedCount = allRows.filter((r) => r.claude.deployed || r.codex.deployed).length;
 
   return (
     <div className="flex flex-col h-full">
@@ -149,7 +184,7 @@ export function SkillLibraryPage() {
           <div>
             <h1 className="text-lg font-semibold text-foreground">Skill Library</h1>
             <p className="text-xs text-muted-foreground">
-              Standalone skills, deployed to Claude &amp; Codex per scope
+              Installed plugins (auto) + standalone skill sources, per Claude/Codex scope
             </p>
           </div>
         </div>
@@ -233,7 +268,7 @@ export function SkillLibraryPage() {
               </div>
             ) : isError ? (
               <div className="p-6 text-sm text-destructive">{errorMessage}</div>
-            ) : matrix.length === 0 ? (
+            ) : groups.length === 0 ? (
               <EmptyState hasSources={sources.length > 0} onAdd={handleAddSource} />
             ) : (
               <div className="text-sm">
@@ -242,7 +277,7 @@ export function SkillLibraryPage() {
                   <div className="flex-1 min-w-0 font-medium">
                     Skill{' '}
                     <span className="text-muted-foreground/60">
-                      ({deployedCount}/{matrix.length} active here)
+                      ({deployedCount}/{allRows.length} active here)
                     </span>
                   </div>
                   <div className="flex items-center shrink-0">
@@ -254,41 +289,96 @@ export function SkillLibraryPage() {
                   </div>
                 </div>
 
-                {/* Skill rows */}
+                {/* Grouped skill rows */}
                 <div className="divide-y divide-border/50">
-                  {matrix.map((row) => (
-                    <div key={row.name} className="flex items-center px-6 py-2.5 hover:bg-muted/30">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <div className="font-medium text-foreground truncate">{row.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {row.description}
+                  {groups.map((group) => {
+                    const key = groupKey(group);
+                    const isOpen = expanded.has(key);
+                    return (
+                      <div key={key}>
+                        {/* Group header */}
+                        <div className="flex items-center px-4 py-2.5 bg-muted/20 hover:bg-muted/40">
+                          <button
+                            onClick={() => toggleExpand(key)}
+                            className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
+                            )}
+                            {group.kind === 'plugin' ? (
+                              <Puzzle className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+                            ) : (
+                              <FolderGit2 className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                            )}
+                            <span className="font-medium text-foreground truncate">
+                              {group.label}
+                            </span>
+                            {group.kind === 'plugin' && (
+                              <span className="text-[10px] uppercase tracking-wide text-blue-400/80 shrink-0">
+                                plugin
+                              </span>
+                            )}
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {group.skills.length} skill{group.skills.length !== 1 ? 's' : ''}
+                            </span>
+                          </button>
+                          <div className="flex items-center shrink-0">
+                            {AGENTS.map((a) => (
+                              <div key={a.key} className="w-20 flex justify-center">
+                                <GroupCell
+                                  rows={group.skills}
+                                  agent={a.key}
+                                  busy={busyGroup === `${key}:${a.key}`}
+                                  onToggle={() => toggleGroup(group, a.key)}
+                                  onBadgeClick={() => navigate('/plugins')}
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center shrink-0">
-                        {AGENTS.map((a) => {
-                          const cell = row[a.key];
-                          const key = `${row.name}:${a.key}`;
-                          const pluginId = pluginSkills[a.key]?.[row.name];
-                          return (
-                            <div key={a.key} className="w-20 flex justify-center">
-                              {pluginId ? (
-                                <PluginBadge
-                                  pluginId={pluginId}
-                                  onClick={() => navigate('/plugins')}
-                                />
-                              ) : (
-                                <CellToggle
-                                  cell={cell}
-                                  busy={busyCell === key}
-                                  onToggle={() => toggleCell(row, a.key, cell)}
-                                />
-                              )}
+
+                        {/* Individual skills */}
+                        {isOpen &&
+                          group.skills.map((row) => (
+                            <div
+                              key={row.name}
+                              className="flex items-center pl-12 pr-6 py-2 hover:bg-muted/30"
+                            >
+                              <div className="flex-1 min-w-0 pr-4">
+                                <div className="text-foreground truncate">{row.name}</div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {row.description}
+                                </div>
+                              </div>
+                              <div className="flex items-center shrink-0">
+                                {AGENTS.map((a) => {
+                                  const cell = row[a.key];
+                                  const cellKey = `${row.name}:${a.key}`;
+                                  return (
+                                    <div key={a.key} className="w-20 flex justify-center">
+                                      {cell.status === 'plugin' && cell.pluginId ? (
+                                        <PluginBadge
+                                          pluginId={cell.pluginId}
+                                          onClick={() => navigate('/plugins')}
+                                        />
+                                      ) : (
+                                        <CellToggle
+                                          cell={cell}
+                                          busy={busyCell === cellKey}
+                                          onToggle={() => toggleCell(row, a.key, cell)}
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          );
-                        })}
+                          ))}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -296,6 +386,73 @@ export function SkillLibraryPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+interface AgentSummary {
+  allPlugin: boolean;
+  pluginId: string | null;
+  eligible: SkillMatrixRow[];
+  deployedCount: number;
+  all: boolean;
+  partial: boolean;
+}
+
+/** Summarize a group's state for one agent (using each cell's own status). */
+function agentSummary(rows: SkillMatrixRow[], agent: SkillAgent): AgentSummary {
+  const pluginIds = rows
+    .map((r) => (r[agent].status === 'plugin' ? r[agent].pluginId : null))
+    .filter(Boolean) as string[];
+  const allPlugin = rows.length > 0 && pluginIds.length === rows.length;
+  // Eligible = deployable here (not plugin-provided, not a name collision).
+  const eligible = rows.filter(
+    (r) => r[agent].status !== 'plugin' && r[agent].status !== 'collision'
+  );
+  const deployedCount = eligible.filter((r) => r[agent].deployed).length;
+  return {
+    allPlugin,
+    pluginId: allPlugin ? pluginIds[0] : null,
+    eligible,
+    deployedCount,
+    all: eligible.length > 0 && deployedCount === eligible.length,
+    partial: deployedCount > 0 && deployedCount < eligible.length,
+  };
+}
+
+function GroupCell({
+  rows,
+  agent,
+  busy,
+  onToggle,
+  onBadgeClick,
+}: {
+  rows: SkillMatrixRow[];
+  agent: SkillAgent;
+  busy: boolean;
+  onToggle: () => void;
+  onBadgeClick: () => void;
+}) {
+  const s = agentSummary(rows, agent);
+  if (s.allPlugin && s.pluginId) {
+    return <PluginBadge pluginId={s.pluginId} onClick={onBadgeClick} />;
+  }
+  if (s.eligible.length === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  return (
+    <input
+      type="checkbox"
+      className="accent-primary w-4 h-4"
+      checked={s.all}
+      disabled={busy}
+      ref={(el) => {
+        if (el) el.indeterminate = s.partial;
+      }}
+      onChange={onToggle}
+      title={`${s.deployedCount}/${s.eligible.length} deployed for ${agent} — click to ${
+        s.all ? 'remove all' : 'deploy all'
+      }`}
+    />
   );
 }
 

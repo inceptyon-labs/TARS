@@ -1534,7 +1534,7 @@ export interface CatalogSkill {
   sha256: string;
 }
 
-export type SkillCellStatus = 'on' | 'off' | 'adopted' | 'collision';
+export type SkillCellStatus = 'on' | 'off' | 'adopted' | 'collision' | 'plugin';
 
 export interface SkillCell {
   status: SkillCellStatus;
@@ -1543,6 +1543,8 @@ export interface SkillCell {
   linkKind: string | null;
   deploymentId: number | null;
   linkPath: string;
+  // Providing plugin id when status === 'plugin'.
+  pluginId: string | null;
 }
 
 export interface SkillMatrixRow {
@@ -1551,6 +1553,14 @@ export interface SkillMatrixRow {
   sourceDir: string;
   claude: SkillCell;
   codex: SkillCell;
+}
+
+export interface SkillGroup {
+  kind: 'plugin' | 'source';
+  label: string;
+  pluginId: string | null;
+  sourceRoot: string | null;
+  skills: SkillMatrixRow[];
 }
 
 export type SkillAgent = 'claude' | 'codex';
@@ -1590,16 +1600,6 @@ export async function undeploySkill(id: number): Promise<boolean> {
   return invoke('undeploy_skill', { id });
 }
 
-export async function getProjectSkillMatrix(projectId: string | null): Promise<SkillMatrixRow[]> {
+export async function getProjectSkillMatrix(projectId: string | null): Promise<SkillGroup[]> {
   return invoke('get_project_skill_matrix', { projectId });
-}
-
-export interface PluginSkillNames {
-  // skill name -> providing plugin id
-  claude: Record<string, string>;
-  codex: Record<string, string>;
-}
-
-export async function getPluginSkillNames(): Promise<PluginSkillNames> {
-  return invoke('get_plugin_skill_names');
 }

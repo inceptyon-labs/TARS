@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "sessions": {
+    "fd7038fb-1d09-4082-8d76-ece412a73ab7": {
+      "updatedAt": 1783137392757,
+      "files": {
+        "/Users/Jason/Development/tars/apps/tars-desktop/src/lib/ipc/index.ts": {
+          "editCount": 2,
+          "findings": []
+        },
+        "/Users/Jason/Development/tars/apps/tars-desktop/src/pages/SkillLibraryPage.tsx": {
+          "editCount": 10,
+          "findings": []
+        },
+        "/Users/Jason/Development/tars/apps/tars-desktop/src/App.tsx": {
+          "editCount": 2,
+          "findings": []
+        },
+        "/Users/Jason/Development/tars/apps/tars-desktop/src/index.css": {
+          "editCount": 0,
+          "findings": [
+            "overused-font:16:geist mono",
+            "overused-font:773:geist mono",
+            "overused-font:1378:geist mono",
+            "overused-font:1390:geist mono"
+          ]
+        },
+        "/Users/Jason/Development/tars/apps/tars-desktop/src/pages/MainLayout.tsx": {
+          "editCount": 2,
+          "findings": []
+        },
+        "/Users/Jason/Development/tars/apps/tars-desktop/src/pages/PluginsPage.tsx": {
+          "editCount": 7,
+          "findings": []
+        }
+      }
+    }
+  }
+}
