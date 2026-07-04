@@ -7,8 +7,12 @@
 //! pure filesystem work and can be exercised with tempdirs.
 
 pub mod deploy;
+pub mod scan;
 
 pub use deploy::{
     codex_user_skills_dir, deploy, resolve_skills_dir, undeploy, Agent, DeployResult, LinkKind,
     Scope, SkillDeployError,
+};
+pub use scan::{
+    probe_target, scan_source, scan_sources, symlink_points_to, CatalogSkill, TargetProbe,
 };

@@ -128,6 +128,14 @@ pub fn run() {
             commands::bridge_local_skill_to_codex,
             commands::delete_codex_skill,
             commands::delete_supporting_file,
+            // Skill library (cross-agent) commands
+            commands::list_skill_sources,
+            commands::add_skill_source,
+            commands::remove_skill_source,
+            commands::scan_skill_library,
+            commands::deploy_skill,
+            commands::undeploy_skill,
+            commands::get_project_skill_matrix,
             // Agent commands
             commands::read_agent,
             commands::save_agent,
