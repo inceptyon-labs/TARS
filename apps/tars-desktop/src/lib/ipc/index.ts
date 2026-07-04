@@ -1560,6 +1560,8 @@ export interface SkillGroup {
   label: string;
   pluginId: string | null;
   sourceRoot: string | null;
+  // True when the source dir is itself a single skill (not a folder of skills).
+  singleSkill: boolean;
   skills: SkillMatrixRow[];
 }
 

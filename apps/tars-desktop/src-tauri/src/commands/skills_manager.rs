@@ -233,6 +233,9 @@ pub struct SkillGroup {
     pub label: String,
     pub plugin_id: Option<String>,
     pub source_root: Option<String>,
+    /// True when the source directory itself is a single skill bundle (its
+    /// `SKILL.md` is at the root), rather than a folder that contains skills.
+    pub single_skill: bool,
     pub skills: Vec<SkillMatrixRow>,
 }
 
@@ -329,6 +332,7 @@ pub async fn get_project_skill_matrix(
             label: label.clone(),
             plugin_id: Some(id.clone()),
             source_root: None,
+            single_skill: false,
             skills: skills.iter().map(&build_row).collect(),
         });
     }
@@ -349,6 +353,8 @@ pub async fn get_project_skill_matrix(
             label,
             plugin_id: None,
             source_root: Some(source.path.clone()),
+            // The source itself is a skill when its SKILL.md is at the root.
+            single_skill: dir.join("SKILL.md").is_file(),
             skills: skills.iter().map(&build_row).collect(),
         });
     }

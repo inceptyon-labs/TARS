@@ -295,9 +295,10 @@ export function SkillLibraryPage() {
                   {groups.map((group) => {
                     const key = groupKey(group);
 
-                    // A single-skill source is just one skill — render it flat,
-                    // no collapsible header.
-                    if (group.skills.length === 1) {
+                    // A source that is itself a single skill renders flat (no
+                    // collapsible header). A folder of skills stays a group even
+                    // when it currently holds just one.
+                    if (group.singleSkill) {
                       const row = group.skills[0];
                       return (
                         <div key={key} className="flex items-center px-4 py-2.5 hover:bg-muted/30">
@@ -351,7 +352,7 @@ export function SkillLibraryPage() {
                               </span>
                             )}
                             <span className="text-xs text-muted-foreground shrink-0">
-                              {group.skills.length} skills
+                              {group.skills.length} skill{group.skills.length !== 1 ? 's' : ''}
                             </span>
                           </button>
                           <div className="flex items-center shrink-0">
