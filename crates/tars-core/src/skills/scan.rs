@@ -24,33 +24,44 @@ pub struct CatalogSkill {
     pub sha256: String,
 }
 
-/// Scan one source directory for immediate `<name>/SKILL.md` bundles.
+/// Read a single skill bundle (`<dir>/SKILL.md`) into a [`CatalogSkill`].
+/// Returns `None` if there's no parseable `SKILL.md`.
+fn read_skill_dir(dir: &Path) -> Option<CatalogSkill> {
+    let skill_md = dir.join("SKILL.md");
+    let content = fs::read_to_string(&skill_md).ok()?;
+    let info = parse_skill(&skill_md, &content, ScanScope::User).ok()?;
+    Some(CatalogSkill {
+        name: info.name,
+        description: info.description,
+        source_dir: dir.to_path_buf(),
+        sha256: info.sha256,
+    })
+}
+
+/// Scan a source directory into a catalog.
 ///
-/// Entries without a parseable `SKILL.md` (missing file, no frontmatter, or a
-/// missing required `name`/`description`) are silently skipped, matching how
-/// the scanner treats malformed skills. Result is sorted by name.
+/// Handles both shapes: a directory that *is* a single skill bundle
+/// (`<dir>/SKILL.md`), and a directory that *contains* skill bundles
+/// (`<dir>/<name>/SKILL.md`). Entries without a parseable `SKILL.md` (missing
+/// file, no frontmatter, or a missing required `name`/`description`) are
+/// silently skipped. Result is sorted by name.
 pub fn scan_source(source_dir: &Path) -> Vec<CatalogSkill> {
+    // The source directory may itself be a single skill bundle.
+    if source_dir.join("SKILL.md").is_file() {
+        return read_skill_dir(source_dir).into_iter().collect();
+    }
+
+    // Otherwise, each immediate subdirectory with a SKILL.md is a skill.
     let mut out = Vec::new();
     let Ok(entries) = fs::read_dir(source_dir) else {
         return out;
     };
-
     for entry in entries.flatten() {
         let dir = entry.path();
-        if !dir.is_dir() {
-            continue;
-        }
-        let skill_md = dir.join("SKILL.md");
-        let Ok(content) = fs::read_to_string(&skill_md) else {
-            continue;
-        };
-        if let Ok(info) = parse_skill(&skill_md, &content, ScanScope::User) {
-            out.push(CatalogSkill {
-                name: info.name,
-                description: info.description,
-                source_dir: dir,
-                sha256: info.sha256,
-            });
+        if dir.is_dir() {
+            if let Some(skill) = read_skill_dir(&dir) {
+                out.push(skill);
+            }
         }
     }
 
@@ -145,6 +156,22 @@ mod tests {
         assert_eq!(names, ["alpha", "beta"]); // sorted, malformed dropped
         assert_eq!(catalog[0].source_dir, lib.join("alpha"));
         assert_eq!(catalog[0].description, "A");
+    }
+
+    #[test]
+    fn scans_a_dir_that_is_itself_a_skill() {
+        let tmp = TempDir::new().unwrap();
+        // The source dir holds SKILL.md directly (a single-skill bundle).
+        fs::write(
+            tmp.path().join("SKILL.md"),
+            "---\nname: humanizer\ndescription: H\n---\nbody",
+        )
+        .unwrap();
+
+        let catalog = scan_source(tmp.path());
+        assert_eq!(catalog.len(), 1);
+        assert_eq!(catalog[0].name, "humanizer");
+        assert_eq!(catalog[0].source_dir, tmp.path());
     }
 
     #[test]
