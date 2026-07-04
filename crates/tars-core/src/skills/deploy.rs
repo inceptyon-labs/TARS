@@ -377,6 +377,61 @@ mod tests {
         assert!(src.join("SKILL.md").exists());
     }
 
+    fn make_skill_with_extras(parent: &Path, name: &str) -> PathBuf {
+        let dir = parent.join(name);
+        fs::create_dir_all(dir.join("scripts")).unwrap();
+        fs::create_dir_all(dir.join("references")).unwrap();
+        fs::write(
+            dir.join("SKILL.md"),
+            "---\nname: x\ndescription: y\n---\nbody\n",
+        )
+        .unwrap();
+        fs::write(dir.join("scripts").join("run.sh"), "#!/bin/sh\necho hi\n").unwrap();
+        fs::write(dir.join("references").join("guide.md"), "# guide\n").unwrap();
+        dir
+    }
+
+    #[test]
+    fn deploy_materializes_the_whole_skill_bundle() {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("home");
+        let lib = tmp.path().join("lib");
+        fs::create_dir_all(&home).unwrap();
+        let src = make_skill_with_extras(&lib, "rich");
+
+        // Symlink: the whole tree is reachable through the link.
+        let link = deploy(
+            &src,
+            "rich",
+            Agent::Claude,
+            Scope::User,
+            None,
+            LinkKind::Symlink,
+            &home,
+        )
+        .unwrap();
+        assert!(link.link_path.join("scripts/run.sh").exists());
+        assert!(link.link_path.join("references/guide.md").exists());
+        undeploy(&link.link_path, LinkKind::Symlink).unwrap();
+
+        // Copy: supporting files are copied recursively, contents intact.
+        let copied = deploy(
+            &src,
+            "rich",
+            Agent::Codex,
+            Scope::User,
+            None,
+            LinkKind::Copy,
+            &home,
+        )
+        .unwrap();
+        assert!(copied.link_path.join("references/guide.md").exists());
+        assert_eq!(
+            fs::read_to_string(copied.link_path.join("scripts/run.sh")).unwrap(),
+            "#!/bin/sh\necho hi\n"
+        );
+    }
+
     #[test]
     fn refuses_to_clobber_existing_target() {
         let tmp = TempDir::new().unwrap();
