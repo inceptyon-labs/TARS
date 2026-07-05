@@ -3,7 +3,7 @@ members = ["crates/*", "apps/tars-desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
@@ -19,7 +19,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 
 # Async runtime
-tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "fs"] }
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "fs", "process"] }
 
 # Data types
 uuid = { version = "1.6", features = ["v4", "serde"] }

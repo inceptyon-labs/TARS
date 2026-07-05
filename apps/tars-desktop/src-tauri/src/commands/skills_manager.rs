@@ -14,8 +14,9 @@ use tauri::State;
 use tars_scanner::plugins::PluginInventory;
 
 use tars_core::skills::{
-    deploy, hash_bundle, probe_target, repoint_symlink, resolve_skills_dir, resync_copy,
-    scan_source, scan_sources, undeploy, Agent, CatalogSkill, LinkKind, Scope, TargetProbe,
+    deploy, external_skills_dir, hash_bundle, probe_target, repoint_symlink, resolve_skills_dir,
+    resync_copy, scan_external_dir, scan_source, scan_sources, undeploy, Agent, CatalogSkill,
+    LinkKind, Scope, TargetProbe,
 };
 use tars_core::storage::skill_library::{
     SkillDeployment, SkillDeploymentInput, SkillDeploymentStore, SkillSource, SkillSourceStore,
@@ -402,6 +403,27 @@ pub async fn get_project_skill_matrix(
         });
     }
 
+    // Externally-installed skills (`~/.agents/skills` — where `npx skills add`
+    // and folder imports land) are a built-in source, unless the user already
+    // registered that directory themselves.
+    let external_dir = external_skills_dir(&home);
+    let external_path = external_dir.display().to_string();
+    if !sources.iter().any(|s| s.path == external_path) {
+        let skills = scan_external_dir(&external_dir);
+        if !skills.is_empty() {
+            groups.push(SkillGroup {
+                kind: "source".to_string(),
+                label: "External (~/.agents/skills)".to_string(),
+                plugin_id: None,
+                plugin_marketplace: None,
+                plugin_disabled_here: false,
+                source_root: Some(external_path),
+                single_skill: false,
+                skills: skills.iter().map(&build_row).collect(),
+            });
+        }
+    }
+
     // Standalone source groups.
     for source in &sources {
         let dir = PathBuf::from(&source.path);
@@ -484,6 +506,24 @@ fn cell_for(
     };
     let link_path = dir.join(&skill.name);
     let link_str = link_path.display().to_string();
+
+    // The skill physically lives at the target itself (Codex's user dir can
+    // resolve to `~/.agents/skills`, where external skills reside) — it is on
+    // by residence, not by deployment.
+    if link_path == skill.source_dir {
+        return SkillCell {
+            status: "on".to_string(),
+            deployed: true,
+            tracked: false,
+            link_kind: None,
+            deployment_id: None,
+            link_path: link_str,
+            plugin_id: None,
+            drifted: false,
+            mute_state: None,
+            mute_supported: false,
+        };
+    }
 
     match probe_target(&link_path) {
         TargetProbe::Symlink { .. } => SkillCell {

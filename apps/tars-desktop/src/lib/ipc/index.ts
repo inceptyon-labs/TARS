@@ -1558,6 +1558,24 @@ export async function getProjectSkillMatrix(projectId: string | null): Promise<S
   return invoke('get_project_skill_matrix', { projectId });
 }
 
+// What an install into ~/.agents/skills did: bundles copied in, and bundles
+// skipped because a same-named skill already exists (never overwritten).
+export interface SkillInstallReport {
+  installed: string[];
+  skipped: string[];
+}
+
+// Copy the skill bundle(s) in a local folder into ~/.agents/skills.
+export async function importSkillFolder(path: string): Promise<SkillInstallReport> {
+  return invoke('import_skill_folder', { path });
+}
+
+// Shallow-clone an https git repo (optionally /tree/<ref>/<subpath>) and
+// install every skill bundle found into ~/.agents/skills.
+export async function installSkillFromGit(url: string): Promise<SkillInstallReport> {
+  return invoke('install_skill_from_git', { url });
+}
+
 // Set (or clear, with null) a Claude standalone skill's mute state via
 // skillOverrides in the deployment's scope settings.json.
 export async function setSkillMute(

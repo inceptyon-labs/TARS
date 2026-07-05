@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import {
   Plus,
   FolderPlus,
+  Download,
   RefreshCw,
   User,
   FolderGit2,
@@ -29,6 +30,9 @@ import {
   setSkillMute,
   resyncSkillDeployment,
   setProjectPluginEnabled,
+  importSkillFolder,
+  installSkillFromGit,
+  type SkillInstallReport,
   type SkillCell,
   type SkillMatrixRow,
   type SkillAgent,
@@ -52,6 +56,9 @@ export function SkillLibraryPage() {
   const [busyGroup, setBusyGroup] = useState<string | null>(null);
   // Source roots whose skill list is expanded (default: collapsed).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [addSkillOpen, setAddSkillOpen] = useState(false);
+  const [skillUrl, setSkillUrl] = useState('');
+  const [installing, setInstalling] = useState(false);
 
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: listProjects });
   const { data: sources = [] } = useQuery({
@@ -91,6 +98,49 @@ export function SkillLibraryPage() {
       toast.success('Library source added');
     } catch (e) {
       toast.error(`Failed to add source: ${e}`);
+    }
+  }
+
+  function showInstallReport(report: SkillInstallReport) {
+    if (report.installed.length > 0) {
+      toast.success(`Installed to ~/.agents/skills: ${report.installed.join(', ')}`);
+    }
+    if (report.skipped.length > 0) {
+      toast.warning(`Already present, skipped: ${report.skipped.join(', ')}`);
+    }
+  }
+
+  async function handleImportSkillFolder() {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: 'Select a skill folder (contains SKILL.md)',
+    });
+    if (typeof selected !== 'string') return;
+    try {
+      const report = await importSkillFolder(selected);
+      invalidateMatrix();
+      showInstallReport(report);
+      setAddSkillOpen(false);
+    } catch (e) {
+      toast.error(`Failed to import skill: ${e}`);
+    }
+  }
+
+  async function handleInstallFromUrl() {
+    const url = skillUrl.trim();
+    if (!url) return;
+    setInstalling(true);
+    try {
+      const report = await installSkillFromGit(url);
+      invalidateMatrix();
+      showInstallReport(report);
+      setAddSkillOpen(false);
+      setSkillUrl('');
+    } catch (e) {
+      toast.error(`Failed to install skill: ${e}`);
+    } finally {
+      setInstalling(false);
     }
   }
 
@@ -260,13 +310,93 @@ export function SkillLibraryPage() {
           </button>
           <button
             onClick={handleAddSource}
-            className="tars-button-primary flex items-center gap-2 px-4 py-2 rounded text-sm font-medium"
+            className="tars-button flex items-center gap-2 px-4 py-2 rounded text-sm font-medium"
+            title="Register an existing folder of skills as a library source (scanned in place)"
           >
             <FolderPlus className="w-4 h-4" />
             Add source
           </button>
+          <button
+            onClick={() => setAddSkillOpen(true)}
+            className="tars-button-primary flex items-center gap-2 px-4 py-2 rounded text-sm font-medium"
+            title="Install a skill into ~/.agents/skills from a git URL or a local folder"
+          >
+            <Download className="w-4 h-4" />
+            Add skill
+          </button>
         </div>
       </div>
+
+      {addSkillOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setAddSkillOpen(false)}
+          />
+          <div className="relative tars-panel rounded-lg shadow-2xl w-full max-w-md p-6">
+            <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+            <button
+              onClick={() => setAddSkillOpen(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="tars-indicator" />
+              <h2 className="text-lg font-semibold tracking-wide">Add Skill</h2>
+            </div>
+
+            <div className="tars-segment-line mb-6" />
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleInstallFromUrl();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                  Git repository URL
+                </label>
+                <input
+                  type="text"
+                  value={skillUrl}
+                  onChange={(e) => setSkillUrl(e.target.value)}
+                  placeholder="https://github.com/owner/skill-repo"
+                  autoFocus
+                  className="tars-input w-full px-3 py-2 text-sm rounded"
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Clones the repo and copies every skill it finds into ~/.agents/skills — the same
+                  place <code className="text-foreground/80">npx skills add</code> installs to.
+                  Supports /tree/&lt;branch&gt;/&lt;subfolder&gt; URLs.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleImportSkillFolder}
+                  disabled={installing}
+                  className="tars-button flex items-center gap-2 px-4 py-2 rounded text-sm disabled:opacity-50"
+                >
+                  <FolderPlus className="w-4 h-4" />
+                  Import local folder…
+                </button>
+                <button
+                  type="submit"
+                  disabled={!skillUrl.trim() || installing}
+                  className="tars-button-primary px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
+                >
+                  {installing ? 'Installing…' : 'Install'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left: scope target selector */}

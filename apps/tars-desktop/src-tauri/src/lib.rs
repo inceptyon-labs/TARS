@@ -139,6 +139,8 @@ pub fn run() {
             commands::set_skill_mute,
             commands::resync_skill_deployment,
             commands::set_project_plugin_enabled,
+            commands::import_skill_folder,
+            commands::install_skill_from_git,
             // Agent commands
             commands::read_agent,
             commands::save_agent,
