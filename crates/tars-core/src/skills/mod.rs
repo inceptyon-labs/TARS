@@ -7,12 +7,18 @@
 //! pure filesystem work and can be exercised with tempdirs.
 
 pub mod deploy;
+pub mod install;
 pub mod scan;
 
 pub use deploy::{
     codex_user_skills_dir, deploy, hash_bundle, repoint_symlink, resolve_skills_dir, resync_copy,
     undeploy, Agent, DeployResult, LinkKind, Scope, SkillDeployError,
 };
+pub use install::{
+    external_skills_dir, find_skill_bundles, install_bundles, parse_git_skill_url, GitSkillSource,
+    SkillInstallError, SkillInstallReport,
+};
 pub use scan::{
-    probe_target, scan_source, scan_sources, symlink_points_to, CatalogSkill, TargetProbe,
+    probe_target, scan_external_dir, scan_source, scan_sources, symlink_points_to, CatalogSkill,
+    TargetProbe,
 };

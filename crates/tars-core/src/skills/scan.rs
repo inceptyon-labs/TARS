@@ -69,6 +69,42 @@ pub fn scan_source(source_dir: &Path) -> Vec<CatalogSkill> {
     out
 }
 
+/// Directory-name prefixes TARS itself materializes inside the external
+/// skills dir (Codex plugin bridges) — managed artifacts, not resident skills.
+pub const TARS_MANAGED_PREFIXES: [&str; 2] = ["tars-claude-", "tars-skill-"];
+
+/// Scan an externally-managed skills directory (`~/.agents/skills`) — where
+/// `npx skills add` and hand-copies land — into a catalog.
+///
+/// Unlike [`scan_source`], this skips symlinked entries (deploys pointing back
+/// into a library), dot-directories, and TARS's own managed bridge dirs
+/// ([`TARS_MANAGED_PREFIXES`]), so only skills that genuinely *live* here
+/// surface. Result is sorted by name.
+pub fn scan_external_dir(dir: &Path) -> Vec<CatalogSkill> {
+    let mut out = Vec::new();
+    let Ok(entries) = fs::read_dir(dir) else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') || TARS_MANAGED_PREFIXES.iter().any(|p| name.starts_with(p)) {
+            continue;
+        }
+        let is_symlink = entry.file_type().is_ok_and(|t| t.is_symlink());
+        if is_symlink {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(skill) = read_skill_dir(&path) {
+                out.push(skill);
+            }
+        }
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
 /// Scan multiple source directories into one catalog, sorted by name.
 pub fn scan_sources(dirs: &[PathBuf]) -> Vec<CatalogSkill> {
     let mut out: Vec<CatalogSkill> = dirs.iter().flat_map(|d| scan_source(d)).collect();
@@ -185,6 +221,39 @@ mod tests {
         let catalog = scan_sources(&[a, b]);
         let names: Vec<_> = catalog.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, ["ada", "zed"]);
+    }
+
+    #[test]
+    fn external_scan_skips_symlinks_dotdirs_and_tars_bridges() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path();
+        let real = write_skill(
+            dir,
+            "resident",
+            "---\nname: resident\ndescription: R\n---\n",
+        );
+        write_skill(
+            dir,
+            "tars-claude-abc123--bridged",
+            "---\nname: bridged\ndescription: B\n---\n",
+        );
+        write_skill(dir, ".hidden", "---\nname: hidden\ndescription: H\n---\n");
+
+        // A symlinked entry (a TARS deploy pointing back into a library).
+        let lib_skill = write_skill(
+            &tmp.path().join("lib"),
+            "linked",
+            "---\nname: linked\ndescription: L\n---\n",
+        );
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&lib_skill, dir.join("linked")).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_dir(&lib_skill, dir.join("linked")).unwrap();
+
+        let catalog = scan_external_dir(dir);
+        let names: Vec<_> = catalog.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["resident"]);
+        assert_eq!(catalog[0].source_dir, real);
     }
 
     #[test]

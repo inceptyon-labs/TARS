@@ -279,7 +279,7 @@ fn remove_symlink(link: &Path) -> io::Result<()> {
 }
 
 /// Recursively copy a skill directory, skipping any nested symlinks.
-fn copy_dir(src: &Path, dst: &Path) -> Result<(), SkillDeployError> {
+pub(crate) fn copy_dir(src: &Path, dst: &Path) -> Result<(), SkillDeployError> {
     for entry in WalkDir::new(src).follow_links(false) {
         let entry = entry.map_err(io::Error::other)?;
         let rel = entry.path().strip_prefix(src).map_err(io::Error::other)?;
