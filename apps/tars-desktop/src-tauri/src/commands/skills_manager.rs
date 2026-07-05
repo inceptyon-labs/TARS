@@ -388,7 +388,29 @@ pub async fn get_project_skill_matrix(
 
     let mut groups: Vec<SkillGroup> = Vec::new();
 
-    // Plugin groups first (auto, from the Marketplace).
+    // The library home (`~/.agents/skills` — where Add skill, `npx skills
+    // add`, and adoption land) leads the list, unless the user registered
+    // that directory as a source themselves. Symlinked entries are deploys
+    // pointing back into a library, not residents, and are skipped.
+    let external_dir = external_skills_dir(&home);
+    let external_path = external_dir.display().to_string();
+    if !sources.iter().any(|s| s.path == external_path) {
+        let skills = scan_external_dir(&external_dir);
+        if !skills.is_empty() {
+            groups.push(SkillGroup {
+                kind: "library".to_string(),
+                label: "Library (~/.agents/skills)".to_string(),
+                plugin_id: None,
+                plugin_marketplace: None,
+                plugin_disabled_here: false,
+                source_root: Some(external_path),
+                single_skill: false,
+                skills: skills.iter().map(&build_row).collect(),
+            });
+        }
+    }
+
+    // Plugin groups next (auto, from the Marketplace).
     for pg in &plugin_catalog {
         let key = plugin_key(&pg.id, pg.marketplace.as_deref());
         groups.push(SkillGroup {
@@ -401,27 +423,6 @@ pub async fn get_project_skill_matrix(
             single_skill: false,
             skills: pg.skills.iter().map(&build_row).collect(),
         });
-    }
-
-    // Externally-installed skills (`~/.agents/skills` — where `npx skills add`
-    // and folder imports land) are a built-in source, unless the user already
-    // registered that directory themselves.
-    let external_dir = external_skills_dir(&home);
-    let external_path = external_dir.display().to_string();
-    if !sources.iter().any(|s| s.path == external_path) {
-        let skills = scan_external_dir(&external_dir);
-        if !skills.is_empty() {
-            groups.push(SkillGroup {
-                kind: "source".to_string(),
-                label: "External (~/.agents/skills)".to_string(),
-                plugin_id: None,
-                plugin_marketplace: None,
-                plugin_disabled_here: false,
-                source_root: Some(external_path),
-                single_skill: false,
-                skills: skills.iter().map(&build_row).collect(),
-            });
-        }
     }
 
     // Skills that physically live in an agent's own user skills dir

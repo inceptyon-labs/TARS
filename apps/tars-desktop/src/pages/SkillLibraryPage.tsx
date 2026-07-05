@@ -9,6 +9,7 @@ import {
   Download,
   HardDrive,
   FolderInput,
+  LibraryBig,
   RefreshCw,
   User,
   FolderGit2,
@@ -555,6 +556,14 @@ export function SkillLibraryPage() {
                             <span className="font-medium text-foreground truncate">
                               {group.label}
                             </span>
+                            {group.kind === 'library' && (
+                              <span
+                                className="text-[10px] uppercase tracking-wide text-primary/80 shrink-0"
+                                title="The canonical skill home — Add skill, npx skills add, and adopted skills all land here; agents get symlinks"
+                              >
+                                home
+                              </span>
+                            )}
                             {group.kind === 'plugin' && (
                               <span className="text-[10px] uppercase tracking-wide text-blue-400/80 shrink-0">
                                 plugin
@@ -700,7 +709,16 @@ function agentSummary(rows: SkillMatrixRow[], agent: SkillAgent): AgentSummary {
 /** Origin icon: plugin (puzzle), a skill resident in an agent's own dir
  * (drive), a single standalone skill (file), or a folder of standalone
  * skills. */
-function GroupIcon({ kind, single }: { kind: 'plugin' | 'source' | 'resident'; single?: boolean }) {
+function GroupIcon({
+  kind,
+  single,
+}: {
+  kind: 'library' | 'plugin' | 'source' | 'resident';
+  single?: boolean;
+}) {
+  if (kind === 'library') {
+    return <LibraryBig className="w-3.5 h-3.5 shrink-0 text-primary" />;
+  }
   if (kind === 'plugin') {
     return <Puzzle className="w-3.5 h-3.5 shrink-0 text-blue-400" />;
   }

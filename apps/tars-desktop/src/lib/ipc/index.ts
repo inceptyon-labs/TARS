@@ -1504,7 +1504,7 @@ export interface SkillMatrixRow {
 }
 
 export interface SkillGroup {
-  kind: 'plugin' | 'source' | 'resident';
+  kind: 'library' | 'plugin' | 'source' | 'resident';
   label: string;
   pluginId: string | null;
   // Marketplace behind a plugin group; forms the `id@marketplace` enabledPlugins key.
