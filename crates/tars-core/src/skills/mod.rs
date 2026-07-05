@@ -15,8 +15,8 @@ pub use deploy::{
     undeploy, Agent, DeployResult, LinkKind, Scope, SkillDeployError,
 };
 pub use install::{
-    external_skills_dir, find_skill_bundles, install_bundles, parse_git_skill_url, GitSkillSource,
-    SkillInstallError, SkillInstallReport,
+    adopt_resident_skill, external_skills_dir, find_skill_bundles, install_bundles,
+    parse_git_skill_url, GitSkillSource, SkillInstallError, SkillInstallReport,
 };
 pub use scan::{
     probe_target, scan_external_dir, scan_source, scan_sources, symlink_points_to, CatalogSkill,

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use thiserror::Error;
 
-use super::deploy::{copy_dir, SkillDeployError};
+use super::deploy::{copy_dir, make_symlink, SkillDeployError};
 use super::scan::scan_source;
 
 /// Where externally-installed standalone skills live.
@@ -23,6 +23,10 @@ pub fn external_skills_dir(home: &Path) -> PathBuf {
 pub enum SkillInstallError {
     #[error("no skill found: no SKILL.md in {0} or its subdirectories")]
     NoSkillFound(PathBuf),
+    #[error("not a resident skill directory: {0}")]
+    NotResident(PathBuf),
+    #[error("'{0}' already exists in the library — remove one copy first")]
+    AlreadyInLibrary(String),
     #[error("invalid skill name {0:?}")]
     InvalidName(String),
     #[error("unsupported url {0:?}: expected an https git repository url")]
@@ -123,6 +127,41 @@ fn bundle_name(bundle: &Path) -> Result<String, SkillInstallError> {
         return Err(SkillInstallError::InvalidName(name));
     }
     Ok(name)
+}
+
+/// Adopt a resident skill into the library: move the bundle from an agent's
+/// own skills directory into `library_dir`, leaving a symlink behind at the
+/// original path so the agent keeps loading it. Returns the new library path.
+///
+/// Refuses symlinks (already deployed from somewhere), non-bundles, and names
+/// already present in the library. Falls back to copy+delete when a plain
+/// rename crosses filesystems.
+pub fn adopt_resident_skill(
+    resident_dir: &Path,
+    library_dir: &Path,
+) -> Result<PathBuf, SkillInstallError> {
+    let meta = resident_dir.symlink_metadata()?;
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return Err(SkillInstallError::NotResident(resident_dir.to_path_buf()));
+    }
+    if !resident_dir.join("SKILL.md").is_file() {
+        return Err(SkillInstallError::NoSkillFound(resident_dir.to_path_buf()));
+    }
+
+    let name = bundle_name(resident_dir)?;
+    let dest = library_dir.join(&name);
+    if dest.symlink_metadata().is_ok() {
+        return Err(SkillInstallError::AlreadyInLibrary(name));
+    }
+    fs::create_dir_all(library_dir)?;
+
+    if fs::rename(resident_dir, &dest).is_err() {
+        // Cross-device move: copy, then remove the original.
+        copy_dir(resident_dir, &dest)?;
+        fs::remove_dir_all(resident_dir)?;
+    }
+    make_symlink(&dest, resident_dir)?;
+    Ok(dest)
 }
 
 /// Clone coordinates parsed from a user-supplied skill URL.
@@ -256,6 +295,59 @@ mod tests {
         assert!(matches!(
             install_bundles(tmp.path(), &tmp.path().join("dest")),
             Err(SkillInstallError::NoSkillFound(_))
+        ));
+    }
+
+    #[test]
+    fn adopt_moves_bundle_and_leaves_symlink_behind() {
+        let tmp = TempDir::new().unwrap();
+        let agent_dir = tmp.path().join("claude-skills");
+        let library = tmp.path().join("library");
+        let resident = write_skill(&agent_dir, "acp", "acp");
+        fs::write(resident.join("extra.md"), "supporting file").unwrap();
+
+        let dest = adopt_resident_skill(&resident, &library).unwrap();
+        assert_eq!(dest, library.join("acp"));
+        assert!(dest.join("SKILL.md").is_file());
+        assert!(dest.join("extra.md").is_file());
+        // The original path is now a symlink to the library copy.
+        assert!(resident
+            .symlink_metadata()
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(
+            fs::canonicalize(&resident).unwrap(),
+            fs::canonicalize(&dest).unwrap()
+        );
+    }
+
+    #[test]
+    fn adopt_refuses_symlinks_and_library_collisions() {
+        let tmp = TempDir::new().unwrap();
+        let agent_dir = tmp.path().join("claude-skills");
+        let library = tmp.path().join("library");
+
+        // A name already in the library -> refused, original untouched.
+        let taken = write_skill(&agent_dir, "taken", "taken");
+        write_skill(&library, "taken", "taken");
+        assert!(matches!(
+            adopt_resident_skill(&taken, &library),
+            Err(SkillInstallError::AlreadyInLibrary(_))
+        ));
+        assert!(taken.is_dir());
+        assert!(!taken.symlink_metadata().unwrap().file_type().is_symlink());
+
+        // An already-symlinked entry is not a resident.
+        let real = write_skill(tmp.path(), "elsewhere", "elsewhere");
+        let link = agent_dir.join("linked");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_dir(&real, &link).unwrap();
+        assert!(matches!(
+            adopt_resident_skill(&link, &library),
+            Err(SkillInstallError::NotResident(_))
         ));
     }
 

@@ -424,6 +424,37 @@ pub async fn get_project_skill_matrix(
         }
     }
 
+    // Skills that physically live in an agent's own user skills dir
+    // (hand-placed, pre-library). Codex's dir can resolve to the external dir
+    // itself, which is already listed above. Symlinked entries are deploys,
+    // not residents, and are skipped by the scan.
+    let mut resident_dirs: Vec<(&str, PathBuf)> =
+        vec![("Claude", home.join(".claude").join("skills"))];
+    let codex_dir = tars_core::skills::codex_user_skills_dir(&home);
+    if codex_dir != external_dir {
+        resident_dirs.push(("Codex", codex_dir));
+    }
+    for (agent_label, dir) in resident_dirs {
+        let dir_path = dir.display().to_string();
+        if sources.iter().any(|s| s.path == dir_path) {
+            continue;
+        }
+        let skills = scan_external_dir(&dir);
+        if skills.is_empty() {
+            continue;
+        }
+        groups.push(SkillGroup {
+            kind: "resident".to_string(),
+            label: format!("{agent_label} (resident)"),
+            plugin_id: None,
+            plugin_marketplace: None,
+            plugin_disabled_here: false,
+            source_root: Some(dir_path),
+            single_skill: false,
+            skills: skills.iter().map(&build_row).collect(),
+        });
+    }
+
     // Standalone source groups.
     for source in &sources {
         let dir = PathBuf::from(&source.path);
@@ -507,12 +538,12 @@ fn cell_for(
     let link_path = dir.join(&skill.name);
     let link_str = link_path.display().to_string();
 
-    // The skill physically lives at the target itself (Codex's user dir can
-    // resolve to `~/.agents/skills`, where external skills reside) — it is on
-    // by residence, not by deployment.
+    // The skill physically lives at the target itself (its bundle IS the
+    // entry in this agent's skills dir) — it is on by residence, not by
+    // deployment, and can't be toggled off without deleting it.
     if link_path == skill.source_dir {
         return SkillCell {
-            status: "on".to_string(),
+            status: "resident".to_string(),
             deployed: true,
             tracked: false,
             link_kind: None,

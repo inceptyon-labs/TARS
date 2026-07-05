@@ -259,12 +259,12 @@ pub fn repoint_symlink(new_source: &Path, link_path: &Path) -> Result<(), SkillD
 }
 
 #[cfg(unix)]
-fn make_symlink(source: &Path, link: &Path) -> io::Result<()> {
+pub(crate) fn make_symlink(source: &Path, link: &Path) -> io::Result<()> {
     std::os::unix::fs::symlink(source, link)
 }
 
 #[cfg(windows)]
-fn make_symlink(source: &Path, link: &Path) -> io::Result<()> {
+pub(crate) fn make_symlink(source: &Path, link: &Path) -> io::Result<()> {
     std::os::windows::fs::symlink_dir(source, link)
 }
 

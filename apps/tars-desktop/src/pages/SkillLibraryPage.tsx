@@ -7,6 +7,8 @@ import {
   Plus,
   FolderPlus,
   Download,
+  HardDrive,
+  FolderInput,
   RefreshCw,
   User,
   FolderGit2,
@@ -32,6 +34,7 @@ import {
   setProjectPluginEnabled,
   importSkillFolder,
   installSkillFromGit,
+  adoptSkill,
   type SkillInstallReport,
   type SkillCell,
   type SkillMatrixRow,
@@ -144,6 +147,20 @@ export function SkillLibraryPage() {
     }
   }
 
+  // Move a resident skill into ~/.agents/skills, leaving a symlink behind.
+  async function adoptRow(row: SkillMatrixRow) {
+    setBusyCell(`${row.name}:adopt`);
+    try {
+      await adoptSkill(row.sourceDir);
+      invalidateMatrix();
+      toast.success(`Moved ${row.name} to ~/.agents/skills and left a symlink behind`);
+    } catch (e) {
+      toast.error(`Failed to adopt ${row.name}: ${e}`);
+    } finally {
+      setBusyCell(null);
+    }
+  }
+
   async function handleRemoveSource(id: number) {
     try {
       await removeSkillSource(id);
@@ -187,7 +204,7 @@ export function SkillLibraryPage() {
   }
 
   async function toggleCell(row: SkillMatrixRow, agent: SkillAgent, cell: SkillCell) {
-    if (cell.status === 'collision') return;
+    if (cell.status === 'collision' || cell.status === 'resident') return;
     const key = `${row.name}:${agent}`;
     setBusyCell(key);
     try {
@@ -543,6 +560,14 @@ export function SkillLibraryPage() {
                                 plugin
                               </span>
                             )}
+                            {group.kind === 'resident' && (
+                              <span
+                                className="text-[10px] uppercase tracking-wide text-amber-400/80 shrink-0"
+                                title={`These skills live in ${group.sourceRoot} itself — adopt one to move it into ~/.agents/skills and manage it like the rest of the library`}
+                              >
+                                resident
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground shrink-0">
                               {group.skills.length} skill{group.skills.length !== 1 ? 's' : ''}
                             </span>
@@ -596,6 +621,18 @@ export function SkillLibraryPage() {
                                   {row.description}
                                 </div>
                               </div>
+                              {group.kind === 'resident' && (
+                                <button
+                                  type="button"
+                                  onClick={() => adoptRow(row)}
+                                  disabled={busyCell === `${row.name}:adopt`}
+                                  title="Move this skill into ~/.agents/skills and leave a symlink behind — the agent keeps loading it, and it becomes a normal library skill"
+                                  className="shrink-0 mr-3 inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:border-amber-400/50 transition-colors disabled:opacity-50"
+                                >
+                                  <FolderInput className="w-3 h-3" />
+                                  adopt
+                                </button>
+                              )}
                               <div className="flex items-center shrink-0">
                                 {AGENTS.map((a) => (
                                   <div key={a.key} className="w-20 flex justify-center">
@@ -641,9 +678,13 @@ function agentSummary(rows: SkillMatrixRow[], agent: SkillAgent): AgentSummary {
     .map((r) => (r[agent].status === 'plugin' ? r[agent].pluginId : null))
     .filter(Boolean) as string[];
   const allPlugin = rows.length > 0 && pluginIds.length === rows.length;
-  // Eligible = deployable here (not plugin-provided, not a name collision).
+  // Eligible = deployable here (not plugin-provided, not a name collision,
+  // not living at the target itself).
   const eligible = rows.filter(
-    (r) => r[agent].status !== 'plugin' && r[agent].status !== 'collision'
+    (r) =>
+      r[agent].status !== 'plugin' &&
+      r[agent].status !== 'collision' &&
+      r[agent].status !== 'resident'
   );
   const deployedCount = eligible.filter((r) => r[agent].deployed).length;
   return {
@@ -656,11 +697,15 @@ function agentSummary(rows: SkillMatrixRow[], agent: SkillAgent): AgentSummary {
   };
 }
 
-/** Origin icon: plugin (puzzle), a single standalone skill (file), or a
- * folder of standalone skills. */
-function GroupIcon({ kind, single }: { kind: 'plugin' | 'source'; single?: boolean }) {
+/** Origin icon: plugin (puzzle), a skill resident in an agent's own dir
+ * (drive), a single standalone skill (file), or a folder of standalone
+ * skills. */
+function GroupIcon({ kind, single }: { kind: 'plugin' | 'source' | 'resident'; single?: boolean }) {
   if (kind === 'plugin') {
     return <Puzzle className="w-3.5 h-3.5 shrink-0 text-blue-400" />;
+  }
+  if (kind === 'resident') {
+    return <HardDrive className="w-3.5 h-3.5 shrink-0 text-amber-400" />;
   }
   if (single) {
     return <FileText className="w-3.5 h-3.5 shrink-0 text-emerald-400" />;
@@ -794,6 +839,17 @@ function CellToggle({
       >
         <AlertTriangle className="w-4 h-4" />
       </span>
+    );
+  }
+  if (cell.status === 'resident') {
+    return (
+      <input
+        type="checkbox"
+        className="accent-amber-500 w-4 h-4 cursor-not-allowed opacity-70"
+        checked
+        readOnly
+        title="This skill lives in this agent's own skills dir — always on here. Adopt it into the library to manage it."
+      />
     );
   }
   // Muting only applies to a deployed Claude skill on a build that honors it.

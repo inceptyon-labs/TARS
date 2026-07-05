@@ -1472,7 +1472,7 @@ export interface CatalogSkill {
   sha256: string;
 }
 
-export type SkillCellStatus = 'on' | 'off' | 'adopted' | 'collision' | 'plugin';
+export type SkillCellStatus = 'on' | 'off' | 'adopted' | 'collision' | 'plugin' | 'resident';
 
 // Muting middle-state. null == fully visible ('on'); the others mirror Claude
 // `skillOverrides`. Only settable on Claude standalone skills where supported.
@@ -1504,7 +1504,7 @@ export interface SkillMatrixRow {
 }
 
 export interface SkillGroup {
-  kind: 'plugin' | 'source';
+  kind: 'plugin' | 'source' | 'resident';
   label: string;
   pluginId: string | null;
   // Marketplace behind a plugin group; forms the `id@marketplace` enabledPlugins key.
@@ -1574,6 +1574,12 @@ export async function importSkillFolder(path: string): Promise<SkillInstallRepor
 // install every skill bundle found into ~/.agents/skills.
 export async function installSkillFromGit(url: string): Promise<SkillInstallReport> {
   return invoke('install_skill_from_git', { url });
+}
+
+// Move a resident skill from an agent's own dir into ~/.agents/skills,
+// leaving a symlink behind. Returns the new library path.
+export async function adoptSkill(sourceDir: string): Promise<string> {
+  return invoke('adopt_skill', { sourceDir });
 }
 
 // Set (or clear, with null) a Claude standalone skill's mute state via

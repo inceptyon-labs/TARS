@@ -8,7 +8,8 @@
 use std::path::PathBuf;
 
 use tars_core::skills::{
-    external_skills_dir, install_bundles, parse_git_skill_url, SkillInstallReport,
+    adopt_resident_skill, external_skills_dir, install_bundles, parse_git_skill_url,
+    SkillInstallReport,
 };
 
 /// Copy the skill bundle(s) found in a user-picked folder into
@@ -21,6 +22,20 @@ pub async fn import_skill_folder(path: String) -> Result<SkillInstallReport, Str
     }
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
     install_bundles(&dir, &external_skills_dir(&home)).map_err(|e| e.to_string())
+}
+
+/// Move a resident skill out of an agent's own skills dir into
+/// `~/.agents/skills`, leaving a symlink behind so the agent keeps loading
+/// it. Returns the new library path.
+#[tauri::command]
+pub async fn adopt_skill(source_dir: String) -> Result<String, String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let dest = adopt_resident_skill(
+        std::path::Path::new(&source_dir),
+        &external_skills_dir(&home),
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(dest.display().to_string())
 }
 
 /// Shallow-clone an https git repo (optionally a `/tree/<ref>/<subpath>` URL)
