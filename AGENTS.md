@@ -1,59 +1,46 @@
-# Repository Guidelines
+# TARS — agent notes
 
-## Project Overview
-TARS is a cross-platform desktop app for managing Claude Code configuration (skills, agents, commands, hooks, MCP servers, plugins, profiles). Platforms: Windows, macOS, Linux.
+Desktop app for managing Claude Code configuration (skills, agents, commands,
+hooks, MCP servers, plugins, profiles). See README for features and usage.
 
-## Project Structure & Module Organization
-- `apps/tars-desktop/` Tauri app.
-  - `apps/tars-desktop/src/` React UI and shared components.
-  - `apps/tars-desktop/src-tauri/` Rust IPC backend.
-- `crates/tars-core/` profiles, apply/sync, storage.
-- `crates/tars-scanner/` discovery + collision detection.
-- `crates/tars-cli/` CLI wrapper.
-- Assets: `apps/tars-desktop/src-tauri/icons/`.
+## Build & test
 
-## Build, Test, and Development Commands
-- `cd apps/tars-desktop && bun install` install frontend deps.
-- `cd apps/tars-desktop && bun run tauri dev` run the full app.
-- `cd apps/tars-desktop && bun run tauri build` build production app.
-- `cargo build` build Rust workspace.
-- `cargo test` run Rust tests.
-- `cargo run -p tars-cli -- scan` run scanner CLI.
-- `bun tsc --noEmit` type-check frontend.
+- Frontend lives in `apps/tars-desktop`: `bun install`, then
+  `bun run tauri dev` / `bun run tauri build`.
+- Rust workspace: `cargo build`, `cargo test`, `cargo run -p tars-cli -- scan`.
+- Frontend tests: `bun run test:run` (Vitest + React Testing Library,
+  `*.test.ts(x)`), e2e `bun run test:e2e` (Playwright).
+- Coverage: `bun run test:coverage` (v8). There is no cargo tarpaulin setup.
+- Lint/typecheck before commit: `bun run lint`, `bun run typecheck`,
+  `cargo fmt --all`, `cargo clippy --all -- -D warnings`.
+- There is no `format` script — Prettier runs via the pre-commit hook.
+  Enable hooks after clone: `git config core.hooksPath .githooks`.
 
-## Linting & Formatting (run before commit)
-- `cargo fmt --all` format Rust.
-- `cargo clippy --all -- -D warnings` lint Rust (no warnings).
-- `cd apps/tars-desktop && bun run format` format frontend.
-- `cd apps/tars-desktop && bun tsc --noEmit` type-check frontend.
+## Modules
 
-## Coding Style & Naming Conventions
-- TypeScript: functional components only, 2-space indentation, Tailwind + shadcn/ui.
-- Rust: prefer `?` over `unwrap`, no `unsafe`, use `thiserror` for libraries and `anyhow` for CLI.
-- File naming: `PascalCase.tsx` for components, `camelCase.ts` for helpers.
-- IPC types live in `apps/tars-desktop/src/lib/types/`.
+- `crates/tars-scanner` — non-destructive discovery of config across scopes,
+  collision detection.
+- `crates/tars-core` — profiles, diff/apply/rollback engine, SQLite storage.
+- `crates/tars-providers` — AI provider integrations (key validation, model
+  discovery, pricing); consumed by `src-tauri/src/commands/api_keys.rs`.
+- `crates/tars-cli` — CLI wrapper for the scanner.
+- `apps/tars-desktop/src-tauri` — Tauri IPC backend over the crates.
 
-## Error Handling
-- Tauri commands return `Result<T, String>`; frontend uses `toast.error()` for user-facing errors.
-- Do not panic in library code; return `Result` with context.
+## Invariants
 
-## Testing Guidelines
-- Rust: `cargo test` (unit tests alongside modules).
-- Frontend: Vitest + React Testing Library (`*.test.ts`/`*.test.tsx`).
-- Add tests when behavior changes (especially profile sync or IPC).
+- Tauri commands return `Result<T, String>`; frontend shows failures with
+  `toast.error()` (Sonner). Never panic in library code.
+- `unsafe_code = "forbid"` workspace-wide via `[workspace.lints]`; clippy
+  must pass with `-D warnings`.
+- IPC types live in `apps/tars-desktop/src/lib/types/` — keep Rust and TS
+  shapes in sync when changing commands.
+- Never execute code from scanned configs; validate paths against traversal
+  and sanitize anything passed to a shell.
+- Discovery-first, safe-by-default: scan before modifying; changes get diff
+  preview, backup, and rollback.
 
-## Configuration Scopes (precedence high to low)
-- Managed, Local, Project, User.
-- macOS example: `/Library/Application Support/ClaudeCode/managed-*.json` then `<repo>/.claude/settings.local.json`, `<repo>/.claude/settings.json`, `~/.claude/settings.json`.
+## Configuration scopes
 
-## Commit & Pull Request Guidelines
-- Conventional Commits: `feat`, `fix`, `perf`, `docs`, `refactor`, `test`, `chore`, `ci`.
-- PRs: brief summary, linked issue (if any), screenshots for UI changes, note data migrations.
-
-## Security & Principles
-- Never execute scanned config code; validate paths and sanitize shell input.
-- No secrets in configs or tests.
-- Key principles: discovery-first, safe-by-default, cross-platform, ask if unclear.
-
-## Setup
-- Enable hooks: `git config core.hooksPath .githooks`.
+Precedence high → low: **Managed > Local > Project > User**. The full per-OS
+path table lives in README ("Configuration Scopes") — single source, don't
+duplicate it here.
