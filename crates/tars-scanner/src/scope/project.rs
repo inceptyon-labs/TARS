@@ -677,10 +677,8 @@ fn parse_hooks_json(path: &Path, content: &str) -> ScanResult<Vec<HookInfo>> {
                 HookDefinition::Command { command: cmd }
             } else if let Some(prompt) = h.prompt {
                 HookDefinition::Prompt { prompt }
-            } else if let Some(agent) = h.agent {
-                HookDefinition::Agent { agent }
             } else {
-                return None;
+                HookDefinition::Agent { agent: h.agent? }
             };
 
             Some(HookInfo {

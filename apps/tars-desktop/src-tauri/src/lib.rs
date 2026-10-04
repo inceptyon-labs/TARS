@@ -67,6 +67,8 @@ pub fn run() {
             commands::get_projects_git_status,
             commands::get_project_icon,
             commands::get_project_stats,
+            commands::list_project_diagrams,
+            commands::open_project_diagram,
             // App data backup/restore commands
             commands::create_local_app_data_backup,
             commands::create_portable_app_data_backup,

@@ -19,6 +19,7 @@ import {
   X,
   AlertCircle,
   Globe,
+  Workflow,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -69,6 +70,8 @@ import {
   removeLocalTool,
   getProjectIcon,
   getProjectMetadata,
+  listProjectDiagrams,
+  openProjectDiagram,
 } from '../lib/ipc';
 import { Button } from './ui/button';
 import { ProfileToolPicker } from './ProfileToolPicker';
@@ -268,6 +271,23 @@ export function ProjectOverview({
     queryFn: () => getProjectMetadata(projectTools!.project_id),
     enabled: !!projectTools?.project_id,
   });
+
+  // Archify diagrams under .archify/
+  const { data: diagrams } = useQuery({
+    queryKey: ['project-diagrams', projectPath],
+    queryFn: () => listProjectDiagrams(projectPath),
+    staleTime: 60000,
+  });
+
+  const handleOpenDiagram = async (htmlPath: string) => {
+    try {
+      await openProjectDiagram(projectPath, htmlPath);
+    } catch (err) {
+      toast.error('Failed to open diagram', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
 
   useEffect(() => {
     if (claudeMdInfo?.content !== undefined) {
@@ -547,6 +567,29 @@ export function ProjectOverview({
                 ({projectTools.profile_tools.length} tool
                 {projectTools.profile_tools.length === 1 ? '' : 's'})
               </span>
+            </div>
+          )}
+          {diagrams && diagrams.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t">
+              <Workflow className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Diagrams:</span>
+              {diagrams.map((diagram) => (
+                <button
+                  key={diagram.html_path}
+                  onClick={() => handleOpenDiagram(diagram.html_path)}
+                  title={[
+                    diagram.diagram_type,
+                    `updated ${new Date(diagram.modified_at * 1000).toLocaleString()}`,
+                    diagram.versions > 1 ? `${diagram.versions} versions` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                >
+                  {diagram.title}
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              ))}
             </div>
           )}
         </div>

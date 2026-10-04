@@ -201,6 +201,22 @@ export async function getProjectStats(projectPath: string): Promise<ProjectStats
   return invoke('get_project_stats', { projectPath });
 }
 
+export interface ProjectDiagram {
+  title: string;
+  diagram_type: string | null;
+  html_path: string;
+  modified_at: number;
+  versions: number;
+}
+
+export async function listProjectDiagrams(projectPath: string): Promise<ProjectDiagram[]> {
+  return invoke('list_project_diagrams', { projectPath });
+}
+
+export async function openProjectDiagram(projectPath: string, htmlPath: string): Promise<void> {
+  return invoke('open_project_diagram', { projectPath, htmlPath });
+}
+
 export interface ContextItem {
   name: string;
   path: string;
