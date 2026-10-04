@@ -44,3 +44,16 @@ hooks, MCP servers, plugins, profiles). See README for features and usage.
 Precedence high → low: **Managed > Local > Project > User**. The full per-OS
 path table lives in README ("Configuration Scopes") — single source, don't
 duplicate it here.
+
+## Architecture diagram
+
+`docs/architecture.json` is the Archify spec for the system overview
+(webview UI, Tauri backend, scanner, core engine, providers, SQLite, the
+apply-a-profile path, the webview and Rust-process trust boundaries, and the
+external services), with file:line sources pinned to a commit. If a change
+adds, removes, or rewires a top-level component, external service, trust
+boundary, or the deploy shape, update the spec after committing it: re-pin
+`meta.repository.revision` to that commit, fix the affected nodes, edges, and
+sources, re-render with the `archify` skill (`finalize ... --repo-root .`), and
+commit the spec. Internal refactors and shifted line numbers don't need it.
+Rendered HTML goes in `.archify/` (gitignored).

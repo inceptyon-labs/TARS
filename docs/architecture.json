@@ -1,0 +1,486 @@
+{
+ "schema_version": 1,
+ "diagram_type": "architecture",
+ "meta": {
+  "title": "TARS System Overview",
+  "output": ".archify/architecture-tars-overview-20261003-201422/tars-overview.html",
+  "quality_profile": "showcase",
+  "repository": {
+   "url": "git@github.com:inceptyon-labs/TARS.git",
+   "link_mode": "local-only",
+   "revision": "b7cdcbb7889f7e10783feff91152b7ed28eb7e4d"
+  }
+ },
+ "components": [
+  {
+   "id": "ui",
+   "type": "frontend",
+   "label": "React UI",
+   "sublabel": "webview, CSP",
+   "pos": [
+    40,
+    300
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "sources": [
+    {
+     "path": "apps/tars-desktop/src/main.tsx",
+     "line": 22,
+     "end_line": 26
+    },
+    {
+     "path": "apps/tars-desktop/src/lib/ipc/index.ts",
+     "line": 36,
+     "end_line": 40
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/tauri.conf.json",
+     "line": 28,
+     "end_line": 30
+    }
+   ]
+  },
+  {
+   "id": "ipc",
+   "type": "backend",
+   "label": "Tauri backend",
+   "sublabel": "IPC commands",
+   "pos": [
+    270,
+    270
+   ],
+   "size": [
+    150,
+    120
+   ],
+   "sources": [
+    {
+     "path": "apps/tars-desktop/src-tauri/src/lib.rs",
+     "line": 48,
+     "end_line": 48
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/state.rs",
+     "line": 31,
+     "end_line": 38
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/apply.rs",
+     "line": 127,
+     "end_line": 200
+    }
+   ]
+  },
+  {
+   "id": "scanner",
+   "type": "backend",
+   "label": "tars-scanner",
+   "sublabel": "config inventory",
+   "pos": [
+    270,
+    110
+   ],
+   "size": [
+    150,
+    60
+   ],
+   "sources": [
+    {
+     "path": "crates/tars-scanner/src/scan.rs",
+     "line": 39,
+     "end_line": 46
+    },
+    {
+     "path": "crates/tars-scanner/src/scope/user.rs",
+     "line": 26,
+     "end_line": 38
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/scanner.rs",
+     "line": 27,
+     "end_line": 32
+    }
+   ]
+  },
+  {
+   "id": "core",
+   "type": "backend",
+   "label": "tars-core",
+   "sublabel": "plan, apply, rollback",
+   "pos": [
+    560,
+    300
+   ],
+   "size": [
+    150,
+    60
+   ],
+   "sources": [
+    {
+     "path": "crates/tars-core/src/diff/plan.rs",
+     "line": 31,
+     "end_line": 36
+    },
+    {
+     "path": "crates/tars-core/src/apply/write.rs",
+     "line": 31,
+     "end_line": 40
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/apply.rs",
+     "line": 248,
+     "end_line": 254
+    }
+   ]
+  },
+  {
+   "id": "db",
+   "type": "database",
+   "label": "SQLite tars.db",
+   "sublabel": "profiles, backups",
+   "pos": [
+    270,
+    500
+   ],
+   "size": [
+    130,
+    60
+   ],
+   "sources": [
+    {
+     "path": "crates/tars-core/src/storage/db.rs",
+     "line": 29,
+     "end_line": 46
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/state.rs",
+     "line": 32,
+     "end_line": 38
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/apply.rs",
+     "line": 198,
+     "end_line": 200
+    }
+   ]
+  },
+  {
+   "id": "providers",
+   "type": "backend",
+   "label": "tars-providers",
+   "sublabel": "key validation",
+   "pos": [
+    560,
+    500
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "sources": [
+    {
+     "path": "crates/tars-providers/src/factory.rs",
+     "line": 20,
+     "end_line": 20
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/api_keys.rs",
+     "line": 12,
+     "end_line": 12
+    }
+   ]
+  },
+  {
+   "id": "cli",
+   "type": "frontend",
+   "label": "tars-cli",
+   "sublabel": "headless binary",
+   "pos": [
+    830,
+    500
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "sources": [
+    {
+     "path": "crates/tars-cli/src/main.rs",
+     "line": 21,
+     "end_line": 29
+    }
+   ]
+  },
+  {
+   "id": "files",
+   "type": "external",
+   "label": "Claude Code config",
+   "sublabel": "project + ~/.claude",
+   "pos": [
+    830,
+    300
+   ],
+   "size": [
+    150,
+    60
+   ],
+   "sources": [
+    {
+     "path": "crates/tars-core/src/apply/write.rs",
+     "line": 59,
+     "end_line": 64
+    },
+    {
+     "path": "crates/tars-scanner/src/scope/user.rs",
+     "line": 26,
+     "end_line": 30
+    }
+   ]
+  },
+  {
+   "id": "keychain",
+   "type": "security",
+   "label": "OS keychain",
+   "sublabel": "master key",
+   "pos": [
+    830,
+    110
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "tag": "AES-256-GCM",
+   "sources": [
+    {
+     "path": "crates/tars-core/src/crypto.rs",
+     "line": 42,
+     "end_line": 48
+    },
+    {
+     "path": "crates/tars-core/src/storage/secrets.rs",
+     "line": 3,
+     "end_line": 6
+    }
+   ]
+  },
+  {
+   "id": "apis",
+   "type": "cloud",
+   "label": "AI provider APIs",
+   "sublabel": "HTTPS",
+   "pos": [
+    560,
+    680
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "sources": [
+    {
+     "path": "crates/tars-providers/src/providers/anthropic.rs",
+     "line": 18,
+     "end_line": 22
+    }
+   ]
+  },
+  {
+   "id": "claude",
+   "type": "external",
+   "label": "claude CLI",
+   "sublabel": "plugin commands",
+   "pos": [
+    40,
+    500
+   ],
+   "size": [
+    140,
+    60
+   ],
+   "sources": [
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/plugins.rs",
+     "line": 1078,
+     "end_line": 1086
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/utils.rs",
+     "line": 13,
+     "end_line": 17
+    }
+   ]
+  },
+  {
+   "id": "gh",
+   "type": "cloud",
+   "label": "GitHub + LiteLLM",
+   "sublabel": "updates, prices",
+   "pos": [
+    1040,
+    500
+   ],
+   "size": [
+    150,
+    60
+   ],
+   "sources": [
+    {
+     "path": "apps/tars-desktop/src-tauri/src/commands/pricing.rs",
+     "line": 117,
+     "end_line": 122
+    },
+    {
+     "path": "crates/tars-core/src/pricing/litellm.rs",
+     "line": 20,
+     "end_line": 21
+    },
+    {
+     "path": "apps/tars-desktop/src-tauri/tauri.conf.json",
+     "line": 6,
+     "end_line": 10
+    }
+   ]
+  }
+ ],
+ "boundaries": [
+  {
+   "kind": "security-group",
+   "label": "Webview sandbox",
+   "wraps": [
+    "ui"
+   ]
+  },
+  {
+   "kind": "region",
+   "label": "TARS Rust process (one trust domain)",
+   "wraps": [
+    "ipc",
+    "scanner",
+    "core",
+    "db",
+    "providers"
+   ]
+  }
+ ],
+ "connections": [
+  {
+   "id": "ui-ipc",
+   "from": "ui",
+   "to": "ipc",
+   "label": "invoke",
+   "variant": "emphasis"
+  },
+  {
+   "id": "ipc-core",
+   "from": "ipc",
+   "to": "core",
+   "label": "plan + apply",
+   "variant": "emphasis"
+  },
+  {
+   "id": "core-files",
+   "from": "core",
+   "to": "files",
+   "label": "write",
+   "variant": "emphasis"
+  },
+  {
+   "id": "ipc-scanner",
+   "from": "ipc",
+   "to": "scanner",
+   "label": "scan_all"
+  },
+  {
+   "id": "scanner-files",
+   "from": "scanner",
+   "to": "files",
+   "label": "read",
+   "variant": "dashed"
+  },
+  {
+   "id": "ipc-db",
+   "from": "ipc",
+   "to": "db",
+   "label": "profiles, backups"
+  },
+  {
+   "id": "core-keychain",
+   "from": "core",
+   "to": "keychain",
+   "label": "master key",
+   "variant": "security",
+   "fromSide": "top",
+   "toSide": "left"
+  },
+  {
+   "id": "ipc-providers",
+   "from": "ipc",
+   "to": "providers",
+   "label": "validate"
+  },
+  {
+   "id": "providers-apis",
+   "from": "providers",
+   "to": "apis",
+   "label": "HTTPS",
+   "variant": "dashed"
+  },
+  {
+   "id": "ipc-claude",
+   "from": "ipc",
+   "to": "claude",
+   "label": "spawn",
+   "variant": "dashed",
+   "fromSide": "left",
+   "toSide": "top"
+  },
+  {
+   "id": "ipc-gh",
+   "from": "ipc",
+   "to": "gh",
+   "label": "HTTPS fetch",
+   "variant": "dashed"
+  },
+  {
+   "id": "cli-core",
+   "from": "cli",
+   "to": "core",
+   "label": "same engine"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "cyan",
+   "title": "Primary path: apply a profile",
+   "items": [
+    "React UI invokes preview_apply then apply_profile over Tauri IPC",
+    "Backend loads the profile from SQLite and asks tars-core for a diff plan",
+    "tars-core writes files under safe_join and records each original for rollback",
+    "Backend saves the backup JSON and a backup row, rollback restores from it"
+   ]
+  },
+  {
+   "dot": "rose",
+   "title": "Trust boundaries",
+   "items": [
+    "Webview has no direct fs or network, only IPC (CSP in tauri.conf.json)",
+    "Secrets encrypted in SQLite, master key held in the OS keychain",
+    "Scanned config is read, never executed"
+   ]
+  },
+  {
+   "dot": "amber",
+   "title": "Supporting detail",
+   "items": [
+    "Pricing refresh on startup then weekly, from LiteLLM on GitHub",
+    "Updater checks GitHub releases latest.json",
+    "tars-cli shares scanner, plan, backup and storage with the app",
+    "Skills, hooks, MCP and profile commands omitted from the overview"
+   ]
+  }
+ ]
+}
